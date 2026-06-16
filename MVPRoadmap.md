@@ -1,14 +1,14 @@
-# MVP Product Roadmap - Aura V2.2
+# MVP Product Roadmap - Aura V2.3
 
 This document outlines the milestones, engineering targets, and prioritization phases of Aura's development.
 
 ---
 
-## Phase 1: Core Customer Application & Twin Engine (Current Milestone)
-*   **Wealth Command Center**: Unified landing console showing financial health, decision readiness, top contextual recommendations, and goal progress.
-*   **Digital Financial Twin Engine**: Fully manageable incomes, expenses, assets, liabilities, retirement accounts, family structure, risk tolerance, and state of residence.
-*   **All 7 Simulation Modules**: Multi-year builders for Home Purchase, Vehicle Purchase, Career Transition, Retirement, Debt Avalanche/Snowball, College Savings, and Estate Estate Tax calculations.
-*   **Goals Matrix**: Visual configuration of prioritized timelines, target savings, and automated goal conflict warnings (e.g. college funding delaying retirement).
+## Phase 1: Core Customer Application & Profile Engine (Current Milestone)
+*   **Wealth Command Center**: Unified landing console showing financial health, decision readiness, top contextual recommendations, and milestones progress.
+*   **My Financial Profile Engine**: Fully manageable incomes, expenses, savings & investments, liabilities, retirement accounts, family dependents, risk tolerance, and state of residence.
+*   **All 7 Simulation Modules**: Multi-year builders for Home Purchase, Vehicle Purchase, Career Transition, Retirement, Accelerated Debt Freedom, College Savings, and Family Legacy.
+*   **Life Outcomes Plan**: Visual configuration of prioritized timelines, target savings, and automated trade-off warnings (e.g. college funding delaying retirement).
 *   **Role-Based Security Layer**: Clear page access restrictions for "Customer" vs. "Admin/Auditor" sessions.
 
 ---

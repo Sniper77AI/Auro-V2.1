@@ -103,7 +103,7 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
   const totalLiabilities = twin.liabilities.reduce((acc, c) => acc + c.amount, 0);
   if (hasPropertyGoal && totalLiabilities > 25000) {
     conflicts.push(
-      `Leverage Burden warning: Carrying $${totalLiabilities.toLocaleString()} of active liabilities while funding property down payments creates structural liquidity friction. Consider debt paydown optimization beforehand.`
+      `Leverage Burden warning: Carrying $${totalLiabilities.toLocaleString()} of active liabilities while funding property down payments creates structural liquidity friction. Consider focusing on accelerated debt payoff first to reclaim monthly cash flow.`
     );
   }
 
@@ -111,10 +111,10 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
     <div id="goals-matrix-page" className="space-y-6 font-sans">
       {/* Page Header */}
       <div>
-        <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Goal Prioritization & Life Outcomes</span>
-        <h2 className="text-2xl font-bold text-zinc-100 tracking-tight mt-1">My Goals & Life Outcomes</h2>
+        <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Life Outcomes & Progress</span>
+        <h2 className="text-2xl font-bold text-zinc-100 tracking-tight mt-1">My Life Outcomes</h2>
         <p className="text-xs text-zinc-400 mt-1">
-          Coordinate your life milestones. Aura maps out your timeline to help secure your future targets.
+          Coordinate your personal life milestones. Aura maps out your trajectory to help secure your future.
         </p>
       </div>
 
@@ -122,7 +122,7 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Scale className="w-5 h-5 text-emerald-405" />
-          <h3 className="text-sm font-bold text-zinc-200">Aura Goal Tradeoffs & Future Insights</h3>
+          <h3 className="text-sm font-bold text-zinc-200">Aura's Outcome Guidance & Trade-offs</h3>
         </div>
 
         {conflicts.length === 0 ? (
@@ -217,7 +217,7 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
           disabled={!newGoal.name}
           className="bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-40"
         >
-          <Plus className="w-3.5 h-3.5" /> Append Goal
+          <Plus className="w-3.5 h-3.5" /> Add Milestone
         </button>
       </div>
 

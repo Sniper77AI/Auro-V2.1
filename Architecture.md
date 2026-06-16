@@ -1,4 +1,4 @@
-# Systems Architecture Document - Aura V2.2
+# Systems Architecture Document - Aura V2.3
 
 This document details the functional specifications of Aura's 7 core decision modules, the system-wide information architecture, and the modular localization framework.
 
@@ -6,7 +6,7 @@ This document details the functional specifications of Aura's 7 core decision mo
 
 ## 1. Technical Design of the 7 Core Modules
 
-Aura's simulation engine models multi-year scenarios by feeding the user's **Digital Financial Twin** state into 7 specialized deterministic solvers.
+Aura's simulation engine models multi-year scenarios by feeding the user's **My Financial Profile** state into 7 specialized decision solvers.
 
 ### Module 1: Home Purchase Planning
 *   **User Questions**: "Given high-cost-of-living state tax rules, can I purchase a $950,000 home in 3 years? What is the lifetime difference on wealth between a 15-year equity build vs a 30-year market index compound?"
@@ -88,10 +88,10 @@ AURA ROOT
  │
  ├── CUSTOMER WORKSPACE (Role-allowed views only)
  │    ├── Home / Wealth Command Center
- │    ├── Financial Twin Console
+ │    ├── My Financial Profile
  │    ├── Life Simulator (7 Modules)
- │    ├── Goals Tracker & Conflict Engine
- │    └── System Settings & Global Settings
+ │    ├── Life Outcomes Tracker & Trade-offs
+ │    └── Personal Settings & Global Configuration
  │
  └── ADMIN CONSOLE (System logs hidden from standard clients)
       ├── Governance Dashboard

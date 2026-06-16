@@ -37,7 +37,7 @@ export default function UnifiedSettings({ twin, onChangeTwin }: UnifiedSettingsP
     setTimeout(() => setSaveStatus(null), 3000);
   };
 
-  const exportFinancialLedger = () => {
+  const exportFinancialProfile = () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(twin, null, 2));
     const downloadAnchor = document.createElement("a");
     downloadAnchor.setAttribute("href", dataStr);
@@ -247,7 +247,7 @@ export default function UnifiedSettings({ twin, onChangeTwin }: UnifiedSettingsP
                   </p>
                   <button
                     type="button"
-                    onClick={exportFinancialLedger}
+                    onClick={exportFinancialProfile}
                     className="w-full sm:w-auto bg-zinc-950 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-200 font-bold tracking-tight px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer text-xs"
                   >
                     <Download className="w-3.5 h-3.5 text-emerald-400" /> Export Profile File (.json)

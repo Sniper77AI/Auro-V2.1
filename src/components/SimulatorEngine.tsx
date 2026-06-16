@@ -20,13 +20,13 @@ interface SimulatorEngineProps {
 }
 
 const MODULES: Array<{ type: SimulationType; title: string; subtitle: string; icon: any }> = [
-  { type: "home_purchase", title: "Home Purchase", subtitle: "Rent vs Buy, leverage, local tax, early retirement", icon: Home },
-  { type: "vehicle_purchase", title: "Vehicle Purchase", subtitle: "EV vs Gas, lease vs buy, depreciation curves", icon: Car },
-  { type: "career_change", title: "Career & Income", subtitle: "Salary tradeoffs, relocation, startup equity", icon: Briefcase },
-  { type: "retirement_planning", title: "Retirement Goal", subtitle: "Speed up or delay, nest egg probability, drawdowns", icon: Calendar },
-  { type: "debt_optimization", title: "Debt Optimization", subtitle: "Avalanche vs Snowball, investing surpluses", icon: Settings },
-  { type: "college_funding", title: "College Savings", subtitle: "529 planning, multi-child timeline offsets", icon: GraduationCap },
-  { type: "estate_legacy", title: "Estate & Legacy", subtitle: "Trust structures, preservation, wealth shift", icon: Users }
+  { type: "home_purchase", title: "Home Purchase Plan", subtitle: "Rent vs Buy, home ownership, and early retirement guidelines", icon: Home },
+  { type: "vehicle_purchase", title: "Vehicle Purchase", subtitle: "EV vs Gas, lease vs buy, and long-term costs", icon: Car },
+  { type: "career_change", title: "Career & Income Change", subtitle: "Salary trade-offs, relocation savings, and startup offers", icon: Briefcase },
+  { type: "retirement_planning", title: "Retirement Plan", subtitle: "Retire earlier, income targets, and nest egg security", icon: Calendar },
+  { type: "debt_optimization", title: "Accelerated Debt Freedom", subtitle: "Structured plan to erase high-interest loans sooner", icon: Settings },
+  { type: "college_funding", title: "College Fund Plan", subtitle: "Savings plans, multi-child timelines, and tuition models", icon: GraduationCap },
+  { type: "estate_legacy", title: "Family Security & Legacy", subtitle: "Trust structures, wealth transfer, and asset preservation", icon: Users }
 ];
 
 interface FutureStory {
@@ -827,7 +827,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
     setSimulationResult(calculatedResult);
   };
 
-  const saveSimulationToLedger = () => {
+  const saveSimulationPlan = () => {
     if (!simulationResult) return;
     onSaveSimulation(simulationResult);
     
@@ -835,7 +835,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
     onLogGovernanceEvent({
       type: "override_rate",
       severity: "low",
-      message: `System successfully computed and persisted projection card for theme "${selectedType.toUpperCase()}" with decision metrics.`,
+      message: `User successfully saved the updated "${selectedType.toUpperCase()}" action plan to their profile.`,
       status: "resolved"
     });
   };
@@ -1278,10 +1278,10 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
 
           <button
             type="button"
-            onClick={saveSimulationToLedger}
+            onClick={saveSimulationPlan}
             className="w-full bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold transition-all text-xs rounded-xl py-3 flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-950/20 font-sans"
           >
-            <CheckCircle className="w-4 h-4" /> Save Scenario Projection
+            <CheckCircle className="w-4 h-4" /> Save This Plan
           </button>
         </div>
       </div>
@@ -1517,7 +1517,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 <form onSubmit={submitFeedbackAction} className="space-y-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                      <h4 className="text-xs font-bold text-zinc-200">Rate Algorithmic Helpfulness</h4>
+                      <h4 className="text-xs font-bold text-zinc-200">Rate Aura's Guidance</h4>
                       <p className="text-[10px] text-zinc-500">Provide direct feedback to help customize your financial coach.</p>
                     </div>
                     <div className="flex gap-2 shrink-0">

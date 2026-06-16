@@ -44,8 +44,8 @@ const INITIAL_TWIN: FinancialTwin = {
 
 // Initial Seed Data for Compliance, Feedback & Audit trail metrics
 const INITIAL_GOVERNANCE_EVENTS: GovernanceEvent[] = [
-  { id: "gov-1", timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), type: "model_recalibration", severity: "low", message: "Standard IRS federal bracket matrices and progressive California tax maps synchronized.", status: "resolved" },
-  { id: "gov-2", timestamp: new Date(Date.now() - 3600000 * 1).toISOString(), type: "bias_flag", severity: "medium", message: "Equitable check passed: prioritized core emergency fund and student loan avalanche payoffs over premium tax shelters.", status: "resolved" }
+  { id: "gov-1", timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), type: "model_recalibration", severity: "low", message: "Standard IRS federal bracket guidelines and progressive California tax maps synchronized.", status: "resolved" },
+  { id: "gov-2", timestamp: new Date(Date.now() - 3600000 * 1).toISOString(), type: "bias_flag", severity: "medium", message: "Equitable check passed: prioritized core emergency fund and student loan payoffs over speculative tax shelters.", status: "resolved" }
 ];
 
 const INITIAL_AUDIT_LOGS: AuditLog[] = [
@@ -116,7 +116,7 @@ export default function App() {
       action: "FDBK_RECAL",
       source: "feedback_mesh",
       status: "success",
-      description: `Evaluation rating "${newFeedback.experienceRating.toUpperCase()}" on planning simulator [${newFeedback.simulationType}] added to optimizer.`
+      description: `Evaluation rating "${newFeedback.experienceRating.toUpperCase()}" on planning simulator [${newFeedback.simulationType}] added to user profile feedback log.`
     };
     setAuditLogs([log, ...auditLogs]);
   };
@@ -163,7 +163,7 @@ export default function App() {
                 </div>
                 <div>
                   <h1 className="text-lg font-black tracking-tight text-white font-sans leading-none">Aura</h1>
-                  <span className="text-[9px] font-mono font-semibold tracking-wider text-emerald-400 uppercase leading-none mt-1.5 block">Decision FDI Portal</span>
+                  <span className="text-[9px] font-mono font-semibold tracking-wider text-emerald-400 uppercase leading-none mt-1.5 block">Financial Decision Coach</span>
                 </div>
               </div>
               <p className="text-[10px] text-zinc-500 italic leading-snug pt-1">
@@ -227,7 +227,7 @@ export default function App() {
                 }`}
               >
                 <Target className="w-4 h-4 text-teal-400 shrink-0" />
-                <span>Goals</span>
+                <span>Life Outcomes</span>
               </button>
 
               <button
@@ -377,7 +377,7 @@ export default function App() {
                   action: "TWIN_RECAL",
                   source: "twin_configurator",
                   status: "success",
-                  description: "Recalibrated active physical assets, liabilities levels, or monthly expenses targets."
+                  description: "Updated active user asset definitions, debt levels, and monthly savings markers."
                 };
                 setAuditLogs([audit, ...auditLogs]);
               }}

@@ -1,13 +1,13 @@
-# Product Requirement Document (PRD) - Aura V2.2
+# Product Requirement Document (PRD) - Aura V2.3
 
 ## 1. Product Overview
-**Aura** is a next-generation Decision Financial Intelligence (FDI) platform that empowers users with the command: *"See your future before you spend your money."* Unlike traditional retroactive budgeting tools or generic wealth advisors, Aura provides a high-fidelity, forward-looking simulation environment where every high-impact life decision is simulated, audited, and optimized within a personalized "Digital Financial Twin" before execution.
+**Aura** is a next-generation AI Financial Decision Coach that empowers users with the command: *"See your future before you spend your money."* Unlike traditional retroactive budgeting tools or generic net worth advisors, Aura provides a high-fidelity, forward-looking simulation environment where every high-impact life decision is modeled, analyzed, and coached within a personalized "My Financial Profile" before execution.
 
 ---
 
 ## 2. Core Value Proposition
-- **Adaptive Digital Twin**: A mathematical model of a household's financial life (income streams, dynamic expense tracks, asset ledgers, compounding liabilities, and tax environments).
-- **Multi-Module Decision Arena**: Dedicated simulation containers for vehicle purchases, real estate transactions, career transitions, college funding, nested debts, estate planning, and retirement.
+- **Adaptive My Financial Profile**: A mathematical model of a household's financial life (income streams, dynamic expense tracks, asset reserves, compounding liabilities, and tax environments).
+- **Multi-Module Decision Arena**: Dedicated simulation containers for vehicle purchases, real estate transactions, career transitions, college funding, accelerated debt freedom, family security, and retirement.
 - **Explainable Simulation Logs**: Transparent explanation overlays separating deterministic computations (tax brackets, compounding curves) from educational narratives.
 
 ---
@@ -87,11 +87,11 @@ To maintain high user trust, regulatory validation, and clear navigation, Aura m
 
 ### 1. Customer-Facing Navigation Only
 Normal customers are presented with an elegant, focused experience consisting of:
-*   **Home (Wealth Command Center)**: Unified financial cockpit, health and readiness scores, primary contextual recommendations, and goal progress.
-*   **Financial Twin**: Detailed management of income, assets, liabilities, dependent structure, and regional geography configuration.
-*   **Life Simulator**: The playground where users run, review, and persist scenarios against all 7 decision engines.
-*   **Goals**: Visual track of prioritized timelines, target amounts, and automated goal conflict notifications.
-*   **Settings**: Secure state residency, currency, profile, tracking preferences, and internationalization configuration.
+*   **Home (Wealth Command Center)**: Unified financial cockpit, readiness assessment, primary contextual coaching insights.
+*   **My Financial Profile**: Detailed input of your income sources, savings & investments, liabilities, dependents, and retirement milestone goals.
+*   **Life Simulator**: The playground where users run, review, and save action plans against all 7 lifestyle decision scenarios.
+*   **Life Outcomes**: Visual tracking of personal milestones, target dates, and automated trade-off guidance.
+*   **Settings**: Secure geography settings, notification preferences, and portable data backups.
 
 ### 2. Admin-Only Executive Layer
 Accessible solely to accounts tagged with roles `super_admin`, `governance_admin`, or `auditor`. The customer navigation is extended to include:
