@@ -1,0 +1,6 @@
+{
+  "name": "Aura",
+  "description": "Financial Decision Intelligence Platform representing simulated futures of financial actions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

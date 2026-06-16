@@ -1,0 +1,297 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from "react";
+import { FinancialTwin, SimulationResult } from "../types";
+import { 
+  ShieldAlert, Sparkles, TrendingUp, HelpCircle, 
+  Settings, ArrowUpRight, CheckCircle2, AlertTriangle, 
+  ChevronRight, Calendar, DollarSign, Award, Clock
+} from "lucide-react";
+
+interface CommandCenterProps {
+  twin: FinancialTwin;
+  savedSimulations: SimulationResult[];
+  onOpenSimulator: () => void;
+  onOpenTwin: () => void;
+}
+
+export default function CommandCenter({ twin, savedSimulations, onOpenSimulator, onOpenTwin }: CommandCenterProps) {
+  // Aggregate stats
+  const totalAnnualIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
+  const totalAssetsValue = twin.assets.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalLiabilitiesValue = twin.liabilities.reduce((acc, curr) => acc + curr.amount, 0);
+  const netWorth = totalAssetsValue - totalLiabilitiesValue;
+
+  const cashAssets = twin.assets.filter(a => a.type === "cash").reduce((acc, c) => acc + c.amount, 0);
+  const highInterestLiabilities = twin.liabilities.filter(l => l.interestRate > 0.05).reduce((acc, c) => acc + c.amount, 0);
+  const totalMonthlyDebtPayments = twin.liabilities.reduce((acc, curr) => acc + curr.monthlyPayment, 0);
+  const monthlyGrossIncome = totalAnnualIncome / 12;
+  const debtToIncomeRatio = monthlyGrossIncome > 0 ? (totalMonthlyDebtPayments / monthlyGrossIncome) * 100 : 0;
+  
+  const averageGrowthRate = twin.assets.length > 0 
+    ? twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length 
+    : 0.06;
+
+  // Analytical Health score math formulation
+  // Weight 1: Net Worth level (max 30 pts)
+  const nwScore = Math.min(30, Math.max(0, netWorth / 12000));
+  // Weight 2: DTI ratio (max 30 pts): 0% DTI = 30 pts, 50% DTI = 0 pts
+  const dtiScore = Math.max(0, Math.min(30, 30 - (debtToIncomeRatio * 0.6)));
+  // Weight 3: Liquidity buffer (max 20 pts): 6 months = 20 pts
+  const expensesRatio = twin.monthlyExpenses > 0 ? cashAssets / twin.monthlyExpenses : 12;
+  const liquidityScore = Math.min(20, Math.max(0, expensesRatio * 3));
+  // Weight 4: Diversified inflow segments (max 20 pts)
+  const incomeDiversityScore = Math.min(20, twin.incomes.length * 10);
+
+  const rawHealthScore = Math.round(nwScore + dtiScore + liquidityScore + incomeDiversityScore);
+  const healthScore = Math.max(10, Math.min(100, rawHealthScore));
+
+  // Chief of Staff priority engine logic
+  let primaryActionTitle = "Maximize Compound Velocity";
+  let primaryActionDesc = "Your wealth foundations look secure. Shift liquid reserves toward long-term tax-sheltered portfolios (Roth IRA/401k) to maximize annual compounding growth.";
+  let priorityLevel: "low" | "medium" | "high" = "low";
+
+  if (expensesRatio < 3) {
+    primaryActionTitle = "Halt Discretionary Spending & Save Emergency Buffer";
+    primaryActionDesc = `Your liquid cache ($${cashAssets.toLocaleString()}) covers less than 3 months of basic expenses ($${twin.monthlyExpenses.toLocaleString()}). Prioritize liquid compound cash flow.`;
+    priorityLevel = "high";
+  } else if (highInterestLiabilities > 10000) {
+    primaryActionTitle = "Launch Private Debt Avalanche payoff";
+    primaryActionDesc = `You hold $${highInterestLiabilities.toLocaleString()} of liabilities averaging over 5.0% interest APR. Prioritize surplus cash flows to trigger refinancing or avalanche schedules.`;
+    priorityLevel = "high";
+  } else if (debtToIncomeRatio > 36) {
+    primaryActionTitle = "DTI Overhead Correction";
+    primaryActionDesc = `Your Debt-to-Income ratio (${debtToIncomeRatio.toFixed(1)}%) exceeds the 36% systemic threshold. Avoid new physical asset leverage until current lines amortize.`;
+    priorityLevel = "medium";
+  }
+
+  // Opportunities and Risks cards
+  const opportunities = [
+    {
+      title: "Self-Structured Roth IRA Setup",
+      value: "Expected Yield: +$45,000",
+      desc: "Tax-free compound growth offsets local income taxes completely based on your current retirement planning thresholds."
+    },
+    {
+      title: "State Income Arbitrage Check",
+      value: "State Offset: Max 13%",
+      desc: `You reside in ${twin.taxState}. Simulating relocation to Texas or Florida models an average state tax savings of up to $5,400 per year.`
+    }
+  ];
+
+  const risks = [
+    {
+      title: "Liquidity Drag",
+      impact: "High Vulnerability",
+      desc: expensesRatio < 4 
+        ? "Sudden market downturns or income offsets could force unhedged debt conversions due to low defensive savings."
+        : "Holding excessive liquid capital drag under current inflation values slowly degrades raw purchasing power index."
+    },
+    {
+      title: "Single Point Income Failure",
+      impact: "Moderate Overhead",
+      desc: twin.incomes.length <= 1 
+        ? "Entire financial profile is dependent on 1 source of active income. Building side venture streams reduces volatility index."
+        : "Satisfactory wage diversity established. Continue tracking marginal bracket tax shifting limits."
+    }
+  ];
+
+  return (
+    <div className="space-y-6" id="wealth-command-center">
+      {/* SCORES AND HERO ACTIONS HEADER MATRIX */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Dynamic score graphic card */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between glow-subtle">
+          <div>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Aura Index Score</span>
+              <Award className="w-4 h-4 text-emerald-400" />
+            </div>
+            <h3 className="text-sm font-bold text-zinc-400 mt-1">Decision Intelligence Readiness</h3>
+          </div>
+
+          <div className="my-6 flex justify-center items-center relative">
+            {/* SVG custom gauge */}
+            <svg className="w-36 h-36 transform -rotate-90">
+              <circle
+                cx="72"
+                cy="72"
+                r="64"
+                stroke="#18181b"
+                strokeWidth="10"
+                fill="transparent"
+              />
+              <circle
+                cx="72"
+                cy="72"
+                r="64"
+                stroke="url(#emerald-gradient)"
+                strokeWidth="10"
+                fill="transparent"
+                strokeDasharray={402}
+                strokeDashoffset={402 - (402 * healthScore) / 100}
+                strokeLinecap="round"
+                className="transition-all duration-1000"
+              />
+              <defs>
+                <linearGradient id="emerald-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#14b8a6" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute text-center">
+              <span className="text-3xl font-black text-white font-mono tracking-tighter block leading-none">{healthScore}</span>
+              <span className="text-[9px] uppercase font-mono tracking-widest text-emerald-400 block mt-1">READINESS</span>
+            </div>
+          </div>
+
+          <div className="text-center pt-2 border-t border-zinc-800/40">
+            <p className="text-[11px] text-zinc-450 leading-relaxed font-sans">
+              Weighted average based on liquid reserves, leverage brackets, and multi-asset durability index parameters.
+            </p>
+          </div>
+        </div>
+
+        {/* Dynamic CPO Command Center Hero Card */}
+        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-bold">Chief of Staff Recommended Action</span>
+              </div>
+              <span className={`text-[9px] font-mono px-2 py-0.5 rounded border capitalize ${priorityLevel === "high" ? "bg-rose-950/20 border-rose-500/60 text-rose-455 font-bold" : "bg-emerald-950/20 border-emerald-500/60 text-emerald-455"}`}>
+                {priorityLevel} priority
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-lg font-bold text-zinc-100 tracking-tight">{primaryActionTitle}</h2>
+              <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                {primaryActionDesc}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-4 border-t border-zinc-800/40 text-xs">
+            <div className="flex items-center gap-3 bg-zinc-950 p-3 rounded-xl border border-zinc-900">
+              <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <span className="text-[9px] font-mono text-zinc-505 uppercase block">Emergency Buffer</span>
+                <span className="font-bold text-zinc-200 block mt-0.5 font-mono">{expensesRatio.toFixed(1)} Months</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 bg-zinc-950 p-3 rounded-xl border border-zinc-900">
+              <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <span className="text-[9px] font-mono text-zinc-505 uppercase block">Projected 30Y ARR</span>
+                <span className="font-bold text-zinc-200 block mt-0.5 font-mono">{(averageGrowthRate * 100).toFixed(1)}% Comp</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RISKS AND OPPORTUNITIES BENTO SECTION */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* OPPORTUNITIES */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+          <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider block font-bold">Proactive System Opportunities</span>
+          <div className="space-y-3">
+            {opportunities.map((opp, i) => (
+              <div key={i} className="bg-zinc-950 border border-zinc-850 p-4 rounded-xl space-y-2 hover:border-zinc-800 transition-all">
+                <div className="flex justify-between items-start gap-2">
+                  <h4 className="text-xs font-bold text-zinc-200">{opp.title}</h4>
+                  <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-900/60 px-1.5 py-0.5 rounded shrink-0">{opp.value}</span>
+                </div>
+                <p className="text-[11px] text-zinc-400 leading-relaxed">{opp.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RISKS */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+          <span className="text-[10px] font-mono text-rose-450 uppercase tracking-wider block font-bold">Identified Volatility Risks</span>
+          <div className="space-y-3">
+            {risks.map((risk, i) => (
+              <div key={i} className="bg-zinc-950 border border-zinc-850 p-4 rounded-xl space-y-2 hover:border-zinc-800 transition-all">
+                <div className="flex justify-between items-start gap-2">
+                  <h4 className="text-xs font-bold text-zinc-200">{risk.title}</h4>
+                  <span className="text-[9px] font-mono text-rose-450 bg-rose-95/35 border border-rose-900/60 px-1.5 py-0.5 rounded shrink-0">{risk.impact}</span>
+                </div>
+                <p className="text-[11px] text-zinc-400 leading-relaxed">{risk.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* SAVED ACTIVE SCENARIOS TIMELINE */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-zinc-200">Simulator Active History Ledger</h3>
+            <p className="text-[10px] text-zinc-500">List of alternate future paths committed to simulation memory.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenSimulator}
+            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold tracking-tight transition-all flex items-center gap-1 cursor-pointer"
+          >
+            Launch Simulator <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {savedSimulations.length === 0 ? (
+          <div className="bg-zinc-950/60 border border-zinc-850 rounded-xl p-8 text-center space-y-4">
+            <ShieldAlert className="w-8 h-8 text-zinc-600 mx-auto" />
+            <div className="space-y-1">
+              <p className="text-xs text-zinc-350">Historical path ledger is clean.</p>
+              <p className="text-[11px] text-zinc-500">Run some decision simulations to populate side-by-side alternative future charts.</p>
+            </div>
+            <button
+              onClick={onOpenSimulator}
+              className="bg-emerald-600 hover:bg-emerald-505 text-zinc-950 text-xs font-bold px-4 py-2 hover:scale-[1.01] transition-all rounded-lg cursor-pointer"
+            >
+              Simulate decision now
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {savedSimulations.map((sim, i) => (
+              <div key={sim.id} className="bg-zinc-950 border border-zinc-850 p-4 rounded-xl flex flex-col justify-between hover:border-zinc-800 transition-all">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-[10px] font-mono">
+                    <span className="text-zinc-500 uppercase">{sim.type.replace("_", " ")}</span>
+                    <span className="text-zinc-600">Saved Scenario #{i+1}</span>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-100">
+                      Proj. NW: ${sim.projectedNetWorth30Y[29].toLocaleString()}
+                    </h4>
+                    <p className="text-[10px] text-zinc-400 mt-1 leading-normal">
+                      Decision suitability rating calculated at <strong className="text-emerald-400 font-mono font-bold">{sim.decisionHealthScore}/100</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center border-t border-zinc-900 pt-3 mt-4 text-[9px] font-mono">
+                  <span className={`font-bold ${sim.projectedCashFlowDelta < 0 ? "text-rose-450" : "text-emerald-450"}`}>
+                    CF Impact: ${Math.round(sim.projectedCashFlowDelta).toLocaleString()}/Mo
+                  </span>
+                  <span className="text-zinc-500">{new Date(sim.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
