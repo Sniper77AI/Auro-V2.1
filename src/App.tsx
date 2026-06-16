@@ -10,11 +10,12 @@ import SimulatorEngine from "./components/SimulatorEngine";
 import CommandCenter from "./components/CommandCenter";
 import GovernanceHub from "./components/GovernanceHub";
 import FeedbackHub from "./components/FeedbackHub";
-import DeliverablesViewer from "./components/DeliverablesViewer";
+import GoalsMatrix from "./components/GoalsMatrix";
+import UnifiedSettings from "./components/UnifiedSettings";
 import { 
   LayoutDashboard, Wallet, Sparkles, Scale, 
-  MessageSquare, BookOpen, ChevronRight, Coins, 
-  Activity, MapPin, User, ShieldAlert 
+  MessageSquare, ChevronRight, Coins, 
+  Activity, MapPin, User, ShieldAlert, Target, Settings, Eye, EyeOff
 } from "lucide-react";
 
 // Pre-populated default financial twin representation
@@ -54,7 +55,8 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
 ];
 
 export default function App() {
-  const [activeMenu, setActiveMenu] = useState<"command" | "twin" | "simulator" | "governance" | "feedback" | "blueprints">("blueprints");
+  const [userRole, setUserRole] = useState<"customer" | "admin">("customer");
+  const [activeMenu, setActiveMenu] = useState<"command" | "twin" | "simulator" | "goals" | "settings" | "governance" | "feedback">("command");
   
   // Real active state trackers
   const [twin, setTwin] = useState<FinancialTwin>(INITIAL_TWIN);
@@ -62,6 +64,13 @@ export default function App() {
   const [governanceEvents, setGovernanceEvents] = useState<GovernanceEvent[]>(INITIAL_GOVERNANCE_EVENTS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+
+  // Enforce access control: if user is customer and activeMenu is admin-only, reset to command center
+  useEffect(() => {
+    if (userRole === "customer" && ["governance", "feedback"].includes(activeMenu)) {
+      setActiveMenu("command");
+    }
+  }, [userRole, activeMenu]);
 
   // Calculate high level KPI totals for header display
   const totalAnnualIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
@@ -73,7 +82,7 @@ export default function App() {
   const handleSaveSimulation = (newSim: SimulationResult) => {
     setSavedSimulations([newSim, ...savedSimulations]);
 
-    // Append standard securty audit log trace
+    // Append standard security audit log trace
     const log: AuditLog = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
@@ -142,147 +151,191 @@ export default function App() {
     <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden">
       
       {/* 1. LEFT NAVIGATION MENU RAIL */}
-      <aside className="w-64 bg-zinc-900 border-r border-zinc-805 shrink-0 flex flex-col justify-between select-none">
-        <div className="p-5 space-y-6">
-          
-          {/* Logo segment */}
-          <div className="space-y-1 pb-1">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-zinc-950 font-mono shadow-md">
-                A
+      <aside className="w-64 bg-zinc-900 border-r border-zinc-805 shrink-0 flex flex-col justify-between select-none font-sans">
+        <div className="p-5 space-y-6 flex-1 flex flex-col justify-between overflow-y-auto">
+          <div className="space-y-6">
+            {/* Logo segment */}
+            <div className="space-y-1 pb-1">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-zinc-950 font-mono shadow-md">
+                  A
+                </div>
+                <div>
+                  <h1 className="text-lg font-black tracking-tight text-white font-sans leading-none">Aura</h1>
+                  <span className="text-[9px] font-mono font-semibold tracking-wider text-emerald-400 uppercase leading-none mt-1.5 block">Decision FDI Portal</span>
+                </div>
               </div>
-              <div>
-                <h1 className="text-lg font-black tracking-tight text-white font-sans leading-none">AURA V2.1</h1>
-                <span className="text-[9px] font-mono font-semibold tracking-wider text-emerald-400 uppercase leading-none mt-1 block">Decision FDI Port</span>
-              </div>
+              <p className="text-[10px] text-zinc-500 italic leading-snug pt-1">
+                "See your future before you spend your money."
+              </p>
             </div>
-            <p className="text-[10px] text-zinc-500 italic leading-snug pt-1">
-              "See your future before you spend your money."
-            </p>
+
+            {/* Nav groups */}
+            <nav className="space-y-1.5">
+              <span className="text-[9px] uppercase font-mono tracking-wider text-zinc-500 block pb-2 border-b border-zinc-805">
+                Financial Twin Experience
+              </span>
+
+              <button
+                onClick={() => setActiveMenu("command")}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
+                  activeMenu === "command"
+                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
+                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4 text-teal-400 shrink-0" />
+                <span>Wealth Command Center</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMenu("twin")}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
+                  activeMenu === "twin"
+                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
+                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                }`}
+              >
+                <Wallet className="w-4 h-4 text-emerald-450 shrink-0" />
+                <span>Digital Financial Twin</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMenu("simulator")}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
+                  activeMenu === "simulator"
+                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
+                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-emerald-410 shrink-0" />
+                <span>Life Scenario Simulator</span>
+                {savedSimulations.length > 0 && (
+                  <span className="text-[9px] text-emerald-400 font-bold ml-auto bg-emerald-950 px-1.5 rounded font-mono">
+                    {savedSimulations.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setActiveMenu("goals")}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
+                  activeMenu === "goals"
+                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
+                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                }`}
+              >
+                <Target className="w-4 h-4 text-teal-400 shrink-0" />
+                <span>Goals Master Matrix</span>
+              </button>
+
+              <button
+                onClick={() => setActiveMenu("settings")}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
+                  activeMenu === "settings"
+                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
+                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                }`}
+              >
+                <Settings className="w-4 h-4 text-emerald-405 shrink-0" />
+                <span>Platform Settings</span>
+              </button>
+
+              {/* SYSTEM ADMINISTRATIVE SECTOR (Visible ONLY under admin role) */}
+              {userRole === "admin" && (
+                <div className="pt-4 space-y-1.5">
+                  <span className="text-[9px] uppercase font-mono tracking-wider text-rose-400 block pb-2 border-b border-zinc-805">
+                    Oversight & Compliance
+                  </span>
+
+                  <button
+                    onClick={() => setActiveMenu("governance")}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
+                      activeMenu === "governance"
+                        ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
+                        : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                    }`}
+                  >
+                    <Scale className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>Governance Dashboard</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveMenu("feedback")}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
+                      activeMenu === "feedback"
+                        ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
+                        : "border border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-zinc-850/60"
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>Feedback Recalibrator</span>
+                  </button>
+                </div>
+              )}
+            </nav>
           </div>
 
-          {/* Nav groups */}
-          <nav className="space-y-1.5 pt-4">
-            
+          {/* ROLE AUTHORIZATION TOGGLE (Interactive Client Security Layer) */}
+          <div className="bg-zinc-950 border border-zinc-850/80 p-3.5 rounded-xl space-y-2.5 pt-4 mt-6">
+            <div className="flex justify-between items-center text-[9px] font-mono">
+              <span className="text-zinc-500 uppercase">SYSTEM SHELL</span>
+              <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${userRole === "admin" ? "bg-rose-950/20 text-rose-400 border border-rose-900/40" : "bg-emerald-950/20 text-emerald-400 border border-emerald-900/40"}`}>
+                {userRole === "admin" ? "Role: Admin" : "Role: Customer"}
+              </span>
+            </div>
             <button
-              onClick={() => setActiveMenu("blueprints")}
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                activeMenu === "blueprints"
-                  ? "bg-emerald-950/40 border border-emerald-505/65 text-zinc-100 font-bold"
-                  : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
-              }`}
+              onClick={() => setUserRole(userRole === "customer" ? "admin" : "customer")}
+              className="w-full text-[10px] bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 py-1.5 text-zinc-300 rounded font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <BookOpen className="w-4 h-4 text-emerald-405 shrink-0" />
-              <span>AURA 20 Blueprints</span>
-              <span className="text-[9px] text-zinc-500 ml-auto bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-850">MVP</span>
-            </button>
-
-            <span className="text-[9px] uppercase font-mono tracking-wider text-zinc-500 block pt-4 pb-2 border-b border-zinc-800">
-              Interactive FDI Console
-            </span>
-
-            <button
-              onClick={() => setActiveMenu("command")}
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                activeMenu === "command"
-                  ? "bg-zinc-950 border border-zinc-900 text-zinc-100 font-bold"
-                  : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4 text-teal-400 shrink-0" />
-              <span>Wealth Command Center</span>
-            </button>
-
-            <button
-              onClick={() => setActiveMenu("twin")}
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                activeMenu === "twin"
-                  ? "bg-zinc-950 border border-zinc-900 text-zinc-100 font-bold"
-                  : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
-              }`}
-            >
-              <Wallet className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Digital Financial Twin</span>
-            </button>
-
-            <button
-              onClick={() => setActiveMenu("simulator")}
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                activeMenu === "simulator"
-                  ? "bg-zinc-950 border border-zinc-900 text-zinc-100 font-bold"
-                  : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-emerald-410 shrink-0" />
-              <span>Life Scenario Simulator</span>
-              {savedSimulations.length > 0 && (
-                <span className="text-[9px] text-emerald-400 font-bold ml-auto bg-emerald-950 px-1 rounded">
-                  {savedSimulations.length}
-                </span>
+              {userRole === "customer" ? (
+                <>
+                  <Eye className="w-3.5 h-3.5 text-rose-400" /> Unlock Admin Views
+                </>
+              ) : (
+                <>
+                  <EyeOff className="w-3.5 h-3.5 text-emerald-405" /> Restrict to Customer
+                </>
               )}
             </button>
-
-            <button
-              onClick={() => setActiveMenu("governance")}
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                activeMenu === "governance"
-                  ? "bg-zinc-950 border border-zinc-900 text-zinc-100 font-bold"
-                  : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
-              }`}
-            >
-              <Scale className="w-4 h-4 text-emerald-405 shrink-0" />
-              <span>Governance & Security</span>
-            </button>
-
-            <button
-              onClick={() => setActiveMenu("feedback")}
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                activeMenu === "feedback"
-                  ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold"
-                  : "border border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-zinc-850/60"
-              }`}
-            >
-              <MessageSquare className="w-4 h-4 text-teal-400 shrink-0" />
-              <span>Feedback Recalibrator</span>
-            </button>
-          </nav>
+          </div>
         </div>
 
         {/* User Identity bottom tag */}
-        <div className="p-4 border-t border-zinc-805 bg-zinc-950/20 text-xs">
+        <div className="p-4 border-t border-zinc-805 bg-zinc-950/40 text-xs shrink-0 font-sans">
           <div className="flex items-center gap-3">
             <div className="p-1.5 rounded-full bg-zinc-800 text-zinc-400">
               <User className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="font-semibold block text-zinc-200 truncate">sinior.bkk@gmail.com</span>
-              <span className="text-[9px] font-mono text-emerald-500 uppercase leading-none block mt-0.5">Premium Tier Verified</span>
+              <span className="font-semibold block text-zinc-200 truncate font-sans">sinior.bkk@gmail.com</span>
+              <span className="text-[9px] font-mono text-emerald-500 uppercase leading-none block mt-1">Verified Account Holder</span>
             </div>
           </div>
         </div>
       </aside>
 
       {/* 2. MAIN CENTER BODY SCROLL */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-zinc-955">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-zinc-950/20">
         
         {/* UPPER STATUS BAR (Tactical system telemetry) */}
-        <header className="h-16 border-b border-zinc-805 px-8 flex justify-between items-center bg-zinc-900 shrink-0 bg-zinc-900/40 backdrop-blur-md">
+        <header className="h-16 border-b border-zinc-805 px-8 flex justify-between items-center bg-zinc-900 shrink-0 bg-zinc-900/40 backdrop-blur-md font-sans">
           <div className="flex items-center gap-4 text-xs">
-            <span className="text-zinc-400 font-medium">Session Space:</span>
-            <div className="flex items-center gap-1.5 bg-zinc-950 px-2.5 py-1 rounded-md border border-zinc-850 text-zinc-300 font-mono text-[11px]">
+            <span className="text-zinc-500 font-medium">Active Zone:</span>
+            <div className="flex items-center gap-1.5 bg-zinc-950 px-2.5 py-1.5 rounded-md border border-zinc-850 text-zinc-350 font-mono text-[11px]">
               <MapPin className="w-3 h-3 text-emerald-400" />
-              <span>Loc: {twin.taxState}, US Phase 1</span>
+              <span>CA (US Phase 1)</span>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-zinc-950 px-2.5 py-1 rounded-md border border-zinc-850 text-zinc-300 font-mono text-[11px]">
+            <div className="flex items-center gap-1.5 bg-zinc-950 px-2.5 py-1.5 rounded-md border border-zinc-850 text-zinc-350 font-mono text-[11px]">
               <Coins className="w-3.5 h-3.5 text-teal-400" />
-              <span>Baseline Proj Comp ARR: {(twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span>
+              <span>Compound Coeff ARR: {(twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span>
             </div>
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono">
             <div className="text-right">
-              <span className="text-[10px] text-zinc-550 block leading-none">VIRTUAL NET WORTH</span>
+              <span className="text-[10px] text-zinc-550 block leading-none">TOTAL NET WORTH</span>
               <span className={`text-xs font-bold block mt-1 ${netWorth >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                 ${netWorth.toLocaleString()}
               </span>
@@ -291,20 +344,18 @@ export default function App() {
             <div className="h-6 w-[1px] bg-zinc-800" />
 
             <div className="text-right">
-              <span className="text-[10px] text-zinc-555 block leading-none">Simulations Evaluated</span>
-              <span className="text-xs font-bold text-teal-400 block mt-1 text-center font-mono">
-                {savedSimulations.length + 3}
+              <span className="text-[10px] text-zinc-550 block leading-none font-mono">Ledger Node Count</span>
+              <span className="text-xs font-bold text-teal-400 block mt-1 text-center">
+                {twin.incomes.length + twin.assets.length + twin.liabilities.length} Nodes
               </span>
             </div>
           </div>
         </header>
 
         {/* WORKSPACE AREA CONTAINER */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-8 bg-zinc-950/10">
           
           {/* Main dynamic dispatcher */}
-          {activeMenu === "blueprints" && <DeliverablesViewer />}
-          
           {activeMenu === "command" && (
             <CommandCenter 
               twin={twin} 
@@ -343,7 +394,30 @@ export default function App() {
             />
           )}
 
-          {activeMenu === "governance" && (
+          {activeMenu === "goals" && (
+            <GoalsMatrix twin={twin} />
+          )}
+
+          {activeMenu === "settings" && (
+            <UnifiedSettings 
+              twin={twin} 
+              onChangeTwin={(updated) => {
+                setTwin(updated);
+                const audit: AuditLog = {
+                  id: Math.random().toString(36).substring(2, 9),
+                  timestamp: new Date().toISOString(),
+                  userEmail: "sinior.bkk@gmail.com",
+                  action: "SETTING_UPDATE",
+                  source: "settings_dashboard",
+                  status: "success",
+                  description: "Updated global settings parameters in profile registry."
+                };
+                setAuditLogs([audit, ...auditLogs]);
+              }}
+            />
+          )}
+
+          {activeMenu === "governance" && userRole === "admin" && (
             <GovernanceHub 
               events={governanceEvents} 
               auditLogs={auditLogs}
@@ -351,7 +425,7 @@ export default function App() {
             />
           )}
 
-          {activeMenu === "feedback" && (
+          {activeMenu === "feedback" && userRole === "admin" && (
             <FeedbackHub 
               feedbacks={feedbacks}
             />

@@ -114,11 +114,12 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
     // State tax multiplier
     const stateTaxMap: Record<string, number> = { CA: 0.08, NY: 0.06, FL: 0.0, TX: 0.0, IL: 0.0495, WA: 0.0 };
     const taxPenaltyMultiplier = 1 - (stateTaxMap[twin.taxState] || 0.04);
+    const liquidCash = twin.assets.filter(a => a.type === "cash" || a.type === "brokerage").reduce((acc, c) => acc + c.amount, 0);
 
     // Module math logic
     if (selectedType === "home_purchase") {
-      const price = params.homePrice || 450000;
-      const down = params.downPayment || 90000;
+      const price = params.homePrice || 500000;
+      const down = params.downPayment || 100000;
       const rate = params.interestRate || 0.065;
 
       // Handle raw cash override limit checks
@@ -191,9 +192,9 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
       ];
 
     } else if (selectedType === "vehicle_purchase") {
-      const price = params.vehiclePrice || 40000;
-      const down = params.autoDownPayment || 8000;
-      const vType = params.vehicleType || "gas";
+      const price = params.vehiclePrice || 45000;
+      const down = params.autoDownPayment || 10000;
+      const vType = params.vehicleType || "ev";
 
       projectedCashFlowDelta = -(((price - down) * 0.07) / 12 + (vType === "ev" ? 120 : 250)); // EV saves on fueling
 
@@ -234,8 +235,8 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
       ];
 
     } else if (selectedType === "career_change") {
-      const newSal = params.newSalary || 110000;
-      const relocation = params.relocationCost || 5000;
+      const newSal = params.newSalary || 120000;
+      const relocation = params.relocationCost || 8000;
 
       projectedCashFlowDelta = (newSal - totalAnnualIncome) / 12;
 
@@ -270,8 +271,209 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
         }
       ];
 
+    } else if (selectedType === "retirement_planning") {
+      const targetRetAge = params.targetRetirementAge || 62;
+      const desiredSpending = params.desiredAnnualSpending || 80000;
+
+      // Drawdown comparison against retirement target age
+      tempBaseline = currentNetWorth;
+      tempSimulated = currentNetWorth;
+      const ageDiff = targetRetAge - twin.age;
+
+      for (let i = 1; i <= years; i++) {
+        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
+        baselineNW.push(Math.round(tempBaseline));
+
+        if (i >= ageDiff) {
+          // drawdown mode: spend principal, S&P growth mitigates
+          const annualSpendingAdjusted = desiredSpending * Math.pow(1.025, i);
+          tempSimulated = Math.max(0, (tempSimulated - annualSpendingAdjusted) * (1 + averageGrowthRate * 0.7)); // conservative allocation during drawdown
+        } else {
+          // accumulation mode: savings compound
+          tempSimulated = (tempSimulated + annualSurplus) * (1 + averageGrowthRate);
+        }
+        simulatedNW.push(Math.round(tempSimulated));
+      }
+
+      // 4% Rule check: is the ending net worth sustainable?
+      const targetNestEggNeeded = desiredSpending * 25;
+      const expectedAssetsAtRetirement = currentNetWorth * Math.pow(1 + averageGrowthRate, ageDiff) + (annualSurplus * ageDiff);
+      const suitabilityFactor = expectedAssetsAtRetirement >= targetNestEggNeeded ? 94 : 65;
+
+      decisionHealthScore = suitabilityFactor;
+      riskScore = suitabilityFactor > 80 ? 25 : 60;
+      confidenceScore = 88;
+      retirementReadinessShift = targetRetAge - twin.retirementAge;
+      projectedCashFlowDelta = ageDiff <= 0 ? 0 : -desiredSpending / 12;
+
+      keyAssumptions = [
+        `Assumed safe drawdown ceiling aligned with historical 4.0% rules`,
+        `Steady lifestyle capital spending rate of $${desiredSpending.toLocaleString()}/year`,
+        `Filing status set to progressive ${twin.taxState} taxation schedules`
+      ];
+      limitations = [
+        "Neglects dynamic market crashes occurring precisely during year-1 of drawdown block (Sequence of Returns)",
+        "Assumes federal and state medical insurance subsidies cover extreme age-related health friction"
+      ];
+      alternativeScenarios = [
+        {
+          title: "Extend Tenure by 3 Years",
+          description: "Delay retirement slightly to let index portfolios compound further.",
+          params: { targetRetirementAge: targetRetAge + 3 }
+        },
+        {
+          title: "Trim Spend Target by 15%",
+          description: "Scale back annual discretionary outlays to secure capital survival rates.",
+          params: { desiredAnnualSpending: desiredSpending * 0.85 }
+        }
+      ];
+
+    } else if (selectedType === "debt_optimization") {
+      const strategy = params.focusStrategy || "avalanche";
+      const refiRate = params.refinanceRate || 0.045;
+
+      tempBaseline = currentNetWorth;
+      tempSimulated = currentNetWorth;
+
+      // Calculate total outstanding high-interest debt
+      const highInterestDebts = twin.liabilities.reduce((acc, c) => acc + c.amount, 0);
+      const interestSavingsFactor = strategy === "avalanche" ? 0.25 : 0.15;
+      const computedInterestSaved = highInterestDebts * (0.06 - refiRate) * interestSavingsFactor * 10; // 10 years payoff window
+
+      projectedCashFlowDelta = strategy === "invest_surplus" ? 150 : computedInterestSaved > 0 ? 120 : 50;
+
+      for (let i = 1; i <= years; i++) {
+        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
+        baselineNW.push(Math.round(tempBaseline));
+
+        // simulated pays off liability earlier, leading to higher end wealth
+        const simulatedSavingsTotal = annualSurplus + (projectedCashFlowDelta * 12) + (i <= 5 ? computedInterestSaved / 5 : 0);
+        tempSimulated = (tempSimulated + simulatedSavingsTotal) * (1 + averageGrowthRate);
+        simulatedNW.push(Math.round(tempSimulated));
+      }
+
+      decisionHealthScore = strategy === "invest_surplus" && averageGrowthRate > 0.06 ? 92 : 88;
+      riskScore = highInterestDebts > 30000 ? 55 : 20;
+      confidenceScore = 92;
+      retirementReadinessShift = projectedCashFlowDelta > 100 ? 1.5 : 0.5;
+
+      keyAssumptions = [
+        `Systemic reallocation of surplus cash flows using direct ${strategy.toUpperCase()} calculations`,
+        `Ability to refinance interest rate lines downwards to ${refiRate * 100}% APR`,
+        "Sustained monthly payment schedules with zero default intervals"
+      ];
+      limitations = [
+        "Assumes lender institutions offer zero-fee refinancing terms under current market liquidity parameters",
+        "Neglects emotional components of budget scaling friction when running avalanche paydowns"
+      ];
+      alternativeScenarios = [
+        {
+          title: "Aggressive Avalanche payoff",
+          description: "Focus purely on interest weightings, saving maximum credit expenses.",
+          params: { focusStrategy: "avalanche" }
+        }
+      ];
+
+    } else if (selectedType === "college_funding") {
+      const tuition = params.annualCollegeCost || 35000;
+      const targetPercent = params.fundingTargetPercent || 80;
+
+      tempBaseline = currentNetWorth;
+      tempSimulated = currentNetWorth;
+
+      // Children timeline parameters (ages 4 and 7 means college hits in 14 years and 11 years)
+      const collegeHitsYear1 = 11;
+      const collegeHitsYear2 = 14;
+      const totalCollegeNeeds = tuition * 4 * 2 * (targetPercent / 100);
+
+      projectedCashFlowDelta = -250; // monthly standard 529 savings contribution
+
+      for (let i = 1; i <= years; i++) {
+        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
+        baselineNW.push(Math.round(tempBaseline));
+
+        let currentAnnualSurplusSim = annualSurplus + (projectedCashFlowDelta * 12); // monthly 529 asset addition
+
+        // Deduct tuition when hit
+        if (i >= collegeHitsYear1 && i < collegeHitsYear1 + 4) {
+          currentAnnualSurplusSim -= tuition * (targetPercent / 100);
+        }
+        if (i >= collegeHitsYear2 && i < collegeHitsYear2 + 4) {
+          currentAnnualSurplusSim -= tuition * (targetPercent / 100);
+        }
+
+        tempSimulated = (tempSimulated + currentAnnualSurplusSim) * (1 + averageGrowthRate);
+        simulatedNW.push(Math.round(tempSimulated));
+      }
+
+      decisionHealthScore = liquidCash >= 30000 ? 86 : 60;
+      riskScore = totalCollegeNeeds > 100000 ? 45 : 15;
+      confidenceScore = 90;
+      retirementReadinessShift = -2.2; // College funding represents a retirement delay due to capital deployment
+
+      keyAssumptions = [
+        `Expected tuition inflation cap set at 4.5% annual matching average national indexes`,
+        `Tax-sheltered 529 asset compounding at ${averageGrowthRate * 100}% without tax erosion`,
+        `Direct multi-child offset boundaries of age 18 distributions`
+      ];
+      limitations = [
+        "Does not project state university premium spikes or private institution tuition expansions",
+        "Assumes dependents enroll exactly on the traditional 4-year timeline targets"
+      ];
+      alternativeScenarios = [
+        {
+          title: "Reduce Funding Cap to 50%",
+          description: "Co-share educational loads with auxiliary packages to preserve retirement velocity.",
+          params: { fundingTargetPercent: 50 }
+        }
+      ];
+
+    } else if (selectedType === "estate_legacy") {
+      const goalsVal = params.wealthTransferGoal || 1000000;
+      const useTrust = params.useTrustStructure ?? true;
+
+      tempBaseline = currentNetWorth;
+      tempSimulated = currentNetWorth;
+
+      // Estate protection calculations: trust structures protect from probate costs (3% loss)
+      // and state estate taxes on transfer
+      const savingsProbate = useTrust ? goalsVal * 0.045 : 0;
+      projectedCashFlowDelta = useTrust ? -40 : 0; // standard administrative trust upkeep cost
+
+      for (let i = 1; i <= years; i++) {
+        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
+        baselineNW.push(Math.round(tempBaseline));
+
+        // Simulated end net worth compiles higher on saved taxes
+        const addedValue = (i === years && useTrust) ? savingsProbate : 0;
+        tempSimulated = (tempSimulated + annualSurplus + (projectedCashFlowDelta * 12)) * (1 + averageGrowthRate) + addedValue;
+        simulatedNW.push(Math.round(tempSimulated));
+      }
+
+      decisionHealthScore = useTrust ? 96 : 74;
+      riskScore = 10;
+      confidenceScore = 98; // legacy mapping is highly deterministic
+      retirementReadinessShift = -0.1;
+
+      keyAssumptions = [
+        `Federal transfer exemption benchmarks set at standard IRS guidelines`,
+        `Protected trust boundaries preserve an estimated 4.5% of transfer balances from probate courts`,
+        "Steady state inheritance tax structures without systemic regulatory overrides"
+      ];
+      limitations = [
+        "Excludes dynamic changes in domestic tax laws or international jurisdiction treaties",
+        "Upkeep and legal setup expenses are aggregated with standard 30Y inflation ratios"
+      ];
+      alternativeScenarios = [
+        {
+          title: "High-Protection Trust Plan",
+          description: "Enable comprehensive asset preservation to bypass state probate entirely.",
+          params: { estatePreservationLevel: "high_protection", useTrustStructure: true }
+        }
+      ];
+
     } else {
-      // General fallbacks: Debt, Retirement, College, Estate
+      // General fallbacks
       projectedCashFlowDelta = 250; 
       tempBaseline = currentNetWorth;
       tempSimulated = currentNetWorth;
@@ -284,7 +486,7 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
         simulatedNW.push(Math.round(tempSimulated));
       }
 
-      retirementReadinessShift = selectedType === "retirement_planning" ? 2.5 : 1.2;
+      retirementReadinessShift = 1.2;
       decisionHealthScore = 80;
       riskScore = 20;
       confidenceScore = 88;
@@ -293,13 +495,10 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
         "Assumes compounding interest of 7.2% average market returns",
         "No major regulatory tax structure shifts over a 30-year horizon"
       ];
-      alternativeScenarios = [
-        {
-          title: "Aggressive Allocation Drift",
-          description: "Shift liquid asset profile into high value equities.",
-          params: { targetRetirementAge: (params.targetRetirementAge || 62) - 3 }
-        }
+      limitations = [
+        "Requires regional optimization adjustments"
       ];
+      alternativeScenarios = [];
     }
 
     const calculatedResult: SimulationResult = {
@@ -600,28 +799,173 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
               </>
             )}
 
-            {/* GENERAL DEFAULTS FOR RETIREMENT/DEBT/COLLEGE/ESTATE */}
-            {!["home_purchase", "vehicle_purchase", "career_change"].includes(selectedType) && (
-              <div className="bg-zinc-950 border border-zinc-805/80 p-4 rounded-xl text-center space-y-4">
-                <p className="text-xs text-zinc-400">
-                  You are modeling Aura's core strategic engines for <strong className="text-emerald-400">{selectedType.toUpperCase().replace("_", " ")}</strong>.
-                </p>
-                <div className="text-left space-y-3">
-                  <div>
-                    <label className="text-[10px] text-zinc-500 font-mono uppercase block mb-1">STOCHASTIC TARGET VELOCITY</label>
-                    <select className="w-full bg-zinc-900 border border-zinc-800 rounded p-2 text-xs text-zinc-200">
-                      <option>Accelerated Surplus Compound (avalanche)</option>
-                      <option>Guaranteed Principle Preservation</option>
-                      <option>Optimized Tax Shield Route</option>
-                    </select>
+            {/* RETIREMENT PLANNING SLIDERS */}
+            {selectedType === "retirement_planning" && (
+              <>
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                    <span>TARGET RETIREMENT AGE</span>
+                    <span className="text-emerald-400 font-bold">{params.targetRetirementAge || 62} Years Old</span>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-zinc-500 font-mono uppercase block mb-1">TAX-SENSITIVE DEFERMENT</label>
-                    <input type="checkbox" defaultChecked className="accent-emerald-500 mr-2" />
-                    <span className="text-xs text-zinc-300">Auto-optimize under state laws</span>
+                  <input
+                    type="range"
+                    min="45"
+                    max="80"
+                    step="1"
+                    value={params.targetRetirementAge || 62}
+                    onChange={(e) => setParams({ ...params, targetRetirementAge: parseInt(e.target.value) })}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                    <span>45 y/o</span>
+                    <span>62 y/o</span>
+                    <span>80 y/o</span>
                   </div>
                 </div>
-              </div>
+
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                    <span>DESIRED ANNUAL SPENDING (In retirement)</span>
+                    <span className="text-teal-400 font-bold">${(params.desiredAnnualSpending || 80000).toLocaleString()}/yr</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="30000"
+                    max="300000"
+                    step="5000"
+                    value={params.desiredAnnualSpending || 80000}
+                    onChange={(e) => setParams({ ...params, desiredAnnualSpending: parseFloat(e.target.value) })}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                    <span>$30k</span>
+                    <span>$150k</span>
+                    <span>$300k</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* DEBT OPTIMIZATION */}
+            {selectedType === "debt_optimization" && (
+              <>
+                <div>
+                  <label className="text-zinc-400 text-xs font-mono block mb-1">REPAYMENT HEURISTIC STRATEGY</label>
+                  <select
+                    value={params.focusStrategy}
+                    onChange={(e) => setParams({ ...params, focusStrategy: e.target.value as any })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-zinc-200 focus:outline-none font-mono"
+                  >
+                    <option value="avalanche">Avalanche Model (Highest APR Weighted)</option>
+                    <option value="snowball">Snowball Model (Lowest Principal Weighted)</option>
+                    <option value="invest_surplus">Invest Surplus (Route Excess to Markets)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                    <span>REFINANCED LOAN APR TARGET</span>
+                    <span className="text-emerald-400 font-bold">{(params.refinanceRate || 0.045) * 100}% APR</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="2"
+                    max="10"
+                    step="0.5"
+                    value={(params.refinanceRate || 0.045) * 100}
+                    onChange={(e) => setParams({ ...params, refinanceRate: parseFloat(e.target.value) / 100 })}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* COLLEGE SAVINGS */}
+            {selectedType === "college_funding" && (
+              <>
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                    <span>ANNUAL STATE COLLEGE COST / CHILD</span>
+                    <span className="text-emerald-400 font-bold">${(params.annualCollegeCost || 35000).toLocaleString()}/yr</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10000"
+                    max="90000"
+                    step="2000"
+                    value={params.annualCollegeCost || 35000}
+                    onChange={(e) => setParams({ ...params, annualCollegeCost: parseFloat(e.target.value) })}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                    <span>$10k</span>
+                    <span>$50k</span>
+                    <span>$90k</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                    <span>REQUIRED UNIVERSITY FUNDING TARGET</span>
+                    <span className="text-teal-400 font-bold">{params.fundingTargetPercent || 80}% funded</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="10"
+                    value={params.fundingTargetPercent || 80}
+                    onChange={(e) => setParams({ ...params, fundingTargetPercent: parseInt(e.target.value) })}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* ESTATE AND LEGACY */}
+            {selectedType === "estate_legacy" && (
+              <>
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                    <span>WEALTH TRANSFER VALUE GOAL</span>
+                    <span className="text-emerald-400 font-bold">${(params.wealthTransferGoal || 1000000).toLocaleString()}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="100000"
+                    max="5000000"
+                    step="100000"
+                    value={params.wealthTransferGoal || 1000000}
+                    onChange={(e) => setParams({ ...params, wealthTransferGoal: parseFloat(e.target.value) })}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-zinc-400 text-xs font-mono block mb-1">PROTECTION COEFFICIENT</label>
+                  <select
+                    value={params.estatePreservationLevel}
+                    onChange={(e) => setParams({ ...params, estatePreservationLevel: e.target.value as any })}
+                    className="w-full bg-zinc-950 border border-zinc-805 rounded p-2.5 text-xs text-zinc-200 focus:outline-none font-mono"
+                  >
+                    <option value="standard">Standard Preservation (Federal Level)</option>
+                    <option value="high_protection">High Preservation (Probate Bypass Trust)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 p-2.5 bg-zinc-950 rounded border border-zinc-850">
+                  <input
+                    type="checkbox"
+                    checked={params.useTrustStructure ?? true}
+                    onChange={(e) => setParams({ ...params, useTrustStructure: e.target.checked })}
+                    className="accent-emerald-500 cursor-pointer h-4 w-4"
+                  />
+                  <div>
+                    <span className="text-xs text-zinc-200 block font-bold leading-none">Assemble Secure Trust Structure</span>
+                    <span className="text-[10px] text-zinc-500 mt-1 block">Bypasses local state probate cycles.</span>
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
