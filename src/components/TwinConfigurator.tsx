@@ -139,16 +139,16 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
   const debtToIncomeRatio = monthlyGrossIncome > 0 ? (totalMonthlyDebtPayments / monthlyGrossIncome) * 100 : 0;
 
   return (
-    <div id="twin-configurator" className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+    <div id="twin-configurator" className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl font-sans">
       {/* Top Banner Stat Segment */}
       <div className="bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900 p-6 border-b border-zinc-800">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase">Active Financial Twin Profile</span>
-            <h2 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">Virtual Ledger Calibration</h2>
-            <p className="text-xs text-zinc-400 mt-1">Configure asset nodes, compounding coefficients, and leverage brackets.</p>
+            <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">My Financial Profile</span>
+            <h2 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">Calibrate Your Simulation Twin</h2>
+            <p className="text-xs text-zinc-405 mt-1 font-sans">Set up your income streams, savings, and debts to configure the simulation model.</p>
           </div>
-          <div className="flex gap-4 self-stretch md:self-auto">
+          <div className="flex gap-4 self-stretch md:self-auto font-sans">
             <div className="bg-zinc-950/60 border border-zinc-805/80 p-3 rounded-lg text-left flex-1 md:flex-initial">
               <span className="text-[10px] uppercase font-mono text-zinc-500 block">Total Net Worth</span>
               <span className={`text-base font-bold font-mono tracking-tight block ${netWorth >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -162,8 +162,8 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
               </span>
             </div>
             <div className="bg-zinc-950/60 border border-zinc-805/80 p-3 rounded-lg text-left flex-1 md:flex-initial">
-              <span className="text-[10px] uppercase font-mono text-zinc-500 block">DTI Ratio</span>
-              <span className={`text-base font-bold font-mono tracking-tight block ${debtToIncomeRatio < 35 ? "text-teal-400" : debtToIncomeRatio < 45 ? "text-amber-400" : "text-rose-400"}`}>
+              <span className="text-[10px] uppercase font-mono text-zinc-500 block">Debt - Income Ratio</span>
+              <span className={`text-base font-bold font-mono tracking-tight block ${debtToIncomeRatio < 35 ? "text-teal-400" : debtToIncomeRatio < 45 ? "text-amber-400" : "text-rose-440"}`}>
                 {debtToIncomeRatio.toFixed(1)}%
               </span>
             </div>
@@ -172,30 +172,30 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-zinc-800 bg-zinc-900/60 text-xs px-2 pt-2">
+      <div className="flex border-b border-zinc-800 bg-zinc-900/60 text-xs px-2 pt-2 font-sans">
         <button
           onClick={() => setActiveTab("general")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all ${activeTab === "general" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "general" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          General Params
+          General Settings
         </button>
         <button
           onClick={() => setActiveTab("income")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all ${activeTab === "income" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "income" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
           Income ({twin.incomes.length})
         </button>
         <button
           onClick={() => setActiveTab("assets")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all ${activeTab === "assets" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "assets" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
           Assets ({twin.assets.length})
         </button>
         <button
           onClick={() => setActiveTab("liabilities")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all ${activeTab === "liabilities" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "liabilities" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          Liabilities ({twin.liabilities.length})
+          Debts ({twin.liabilities.length})
         </button>
       </div>
 

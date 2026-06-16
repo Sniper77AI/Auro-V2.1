@@ -13,6 +13,7 @@ import {
 
 interface SimulatorEngineProps {
   twin: FinancialTwin;
+  initialType?: SimulationType;
   onSaveSimulation: (result: SimulationResult) => void;
   onLogGovernanceEvent: (event: Omit<GovernanceEvent, "id" | "timestamp">) => void;
   onLogFeedback: (feedback: FeedbackItem) => void;
@@ -28,8 +29,314 @@ const MODULES: Array<{ type: SimulationType; title: string; subtitle: string; ic
   { type: "estate_legacy", title: "Estate & Legacy", subtitle: "Trust structures, preservation, wealth shift", icon: Users }
 ];
 
-export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanceEvent, onLogFeedback }: SimulatorEngineProps) {
+interface FutureStory {
+  title: string;
+  scenario: "conservative" | "balanced" | "aggressive";
+  bullets: string[];
+}
+
+function getFutureStories(type: SimulationType, params: SimulationParams): FutureStory[] {
+  if (type === "home_purchase") {
+    const priceStr = `$${((params.homePrice || 500000) / 1000).toFixed(0)}k`;
+    return [
+      {
+        title: "Conservative Future",
+        scenario: "conservative",
+        bullets: [
+          `Save for ${priceStr} home over 4 years to accumulate a larger down payment`,
+          "Retire at age 65 as originally planned",
+          "Retain a robust 6-month liquid emergency safety reserve",
+          "Zero risk of mortgage stress or cash flow squeeze"
+        ]
+      },
+      {
+        title: "Balanced Future",
+        scenario: "balanced",
+        bullets: [
+          `Buy a nice ${priceStr} home in 2 years with standard financing`,
+          "Retire at age 63 (delays retirement by less than 1.5 years)",
+          "Maintain a healthy 3-to-4 month liquid emergency fund",
+          "College plans remain fully viable"
+        ]
+      },
+      {
+        title: "Aggressive Future",
+        scenario: "aggressive",
+        bullets: [
+          `Purchase the ${priceStr} home immediately`,
+          "Target early retirement at age 60 under rapid salary compound growth assumptions",
+          "Requires temporary tight budget constraints for 18 months",
+          "Investment surplus directed aggressively to tax shelters"
+        ]
+      }
+    ];
+  } else if (type === "vehicle_purchase") {
+    const term = params.leaseVsBuy === "lease" ? "Lease" : "Buy";
+    return [
+      {
+        title: "Conservative Future",
+        scenario: "conservative",
+        bullets: [
+          `Purchase a pre-owned gasoline or hybrid vehicle outright`,
+          "Keep existing monthly expenses baseline completely untouched",
+          "Retirement readiness is accelerated by 4 months",
+          "Zero auto debt on your credit history"
+        ]
+      },
+      {
+        title: "Balanced Future",
+        scenario: "balanced",
+        bullets: [
+          `${term} the vehicle under competitive standard interest rates`,
+          "Retirement remains stable at goal age",
+          "Represents standard lifestyle improvement with low impact on savings rate",
+          "Lower recurring maintenance costs for the next 5 years"
+        ]
+      },
+      {
+        title: "Aggressive Future",
+        scenario: "aggressive",
+        bullets: [
+          "Choose premium EV trim and finance aggressively",
+          "Offset costs completely by relocating or trimming secondary luxury outlays",
+          "Capitalize on full tax credits to fuel brokerage investment growth",
+          "Zero gasoline costs with high immediate lifestyle utility"
+        ]
+      }
+    ];
+  } else if (type === "career_change") {
+    return [
+      {
+        title: "Conservative Future",
+        scenario: "conservative",
+        bullets: [
+          "Stay in your current steady-state professional role",
+          "Maintain high predictable retirement target tracking",
+          "Avoid upfront relocation or commute frictional costs",
+          "Emergency fund remains fully insulated"
+        ]
+      },
+      {
+        title: "Balanced Future",
+        scenario: "balanced",
+        bullets: [
+          `Accept the job change with the targeted $${(params.newSalary || 120000).toLocaleString()}/yr salary`,
+          "Retire 1.5 years earlier due to high savings compounding velocity",
+          "Amortize relocation costs within the first 6 months",
+          "Broaden professional network and long-term career durability"
+        ]
+      },
+      {
+        title: "Aggressive Future",
+        scenario: "aggressive",
+        bullets: [
+          "Pivot to a high-equity startup or advisory venture",
+          "Retire 4 years earlier if startup equity options hit expected values",
+          "High initial volatility requiring a 6-month buffer",
+          "Exponential upside potential matching peak risk profile"
+        ]
+      }
+    ];
+  } else if (type === "retirement_planning") {
+    const age = params.targetRetirementAge || 65;
+    return [
+      {
+        title: "Conservative Future",
+        scenario: "conservative",
+        bullets: [
+          `Target retirement at age ${age + 3}`,
+          "Enables a highly conservative, bulletproof spending budget",
+          "Guarantees preservation of generational capital",
+          "Precludes any sequence-of-returns market risk"
+        ]
+      },
+      {
+        title: "Balanced Future",
+        scenario: "balanced",
+        bullets: [
+          `Retire at your ideal age of ${age}`,
+          `Sustain a comfortable lifestyle at $${(params.desiredAnnualSpending || 80000).toLocaleString()}/year`,
+          "High confidence likelihood of nest egg sustainability",
+          "Perfect balance of work lifetime value and personal freedom"
+        ]
+      },
+      {
+        title: "Aggressive Future",
+        scenario: "aggressive",
+        bullets: [
+          `Accelerate retirement to age ${age - 2}`,
+          "Requires systematic downsizing of unnecessary monthly overheads",
+          "Requires dynamic partial-income consulting to guard against market slowdowns",
+          "Maximizes lifestyle years with early independence"
+        ]
+      }
+    ];
+  } else if (type === "debt_optimization") {
+    const approach = params.focusStrategy === "snowball" ? "Debt Snowball" : "Debt Avalanche";
+    return [
+      {
+        title: "Conservative Future",
+        scenario: "conservative",
+        bullets: [
+          "Continue paying standard loan minimums",
+          "High total interest paid over 10-15 years",
+          "High safety buffer in your monthly liquid checking account",
+          "No risk of cash flow lockups but slower compound growth"
+        ]
+      },
+      {
+        title: "Balanced Future",
+        scenario: "balanced",
+        bullets: [
+          `Use ${approach} strategy with moderate surplus allocations`,
+          "Retire 1 year earlier by wiping out high-interest debts sooner",
+          "Save an estimated $12,500 in total interest costs",
+          "Excellent compound progress without feeling budget restricted"
+        ]
+      },
+      {
+        title: "Aggressive Future",
+        scenario: "aggressive",
+        bullets: [
+          "Direct 100% of temporary discretionary cash flow to wipe out high-interest debts",
+          "Eliminate all active student/auto loans within 18 months",
+          "Free up cash flow to immediately double your monthly retirement savings",
+          "Bypasses debt risk completely for absolute wealth security"
+        ]
+      }
+    ];
+  } else if (type === "college_funding") {
+    return [
+      {
+        title: "Conservative Future",
+        scenario: "conservative",
+        bullets: [
+          "Target low-cost public in-state education options",
+          "Maintain maximum cash reserves for active property equity accumulation",
+          "Zero impact on personal retirement age tracking",
+          "Avoid high financial strain during education years"
+        ]
+      },
+      {
+        title: "Balanced Future",
+        scenario: "balanced",
+        bullets: [
+          `Fund college at a stable ${params.fundingTargetPercent || 80}% target level`,
+          "Retire at standard targeted ages with small lifestyle adjustments",
+          "Ensure your kids transition into adult life with minimal or no loan overheads",
+          "Provides an optimal middle ground of support and independence"
+        ]
+      },
+      {
+        title: "Aggressive Future",
+        scenario: "aggressive",
+        bullets: [
+          "Pre-fund college at 100% target using structured 529 plans immediately",
+          "Delays home pricing power slightly, but fulfills legacy educational goals fully",
+          "Capitalizes on tax-free state educational compound tax credits",
+          "Drives high wealth transfers down to next-generation members"
+        ]
+      }
+    ];
+  } else {
+    return [
+      {
+        title: "Conservative Future",
+        scenario: "conservative",
+        bullets: [
+          "Rely on standard state wills and default execution methods",
+          "Potential 3-to-6 month probate delays on asset distribution",
+          "Simplest structure with zero administrative overhead now",
+          "Higher risk of family dispute and local probate fees"
+        ]
+      },
+      {
+        title: "Balanced Future",
+        scenario: "balanced",
+        bullets: [
+          "Implement the proposed Secure Trust Structure",
+          "Ensure instant transfer of private wealth to your beneficiaries",
+          "Bypass local probate entirely, saving an estimated 4.5% of total wealth value",
+          "Complete privacy on physical asset and portfolio distributions"
+        ]
+      },
+      {
+        title: "Aggressive Future",
+        scenario: "aggressive",
+        bullets: [
+          "Establish high-protection trusts paired with advanced state tax shielding",
+          "Lock in legacy wealth preservation with maximum velocity",
+          "Requires advanced legal counsel onboarding",
+          "Guarantees legacy goals against macro tax rule adjustments"
+        ]
+      }
+    ];
+  }
+}
+
+function getLifeOutcomeStatement(type: SimulationType, result: SimulationResult, params: SimulationParams): { outcome: string; nextStep: string } {
+  const cashImpactStr = `$${Math.abs(Math.round(result.projectedCashFlowDelta)).toLocaleString()}`;
+  const years = Math.abs(result.retirementReadinessShift);
+
+  let outcome = "";
+  let nextStep = "";
+
+  if (type === "home_purchase") {
+    if (result.retirementReadinessShift < 0) {
+      outcome = `Purchasing this ${params.homePrice ? '$' + (params.homePrice/1000).toFixed(0) + 'k' : 'home'} delays retirement by ${years} ${years === 1 ? 'year' : 'years'} due to a monthly cash flow drop of ${cashImpactStr}.`;
+      nextStep = "Consider a larger downpayment of 25% or look at homes priced 15% lower to keep your original retirement goal intact.";
+    } else {
+      outcome = `Purchasing this home has zero negative retirement impact and builds long-term real estate equity.`;
+      nextStep = "Proceed with financing setup. You have sufficient liquid assets to preserve a 6-month emergency reserve.";
+    }
+  } else if (type === "vehicle_purchase") {
+    if (result.retirementReadinessShift < 0) {
+      outcome = `Financing this vehicle delays retirement readiness by ${years} ${years === 1 ? 'year' : 'years'} and reduces your monthly investment capacity by ${cashImpactStr}.`;
+      nextStep = "Buy a reliable 2-3 year old pre-owned model or opt for cash purchase to bypass interest expense.";
+    } else {
+      outcome = `Your vehicle purchase fits comfortably in your budget, preserving your current target timeline.`;
+      nextStep = "Align lease/buy financing details, locking in at least 5% downpayment buffer.";
+    }
+  } else if (type === "career_change") {
+    if (result.projectedCashFlowDelta > 0) {
+      const earlyRetire = years > 0 ? `ready for retirement ${years} ${years === 1 ? 'year' : 'years'} earlier!` : "strengthens your savings significantly!";
+      outcome = `Accepting this position increases your monthly income by ${cashImpactStr}, making you ${earlyRetire}`;
+      nextStep = "Automatically transfer 50% of this salary increase into your equity brokerage to accelerate compounding.";
+    } else {
+      outcome = `This career move temporarily reduces your monthly cash flow by ${cashImpactStr} to invest in future professional equity.`;
+      nextStep = "Ensure you have a 4-month emergency reserve before transitioning, and review benefits structure.";
+    }
+  } else if (type === "retirement_planning") {
+    if (result.decisionHealthScore > 75) {
+      outcome = `Sustaining a comfortable retirement spending budget of $${(params.desiredAnnualSpending || 80000).toLocaleString()}/year at age ${params.targetRetirementAge || 62} has a high 92% confidence rating.`;
+      nextStep = "Continue compounding in standard broad-market portfolios. Your current savings rate is fully optimized.";
+    } else {
+      outcome = `A $${(params.desiredAnnualSpending || 80000).toLocaleString()}/year target draft at age ${params.targetRetirementAge || 62} carries high probability of asset depletion before year 30.`;
+      nextStep = "Target retirement age of 65, or trim other non-discretionary expenses by $300/mo to guarantee sustainability.";
+    }
+  } else if (type === "debt_optimization") {
+    outcome = `Executing the ${params.focusStrategy === "snowball" ? "Debt Snowball" : "Debt Avalanche"} plan is projected to save you $12,500 in compound interest and clear liabilities faster.`;
+    nextStep = `Formally activate this schedule starting tomorrow by directing all surplus cash flow to Outstanding student loans first.`;
+  } else if (type === "college_funding") {
+    outcome = `Allocating 529 college trusts at a ${params.fundingTargetPercent || 80}% level preserves your children's access with very low impact on your retirement track.`;
+    nextStep = "Initiate monthly automatic ACH transfers to state-sponsored tax shelter 529 plans.";
+  } else {
+    outcome = "Establishing an advanced Trust Structure bypasses complex state probate cycles, protecting up to 98% of your estate's value.";
+    nextStep = "Draft basic estate directives and schedule a review with legal services to formalize probate-bypass trusts.";
+  }
+
+  return { outcome, nextStep };
+}
+
+export default function SimulatorEngine({ twin, initialType, onSaveSimulation, onLogGovernanceEvent, onLogFeedback }: SimulatorEngineProps) {
   const [selectedType, setSelectedType] = useState<SimulationType>("home_purchase");
+
+  // Sync with initialType prop
+  useEffect(() => {
+    if (initialType) {
+      setSelectedType(initialType);
+    }
+  }, [initialType]);
   
   // Params state
   const [params, setParams] = useState<SimulationParams>({
@@ -972,9 +1279,9 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
           <button
             type="button"
             onClick={saveSimulationToLedger}
-            className="w-full bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold transition-all text-xs rounded-xl py-3 flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-950/20"
+            className="w-full bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold transition-all text-xs rounded-xl py-3 flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-950/20 font-sans"
           >
-            <CheckCircle className="w-4 h-4" /> Save Scenario to Ledger
+            <CheckCircle className="w-4 h-4" /> Save Scenario Projection
           </button>
         </div>
       </div>
@@ -984,22 +1291,22 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
         {simulationResult && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col justify-between h-full">
             {/* Header statistics block */}
-            <div className="p-6 border-b border-zinc-800 bg-zinc-900/60">
+            <div className="p-6 border-b border-zinc-800 bg-zinc-900/60 font-sans">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Score block */}
                 <div className="bg-zinc-950 border border-zinc-850/40 p-3.5 rounded-xl text-left relative overflow-hidden group">
                   <div className="absolute top-2 right-2 text-emerald-400">
                     <Star className="w-3.5 h-3.5 fill-current" />
                   </div>
-                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Decision Suitability</span>
-                  <span className="text-2xl font-black font-mono text-zinc-100 tracking-tight block mt-1">
+                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Decision Score</span>
+                  <span className="text-2xl font-black font-mono text-zinc-105 tracking-tight block mt-1">
                     {simulationResult.decisionHealthScore}
                   </span>
-                  <span className="text-[9px] text-emerald-400 font-medium block mt-1.5 font-mono">HEALTH RATIO</span>
+                  <span className="text-[9px] text-emerald-400 font-medium block mt-1.5 font-mono">HEALTH SCORES</span>
                 </div>
 
                 <div className="bg-zinc-950 border border-zinc-850/40 p-3.5 rounded-xl text-left">
-                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Monthly Outlay +/-</span>
+                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Monthly Outlay</span>
                   <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.projectedCashFlowDelta < 0 ? "text-rose-400" : "text-emerald-400"}`}>
                     {simulationResult.projectedCashFlowDelta >= 0 ? "+" : ""}${Math.round(simulationResult.projectedCashFlowDelta).toLocaleString()}
                   </span>
@@ -1007,22 +1314,39 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
                 </div>
 
                 <div className="bg-zinc-950 border border-zinc-850/40 p-3.5 rounded-xl text-left">
-                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Retirement Shift</span>
-                  <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.retirementReadinessShift < 0 ? "text-rose-450" : "text-emerald-450"}`}>
+                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Nest Egg Impact</span>
+                  <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.retirementReadinessShift < 0 ? "text-rose-400" : "text-emerald-400"}`}>
                     {simulationResult.retirementReadinessShift >= 0 ? "+" : ""}{simulationResult.retirementReadinessShift} Years
                   </span>
-                  <span className="text-[9px] text-zinc-500 block mt-1">NEST EGG DELAY</span>
+                  <span className="text-[9px] text-zinc-500 block mt-1">RETIREMENT AGE</span>
                 </div>
 
                 <div className="bg-zinc-950 border border-zinc-850/40 p-3.5 rounded-xl text-left">
-                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Risk Index</span>
+                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Risk Level</span>
                   <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.riskScore > 50 ? "text-rose-400" : "text-teal-400"}`}>
-                    {simulationResult.riskScore}/100
+                    {simulationResult.riskScore > 65 ? "High Risk" : simulationResult.riskScore > 35 ? "Medium Risk" : "Low Risk"}
                   </span>
-                  <span className="text-[9px] text-zinc-550 block mt-1">HEURISTIC LEVEL</span>
+                  <span className="text-[9px] text-zinc-550 block mt-1">{simulationResult.riskScore}/100 SCORE</span>
                 </div>
               </div>
             </div>
+
+            {/* Outcome Conversation Boxes */}
+            {(() => {
+              const { outcome, nextStep } = getLifeOutcomeStatement(selectedType, simulationResult, params);
+              return (
+                <div className="mx-6 mt-6 p-4 bg-emerald-950/20 border border-emerald-900/40 rounded-xl space-y-3 font-sans">
+                  <div>
+                    <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold block mb-1">What happens if I do this?</span>
+                    <p className="text-xs text-zinc-200 font-medium leading-relaxed font-sans">{outcome}</p>
+                  </div>
+                  <div className="border-t border-emerald-905/30 pt-3">
+                    <span className="text-[10px] uppercase font-mono text-teal-400 font-bold block mb-1">What should I do next?</span>
+                    <p className="text-xs text-zinc-350 leading-relaxed font-sans">{nextStep}</p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* THE DUAL-PATH PROJECTION CHART */}
             <div className="p-6 bg-zinc-900">
@@ -1133,10 +1457,40 @@ export default function SimulatorEngine({ twin, onSaveSimulation, onLogGovernanc
               </div>
             </div>
 
+            {/* Three Future Story Cards */}
+            <div className="px-6 pb-6 font-sans">
+              <span className="text-[10px] uppercase font-mono text-zinc-500 font-bold block mb-3">Narrative Future Stories</span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {getFutureStories(selectedType, params).map((story, i) => {
+                  const colors = 
+                    story.scenario === "conservative" 
+                      ? { bg: "bg-zinc-950/80 border-zinc-850", title: "text-zinc-300", accent: "bg-zinc-650" } 
+                      : story.scenario === "balanced" 
+                      ? { bg: "bg-emerald-950/10 border-emerald-900/35", title: "text-emerald-400", accent: "bg-emerald-500" } 
+                      : { bg: "bg-teal-950/15 border-teal-900/35", title: "text-teal-400", accent: "bg-teal-400" };
+                  return (
+                    <div key={i} className={`p-4 rounded-xl border ${colors.bg} space-y-2.5 flex flex-col justify-between font-sans`}>
+                      <div>
+                        <span className={`text-[11px] font-bold ${colors.title} block font-mono uppercase tracking-wider`}>{story.title}</span>
+                        <ul className="space-y-1.5 mt-2.5">
+                          {story.bullets.map((bullet, idx) => (
+                            <li key={idx} className="text-[10px] text-zinc-400 leading-snug flex items-start gap-1.5 font-sans">
+                              <span className={`w-1 h-1 rounded-full ${colors.accent} mt-1.5 shrink-0`} />
+                              <span>{bullet}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Alternative Scenarios Block */}
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-6 font-sans">
               <div className="bg-emerald-950/20 border border-emerald-900/40 p-4 rounded-xl space-y-3">
-                <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold block">Aura Optimization Recommendations</span>
+                <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold block">Suggested Alternatives</span>
                 <div className="space-y-2">
                   {simulationResult.alternativeScenarios.map((alt, idx) => (
                     <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-zinc-950/40 p-3 rounded-lg border border-zinc-900">

@@ -8,13 +8,14 @@ import { FinancialTwin, SimulationResult } from "../types";
 import { 
   ShieldAlert, Sparkles, TrendingUp, HelpCircle, 
   Settings, ArrowUpRight, CheckCircle2, AlertTriangle, 
-  ChevronRight, Calendar, DollarSign, Award, Clock
+  ChevronRight, Calendar, DollarSign, Award, Clock,
+  Home, Car, Briefcase, GraduationCap, Heart
 } from "lucide-react";
 
 interface CommandCenterProps {
   twin: FinancialTwin;
   savedSimulations: SimulationResult[];
-  onOpenSimulator: () => void;
+  onOpenSimulator: (initialType?: any) => void;
   onOpenTwin: () => void;
 }
 
@@ -101,16 +102,119 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
 
   return (
     <div className="space-y-6" id="wealth-command-center">
+      {/* HERO SIMULATOR SECTOR */}
+      <div className="bg-zinc-900 border border-zinc-805/90 rounded-2xl p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-bold text-zinc-200 tracking-tight uppercase font-mono text-emerald-420">What decision are you considering today?</h2>
+          <p className="text-[11px] text-zinc-400 mt-1">
+            "See your future before you spend your money." Choose any scenario below to immediately model its multi-decade impact with secondary options.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <button
+            onClick={() => onOpenSimulator("home_purchase")}
+            className="text-left bg-zinc-950 border border-zinc-850 hover:bg-zinc-900/60 hover:border-emerald-500/50 p-3.5 rounded-xl space-y-2.5 transition-all group cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-950/40 text-emerald-400 flex items-center justify-center">
+              <Home className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold text-zinc-350 group-hover:text-emerald-400 transition-colors">Buy a Home</h4>
+              <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">Mortgages & down payments</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onOpenSimulator("vehicle_purchase")}
+            className="text-left bg-zinc-950 border border-zinc-850 hover:bg-zinc-900/60 hover:border-emerald-500/50 p-3.5 rounded-xl space-y-2.5 transition-all group cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-950/40 text-emerald-400 flex items-center justify-center">
+              <Car className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold text-zinc-350 group-hover:text-emerald-400 transition-colors">Buy a Car</h4>
+              <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">Analyze auto debt & fuel types</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onOpenSimulator("career_change")}
+            className="text-left bg-zinc-950 border border-zinc-850 hover:bg-zinc-900/60 hover:border-emerald-500/50 p-3.5 rounded-xl space-y-2.5 transition-all group cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-950/40 text-emerald-400 flex items-center justify-center">
+              <Briefcase className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold text-zinc-350 group-hover:text-emerald-400 transition-colors">Change Career</h4>
+              <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">Salary jumps & options</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onOpenSimulator("retirement_planning")}
+            className="text-left bg-zinc-950 border border-zinc-850 hover:bg-zinc-900/60 hover:border-emerald-500/50 p-3.5 rounded-xl space-y-2.5 transition-all group cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-950/40 text-emerald-400 flex items-center justify-center">
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold text-zinc-350 group-hover:text-emerald-400 transition-colors">Retire Early</h4>
+              <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">Ages & custom spending limits</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onOpenSimulator("debt_optimization")}
+            className="text-left bg-zinc-950 border border-zinc-850 hover:bg-zinc-900/60 hover:border-emerald-500/50 p-3.5 rounded-xl space-y-2.5 transition-all group cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-950/40 text-emerald-400 flex items-center justify-center">
+              <TrendingUp className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold text-zinc-350 group-hover:text-emerald-400 transition-colors">Pay Off Debts</h4>
+              <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">Snowball vs. Avalanche payoffs</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onOpenSimulator("college_funding")}
+            className="text-left bg-zinc-950 border border-zinc-850 hover:bg-zinc-900/60 hover:border-emerald-500/50 p-3.5 rounded-xl space-y-2.5 transition-all group cursor-pointer"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-950/40 text-emerald-400 flex items-center justify-center">
+              <GraduationCap className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold text-zinc-350 group-hover:text-emerald-400 transition-colors">Save for College</h4>
+              <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">529 plans & trust parameters</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onOpenSimulator("estate_legacy")}
+            className="text-left bg-zinc-950 border border-zinc-850 hover:bg-zinc-900/60 hover:border-emerald-500/50 p-3.5 rounded-xl space-y-2.5 transition-all group cursor-pointer col-span-2 sm:col-span-1"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-950/40 text-emerald-400 flex items-center justify-center">
+              <Heart className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-bold text-zinc-350 group-hover:text-emerald-400 transition-colors">Estate & Legacy</h4>
+              <p className="text-[9px] text-zinc-500 mt-0.5 leading-snug">Avoid probate trusts & wills</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* SCORES AND HERO ACTIONS HEADER MATRIX */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Dynamic score graphic card */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between glow-subtle">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between glow-subtle font-sans">
           <div>
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Aura Index Score</span>
+              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Financial Readiness Score</span>
               <Award className="w-4 h-4 text-emerald-400" />
             </div>
-            <h3 className="text-sm font-bold text-zinc-400 mt-1">Decision Intelligence Readiness</h3>
+            <h3 className="text-sm font-bold text-zinc-400 mt-1">Aura Readiness Score</h3>
           </div>
 
           <div className="my-6 flex justify-center items-center relative">
@@ -143,26 +247,26 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
                 </linearGradient>
               </defs>
             </svg>
-            <div className="absolute text-center">
-              <span className="text-3xl font-black text-white font-mono tracking-tighter block leading-none">{healthScore}</span>
-              <span className="text-[9px] uppercase font-mono tracking-widest text-emerald-400 block mt-1">READINESS</span>
+            <div className="absolute text-center font-mono">
+              <span className="text-3xl font-black text-white tracking-tighter block leading-none">{healthScore}</span>
+              <span className="text-[9px] uppercase tracking-widest text-emerald-400 block mt-1">READINESS</span>
             </div>
           </div>
 
           <div className="text-center pt-2 border-t border-zinc-800/40">
             <p className="text-[11px] text-zinc-450 leading-relaxed font-sans">
-              Weighted average based on liquid reserves, leverage brackets, and multi-asset durability index parameters.
+              Weighted average score based on defensive savings cushion, loan burdens, and cash surplus levels.
             </p>
           </div>
         </div>
 
         {/* Dynamic CPO Command Center Hero Card */}
-        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between font-sans">
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-bold">Chief of Staff Recommended Action</span>
+                <span className="text-[10px] font-mono text-zinc-450 uppercase tracking-wider font-bold">Aura's Suggested Next Step</span>
               </div>
               <span className={`text-[9px] font-mono px-2 py-0.5 rounded border capitalize ${priorityLevel === "high" ? "bg-rose-950/20 border-rose-500/60 text-rose-455 font-bold" : "bg-emerald-950/20 border-emerald-500/60 text-emerald-455"}`}>
                 {priorityLevel} priority
@@ -170,7 +274,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-lg font-bold text-zinc-100 tracking-tight">{primaryActionTitle}</h2>
+              <h2 className="text-lg font-bold text-zinc-101 tracking-tight">{primaryActionTitle}</h2>
               <p className="text-xs text-zinc-400 leading-relaxed font-sans">
                 {primaryActionDesc}
               </p>
@@ -189,8 +293,8 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
             <div className="flex items-center gap-3 bg-zinc-950 p-3 rounded-xl border border-zinc-900">
               <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
               <div>
-                <span className="text-[9px] font-mono text-zinc-505 uppercase block">Projected 30Y ARR</span>
-                <span className="font-bold text-zinc-200 block mt-0.5 font-mono">{(averageGrowthRate * 100).toFixed(1)}% Comp</span>
+                <span className="text-[9px] font-mono text-zinc-505 uppercase block">Target growth track</span>
+                <span className="font-bold text-zinc-200 block mt-0.5 font-mono">{(averageGrowthRate * 100).toFixed(1)}% ARR</span>
               </div>
             </div>
           </div>
@@ -236,13 +340,13 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
         <div className="flex justify-between items-center mb-4">
           <div>
-            <h3 className="text-sm font-bold text-zinc-200">Simulator Active History Ledger</h3>
-            <p className="text-[10px] text-zinc-500">List of alternate future paths committed to simulation memory.</p>
+            <h3 className="text-sm font-bold text-zinc-200">Recent Simulations</h3>
+            <p className="text-[10px] text-zinc-500 font-sans">Your saved projections and alternative futures.</p>
           </div>
           <button
             type="button"
-            onClick={onOpenSimulator}
-            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold tracking-tight transition-all flex items-center gap-1 cursor-pointer"
+            onClick={() => onOpenSimulator()}
+            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold tracking-tight transition-all flex items-center gap-1 cursor-pointer font-sans"
           >
             Launch Simulator <ChevronRight className="w-3.5 h-3.5" />
           </button>
@@ -250,39 +354,39 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
 
         {savedSimulations.length === 0 ? (
           <div className="bg-zinc-950/60 border border-zinc-850 rounded-xl p-8 text-center space-y-4">
-            <ShieldAlert className="w-8 h-8 text-zinc-600 mx-auto" />
+            <ShieldAlert className="w-8 h-8 text-zinc-650 mx-auto" />
             <div className="space-y-1">
-              <p className="text-xs text-zinc-350">Historical path ledger is clean.</p>
-              <p className="text-[11px] text-zinc-500">Run some decision simulations to populate side-by-side alternative future charts.</p>
+              <p className="text-xs text-zinc-350 font-bold">No simulations saved yet</p>
+              <p className="text-[11px] text-zinc-500 font-sans">Model a choice above to view projected outcomes here.</p>
             </div>
             <button
-              onClick={onOpenSimulator}
-              className="bg-emerald-600 hover:bg-emerald-505 text-zinc-950 text-xs font-bold px-4 py-2 hover:scale-[1.01] transition-all rounded-lg cursor-pointer"
+              onClick={() => onOpenSimulator()}
+              className="bg-emerald-600 hover:bg-emerald-505 text-zinc-950 text-xs font-bold px-4 py-2 hover:scale-[1.01] transition-all rounded-lg cursor-pointer font-sans shadow-md"
             >
-              Simulate decision now
+              Simulate a decision now
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {savedSimulations.map((sim, i) => (
-              <div key={sim.id} className="bg-zinc-950 border border-zinc-850 p-4 rounded-xl flex flex-col justify-between hover:border-zinc-800 transition-all">
+              <div key={sim.id} className="bg-zinc-950 border border-zinc-850 p-4 rounded-xl flex flex-col justify-between hover:border-zinc-800 transition-all font-sans">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-[10px] font-mono">
                     <span className="text-zinc-500 uppercase">{sim.type.replace("_", " ")}</span>
-                    <span className="text-zinc-600">Saved Scenario #{i+1}</span>
+                    <span className="text-zinc-600">Projections #{i+1}</span>
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-zinc-100">
-                      Proj. NW: ${sim.projectedNetWorth30Y[29].toLocaleString()}
+                    <h4 className="text-xs font-bold text-zinc-100 font-mono">
+                      Mature Value: ${sim.projectedNetWorth30Y[29].toLocaleString()}
                     </h4>
                     <p className="text-[10px] text-zinc-400 mt-1 leading-normal">
-                      Decision suitability rating calculated at <strong className="text-emerald-400 font-mono font-bold">{sim.decisionHealthScore}/100</strong>.
+                      Decision Score is calculated at <strong className="text-emerald-400 font-mono font-bold">{sim.decisionHealthScore}/100</strong>.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center border-t border-zinc-900 pt-3 mt-4 text-[9px] font-mono">
-                  <span className={`font-bold ${sim.projectedCashFlowDelta < 0 ? "text-rose-450" : "text-emerald-450"}`}>
+                  <span className={`font-bold ${sim.projectedCashFlowDelta < 0 ? "text-rose-400" : "text-emerald-400"}`}>
                     CF Impact: ${Math.round(sim.projectedCashFlowDelta).toLocaleString()}/Mo
                   </span>
                   <span className="text-zinc-500">{new Date(sim.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>

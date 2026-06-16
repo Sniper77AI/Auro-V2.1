@@ -57,6 +57,7 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
 export default function App() {
   const [userRole, setUserRole] = useState<"customer" | "admin">("customer");
   const [activeMenu, setActiveMenu] = useState<"command" | "twin" | "simulator" | "goals" | "settings" | "governance" | "feedback">("command");
+  const [activeScenarioType, setActiveScenarioType] = useState<any>(undefined);
   
   // Real active state trackers
   const [twin, setTwin] = useState<FinancialTwin>(INITIAL_TWIN);
@@ -197,7 +198,7 @@ export default function App() {
                 }`}
               >
                 <Wallet className="w-4 h-4 text-emerald-450 shrink-0" />
-                <span>Digital Financial Twin</span>
+                <span>My Financial Profile</span>
               </button>
 
               <button
@@ -209,7 +210,7 @@ export default function App() {
                 }`}
               >
                 <Sparkles className="w-4 h-4 text-emerald-410 shrink-0" />
-                <span>Life Scenario Simulator</span>
+                <span>Life Simulator</span>
                 {savedSimulations.length > 0 && (
                   <span className="text-[9px] text-emerald-400 font-bold ml-auto bg-emerald-950 px-1.5 rounded font-mono">
                     {savedSimulations.length}
@@ -226,7 +227,7 @@ export default function App() {
                 }`}
               >
                 <Target className="w-4 h-4 text-teal-400 shrink-0" />
-                <span>Goals Master Matrix</span>
+                <span>Goals</span>
               </button>
 
               <button
@@ -238,7 +239,7 @@ export default function App() {
                 }`}
               >
                 <Settings className="w-4 h-4 text-emerald-405 shrink-0" />
-                <span>Platform Settings</span>
+                <span>Settings</span>
               </button>
 
               {/* SYSTEM ADMINISTRATIVE SECTOR (Visible ONLY under admin role) */}
@@ -318,18 +319,18 @@ export default function App() {
       {/* 2. MAIN CENTER BODY SCROLL */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-zinc-950/20">
         
-        {/* UPPER STATUS BAR (Tactical system telemetry) */}
+        {/* UPPER STATUS BAR */}
         <header className="h-16 border-b border-zinc-805 px-8 flex justify-between items-center bg-zinc-900 shrink-0 bg-zinc-900/40 backdrop-blur-md font-sans">
           <div className="flex items-center gap-4 text-xs">
             <span className="text-zinc-500 font-medium">Active Zone:</span>
             <div className="flex items-center gap-1.5 bg-zinc-950 px-2.5 py-1.5 rounded-md border border-zinc-850 text-zinc-350 font-mono text-[11px]">
               <MapPin className="w-3 h-3 text-emerald-400" />
-              <span>CA (US Phase 1)</span>
+              <span>CA</span>
             </div>
 
             <div className="flex items-center gap-1.5 bg-zinc-950 px-2.5 py-1.5 rounded-md border border-zinc-850 text-zinc-350 font-mono text-[11px]">
               <Coins className="w-3.5 h-3.5 text-teal-400" />
-              <span>Compound Coeff ARR: {(twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span>
+              <span>Long-Term Growth Assumption: {(twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span>
             </div>
           </div>
 
@@ -340,27 +341,25 @@ export default function App() {
                 ${netWorth.toLocaleString()}
               </span>
             </div>
-            
-            <div className="h-6 w-[1px] bg-zinc-800" />
-
-            <div className="text-right">
-              <span className="text-[10px] text-zinc-550 block leading-none font-mono">Ledger Node Count</span>
-              <span className="text-xs font-bold text-teal-400 block mt-1 text-center">
-                {twin.incomes.length + twin.assets.length + twin.liabilities.length} Nodes
-              </span>
-            </div>
           </div>
         </header>
 
         {/* WORKSPACE AREA CONTAINER */}
-        <div className="flex-1 overflow-y-auto p-8 bg-zinc-950/10">
+        <div className="flex-1 overflow-y-auto p-8 bg-zinc-950/10 font-sans">
           
           {/* Main dynamic dispatcher */}
           {activeMenu === "command" && (
             <CommandCenter 
               twin={twin} 
               savedSimulations={savedSimulations} 
-              onOpenSimulator={() => setActiveMenu("simulator")}
+              onOpenSimulator={(scenarioType) => {
+                if (scenarioType) {
+                  setActiveScenarioType(scenarioType);
+                } else {
+                  setActiveScenarioType(undefined);
+                }
+                setActiveMenu("simulator");
+              }}
               onOpenTwin={() => setActiveMenu("twin")}
             />
           )}
@@ -388,6 +387,7 @@ export default function App() {
           {activeMenu === "simulator" && (
             <SimulatorEngine 
               twin={twin} 
+              initialType={activeScenarioType}
               onSaveSimulation={handleSaveSimulation}
               onLogGovernanceEvent={handleLogGovernanceEvent}
               onLogFeedback={handleAddFeedback}
