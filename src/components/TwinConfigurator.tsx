@@ -26,7 +26,7 @@ const US_STATES = [
 ];
 
 export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorProps) {
-  const [activeTab, setActiveTab] = useState<"general" | "income" | "assets" | "liabilities">("general");
+  const [activeTab, setActiveTab ] = useState<"income" | "savings" | "debts" | "family" | "retirement" | "risk">("income");
 
   // Local state for adding entries easily
   const [newInc, setNewInc] = useState<Omit<IncomeSource, "id">>({
@@ -144,25 +144,25 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
       <div className="bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900 p-6 border-b border-zinc-800">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">My Financial Profile</span>
-            <h2 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">Calibrate Your Simulation Twin</h2>
-            <p className="text-xs text-zinc-405 mt-1 font-sans">Set up your income streams, savings, and debts to configure the simulation model.</p>
+            <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Aura Financial Profile</span>
+            <h2 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">Tell Aura about your financial life</h2>
+            <p className="text-xs text-zinc-405 mt-1 font-sans">Provide your profile details so Aura can personalize future scenarios and next steps for you.</p>
           </div>
           <div className="flex gap-4 self-stretch md:self-auto font-sans">
             <div className="bg-zinc-950/60 border border-zinc-805/80 p-3 rounded-lg text-left flex-1 md:flex-initial">
-              <span className="text-[10px] uppercase font-mono text-zinc-500 block">Total Net Worth</span>
+              <span className="text-[10px] uppercase font-mono text-zinc-500 block font-bold">Total Net Worth</span>
               <span className={`text-base font-bold font-mono tracking-tight block ${netWorth >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                 ${netWorth.toLocaleString()}
               </span>
             </div>
             <div className="bg-zinc-950/60 border border-zinc-805/80 p-3 rounded-lg text-left flex-1 md:flex-initial">
-              <span className="text-[10px] uppercase font-mono text-zinc-500 block">Annual Income</span>
+              <span className="text-[10px] uppercase font-mono text-zinc-500 block font-bold">Annual Income</span>
               <span className="text-base font-bold font-mono text-zinc-200 tracking-tight block">
                 ${totalAnnualIncome.toLocaleString()}
               </span>
             </div>
             <div className="bg-zinc-950/60 border border-zinc-805/80 p-3 rounded-lg text-left flex-1 md:flex-initial">
-              <span className="text-[10px] uppercase font-mono text-zinc-500 block">Debt - Income Ratio</span>
+              <span className="text-[10px] uppercase font-mono text-zinc-500 block font-bold">Debt-to-Income</span>
               <span className={`text-base font-bold font-mono tracking-tight block ${debtToIncomeRatio < 35 ? "text-teal-400" : debtToIncomeRatio < 45 ? "text-amber-400" : "text-rose-440"}`}>
                 {debtToIncomeRatio.toFixed(1)}%
               </span>
@@ -172,13 +172,7 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-zinc-800 bg-zinc-900/60 text-xs px-2 pt-2 font-sans">
-        <button
-          onClick={() => setActiveTab("general")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "general" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
-        >
-          General Settings
-        </button>
+      <div className="flex flex-wrap gap-1 border-b border-zinc-800 bg-zinc-900/60 text-xs px-4 pt-2 font-sans">
         <button
           onClick={() => setActiveTab("income")}
           className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "income" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
@@ -186,26 +180,44 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
           Income ({twin.incomes.length})
         </button>
         <button
-          onClick={() => setActiveTab("assets")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "assets" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          onClick={() => setActiveTab("savings")}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "savings" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          Assets ({twin.assets.length})
+          Savings & Investments ({twin.assets.length})
         </button>
         <button
-          onClick={() => setActiveTab("liabilities")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "liabilities" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          onClick={() => setActiveTab("debts")}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "debts" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
           Debts ({twin.liabilities.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("family")}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "family" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+        >
+          Family & Dependents
+        </button>
+        <button
+          onClick={() => setActiveTab("retirement")}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "retirement" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+        >
+          Retirement Goals
+        </button>
+        <button
+          onClick={() => setActiveTab("risk")}
+          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "risk" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+        >
+          Risk Preference
         </button>
       </div>
 
       {/* Content Form container */}
-      <div className="p-6">
-        {/* TAB 1: GENERAL */}
-        {activeTab === "general" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="p-6 text-zinc-200">
+        {/* TAB: FAMILY & DEPENDENTS */}
+        {activeTab === "family" && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-sans">
             <div>
-              <label className="text-zinc-400 text-xs font-mono block mb-1">CURRENT AGE</label>
+              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Your Current Age</label>
               <div className="flex items-center gap-4">
                 <input
                   type="range"
@@ -219,10 +231,45 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                   {twin.age}
                 </span>
               </div>
+              <span className="text-[10px] text-zinc-500 mt-1.5 block">Used to calculate your multi-decade timeline.</span>
             </div>
 
             <div>
-              <label className="text-zinc-400 text-xs font-mono block mb-1">TARGET RETIREMENT AGE</label>
+              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Where you live</label>
+              <select
+                value={twin.taxState}
+                onChange={(e) => handleUpdateGeneral("taxState", e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm font-sans text-zinc-200 focus:outline-none focus:border-emerald-500"
+              >
+                {US_STATES.map((st) => (
+                  <option key={st.code} value={st.code}>
+                    {st.name}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-zinc-500 mt-1.5 block">Used to automatically dynamic estimate state tax brackets.</span>
+            </div>
+
+            <div>
+              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Dependents & Family Size</label>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                value={twin.dependants}
+                onChange={(e) => handleUpdateGeneral("dependants", Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-emerald-500"
+              />
+              <span className="text-[10px] text-zinc-500 mt-1.5 block">Number of children or relatives you support.</span>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: RETIREMENT GOALS */}
+        {activeTab === "retirement" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+            <div>
+              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Target Retirement Age</label>
               <div className="flex items-center gap-4">
                 <input
                   type="range"
@@ -236,64 +283,51 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                   {twin.retirementAge}
                 </span>
               </div>
+              <span className="text-[10px] text-zinc-500 mt-1.5 block">Your ideal retirement age target.</span>
             </div>
 
             <div>
-              <label className="text-zinc-400 text-xs font-mono block mb-1">MONTHLY GENERAL EXPENSES ($)</label>
+              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Desired Spending in Retirement ($ / month)</label>
               <input
                 type="number"
                 value={twin.monthlyExpenses}
                 onChange={(e) => handleUpdateGeneral("monthlyExpenses", Math.max(0, parseFloat(e.target.value) || 0))}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-emerald-500"
               />
-              <span className="text-[10px] text-zinc-500 mt-1 block">Living costs, rent/utilities, lifestyle outlays.</span>
+              <span className="text-[10px] text-zinc-500 mt-1.5 block">Estimated monthly spending for living costs, travel, and personal hobbies.</span>
             </div>
+          </div>
+        )}
 
+        {/* TAB: RISK PREFERENCE */}
+        {activeTab === "risk" && (
+          <div className="space-y-4 font-sans">
             <div>
-              <label className="text-zinc-400 text-xs font-mono block mb-1">TAX RESIDENCY STATE (US Phase 1)</label>
-              <select
-                value={twin.taxState}
-                onChange={(e) => handleUpdateGeneral("taxState", e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm font-sans text-zinc-200 focus:outline-none focus:border-emerald-500"
-              >
-                {US_STATES.map((st) => (
-                  <option key={st.code} value={st.code}>
-                    {st.name}
-                  </option>
-                ))}
-              </select>
-              <span className="text-[10px] text-zinc-500 mt-1 block">Loads state-specific progressive income bracket maps.</span>
-            </div>
-
-            <div>
-              <label className="text-zinc-400 text-xs font-mono block mb-1">DEPENDANTS</label>
-              <input
-                type="number"
-                min="0"
-                max="10"
-                value={twin.dependants}
-                onChange={(e) => handleUpdateGeneral("dependants", Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-zinc-400 text-xs font-mono block mb-1">PLANNING RISK TOLERANCE</label>
-              <div className="grid grid-cols-3 gap-2">
-                {(["conservative", "moderate", "aggressive"] as const).map((lvl) => (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => handleUpdateGeneral("riskTolerance", lvl)}
-                    className={`p-2.5 rounded-lg border text-xs font-mono capitalize transition-all ${
-                      twin.riskTolerance === lvl
-                        ? "bg-emerald-950/40 border-emerald-500 text-emerald-400"
-                        : "bg-zinc-950 border-zinc-800 text-zinc-500 hover:text-zinc-300"
-                    }`}
-                  >
-                    {lvl}
-                  </button>
-                ))}
+              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">How comfortable are you with investment risk?</label>
+              <p className="text-[11px] text-zinc-500 mb-4 font-sans">Select a risk state that represents how you prefer to invest your savings and grow your retirement nest egg.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {(["conservative", "moderate", "aggressive"] as const).map((lvl) => {
+                  const labels = {
+                    conservative: { title: "Stable & Defensive", desc: "Focuses on capital preservation with lower, steady returns." },
+                    moderate: { title: "Balanced Growth", desc: "A blend of secure growth assets and moderate stock market compounding." },
+                    aggressive: { title: "Wealth Optimizer", desc: "Maximum growth with higher market equity allocations and compounding velocity." }
+                  };
+                  return (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => handleUpdateGeneral("riskTolerance", lvl)}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between h-28 ${
+                        twin.riskTolerance === lvl
+                          ? "bg-emerald-950/30 border-emerald-500 text-emerald-400"
+                          : "bg-zinc-950 border-zinc-800/80 text-zinc-450 hover:text-zinc-300 hover:border-zinc-700 font-sans"
+                      }`}
+                    >
+                      <span className="text-xs font-bold capitalize font-sans">{labels[lvl].title}</span>
+                      <span className="text-[10px] text-zinc-400 mt-2 font-sans normal-case leading-normal">{labels[lvl].desc}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -387,11 +421,11 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
           </div>
         )}
 
-        {/* TAB 3: ASSETS */}
-        {activeTab === "assets" && (
+        {/* TAB 3: SAVINGS & INVESTMENTS */}
+        {activeTab === "savings" && (
           <div className="space-y-6">
             <div className="bg-zinc-950 border border-zinc-800/80 rounded-xl p-4">
-              <span className="text-xs font-mono font-bold text-zinc-300 block mb-3">Add Custom Asset Balance</span>
+              <span className="text-xs font-mono font-bold text-zinc-300 block mb-3">Add Custom Savings or Investment Balance</span>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <input
                   type="text"
@@ -447,20 +481,20 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
 
             <div className="border border-zinc-800 rounded-xl overflow-hidden">
               <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-950 text-zinc-400 font-mono border-b border-zinc-800">
+                <thead className="bg-zinc-950 text-zinc-400 font-sans border-b border-zinc-800 text-[10px] uppercase font-bold tracking-wider">
                   <tr>
-                    <th className="p-3">Asset Ledger Node</th>
+                    <th className="p-3">Savings or Investment name</th>
                     <th className="p-3">Type</th>
-                    <th className="p-3 text-right">ARR %</th>
-                    <th className="p-3 text-right">Raw Balance</th>
+                    <th className="p-3 text-right">Annual growth %</th>
+                    <th className="p-3 text-right">Current balance</th>
                     <th className="p-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60">
                   {twin.assets.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-zinc-500 italic">
-                        No wealth assets mapped to the twin. Add one above.
+                      <td colSpan={5} className="p-4 text-center text-zinc-500 italic font-sans">
+                        No accounts added yet. Let Aura know your savings above.
                       </td>
                     </tr>
                   ) : (
@@ -490,11 +524,11 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
           </div>
         )}
 
-        {/* TAB 4: LIABILITIES */}
-        {activeTab === "liabilities" && (
+        {/* TAB 4: DEBTS */}
+        {activeTab === "debts" && (
           <div className="space-y-6">
             <div className="bg-zinc-950 border border-zinc-800/80 rounded-xl p-4">
-              <span className="text-xs font-mono font-bold text-zinc-300 block mb-3">Add Liability Ledger Item</span>
+              <span className="text-xs font-mono font-bold text-zinc-300 block mb-3">Add private debt or mortgage</span>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <input
                   type="text"
@@ -554,21 +588,21 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
 
             <div className="border border-zinc-800 rounded-xl overflow-hidden">
               <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-950 text-zinc-400 font-mono border-b border-zinc-800">
+                <thead className="bg-zinc-950 text-zinc-400 font-sans border-b border-zinc-800 text-[10px] uppercase font-bold tracking-wider">
                   <tr>
-                    <th className="p-3">Debt Liability Node</th>
+                    <th className="p-3">Debt or Account Name</th>
                     <th className="p-3">Type</th>
-                    <th className="p-3 text-right">Interest Rate</th>
-                    <th className="p-3 text-right">Monthly Outpay</th>
-                    <th className="p-3 text-right">Total Owed</th>
+                    <th className="p-3 text-right">Interest Rate %</th>
+                    <th className="p-3 text-right">Monthly Payment</th>
+                    <th className="p-3 text-right">Total Amount Owed</th>
                     <th className="p-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60">
                   {twin.liabilities.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-4 text-center text-zinc-500 italic">
-                        No financial liabilities mapped to the twin. Add one above.
+                      <td colSpan={6} className="p-4 text-center text-zinc-500 italic font-sans text-xs">
+                        No debts added yet. Tell Aura if you have any loans or credits.
                       </td>
                     </tr>
                   ) : (

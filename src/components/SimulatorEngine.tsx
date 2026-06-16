@@ -862,7 +862,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       timestamp: new Date().toISOString()
     });
 
-    setFeedbackSubmitted("Feedback submitted successfully. This evaluation has updated the model recalibration log.");
+    setFeedbackSubmitted("Feedback submitted successfully. Thank you for helping refine Aura's suggestions!");
     
     // Log governance audit trail
     onLogGovernanceEvent({
@@ -1331,7 +1331,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
               </div>
             </div>
 
-            {/* Outcome Conversation Boxes */}
+            {/* Outcome Conversation Boxes (Aura Recommendation) */}
             {(() => {
               const { outcome, nextStep } = getLifeOutcomeStatement(selectedType, simulationResult, params);
               return (
@@ -1348,8 +1348,38 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
               );
             })()}
 
+            {/* Three Future Story Cards */}
+            <div className="px-6 pt-6 font-sans">
+              <span className="text-[10px] uppercase font-mono text-zinc-500 font-bold block mb-3">Narrative Future Stories</span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {getFutureStories(selectedType, params).map((story, i) => {
+                  const colors = 
+                    story.scenario === "conservative" 
+                      ? { bg: "bg-zinc-950/80 border-zinc-850", title: "text-zinc-300", accent: "bg-zinc-650" } 
+                      : story.scenario === "balanced" 
+                      ? { bg: "bg-emerald-950/10 border-emerald-900/35", title: "text-emerald-400", accent: "bg-emerald-500" } 
+                      : { bg: "bg-teal-950/15 border-teal-900/35", title: "text-teal-400", accent: "bg-teal-400" };
+                  return (
+                    <div key={i} className={`p-4 rounded-xl border ${colors.bg} space-y-2.5 flex flex-col justify-between font-sans`}>
+                      <div>
+                        <span className={`text-[11px] font-bold ${colors.title} block font-mono uppercase tracking-wider`}>{story.title}</span>
+                        <ul className="space-y-1.5 mt-2.5">
+                          {story.bullets.map((bullet, idx) => (
+                            <li key={idx} className="text-[10px] text-zinc-400 leading-snug flex items-start gap-1.5 font-sans">
+                              <span className={`w-1 h-1 rounded-full ${colors.accent} mt-1.5 shrink-0`} />
+                              <span>{bullet}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* THE DUAL-PATH PROJECTION CHART */}
-            <div className="p-6 bg-zinc-900">
+            <div className="p-6 bg-zinc-900/40">
               <span className="text-[10px] font-mono text-zinc-500 uppercase block mb-3">Projected Net Worth Curves (30-Year Horizon)</span>
               
               {/* Complex SVG charting */}
@@ -1444,7 +1474,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </ul>
               </div>
 
-              <div className="bg-zinc-950 border border-zinc-850/45 p-4 rounded-xl">
+              <div className="bg-zinc-955 border border-zinc-850/45 p-4 rounded-xl">
                 <span className="text-[10px] uppercase font-mono text-zinc-500 font-bold block mb-1.5">Analysis Limitations</span>
                 <ul className="space-y-1.5 text-[11px] text-zinc-350">
                   {simulationResult.limitations.map((lim, i) => (
@@ -1454,36 +1484,6 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     </li>
                   ))}
                 </ul>
-              </div>
-            </div>
-
-            {/* Three Future Story Cards */}
-            <div className="px-6 pb-6 font-sans">
-              <span className="text-[10px] uppercase font-mono text-zinc-500 font-bold block mb-3">Narrative Future Stories</span>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {getFutureStories(selectedType, params).map((story, i) => {
-                  const colors = 
-                    story.scenario === "conservative" 
-                      ? { bg: "bg-zinc-950/80 border-zinc-850", title: "text-zinc-300", accent: "bg-zinc-650" } 
-                      : story.scenario === "balanced" 
-                      ? { bg: "bg-emerald-950/10 border-emerald-900/35", title: "text-emerald-400", accent: "bg-emerald-500" } 
-                      : { bg: "bg-teal-950/15 border-teal-900/35", title: "text-teal-400", accent: "bg-teal-400" };
-                  return (
-                    <div key={i} className={`p-4 rounded-xl border ${colors.bg} space-y-2.5 flex flex-col justify-between font-sans`}>
-                      <div>
-                        <span className={`text-[11px] font-bold ${colors.title} block font-mono uppercase tracking-wider`}>{story.title}</span>
-                        <ul className="space-y-1.5 mt-2.5">
-                          {story.bullets.map((bullet, idx) => (
-                            <li key={idx} className="text-[10px] text-zinc-400 leading-snug flex items-start gap-1.5 font-sans">
-                              <span className={`w-1 h-1 rounded-full ${colors.accent} mt-1.5 shrink-0`} />
-                              <span>{bullet}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
 
@@ -1518,7 +1518,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                       <h4 className="text-xs font-bold text-zinc-200">Rate Algorithmic Helpfulness</h4>
-                      <p className="text-[10px] text-zinc-500">Provide direct feedback to the regional model calibration layer.</p>
+                      <p className="text-[10px] text-zinc-500">Provide direct feedback to help customize your financial coach.</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button

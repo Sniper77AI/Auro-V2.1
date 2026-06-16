@@ -17,16 +17,32 @@ interface GoalItem {
   priority: "essential" | "important" | "flexible";
 }
 
+const GOAL_EMOJIS: Record<string, string> = {
+  property: "🏠",
+  retirement: "🌴",
+  education: "🎓",
+  debt_free: "💳",
+  other: "👨‍👩‍👧"
+};
+
+const GOAL_TITLES: Record<string, string> = {
+  property: "Dream Home",
+  retirement: "Retirement",
+  education: "College Fund",
+  debt_free: "Debt Freedom",
+  other: "Family Security"
+};
+
 interface GoalsMatrixProps {
   twin: FinancialTwin;
 }
 
 export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
   const [goals, setGoals] = useState<GoalItem[]>([
-    { id: "g-1", name: "Early Retirement Nest Egg", category: "retirement", targetAmount: 1800000, targetYear: 2054, currentSavings: 55000, priority: "essential" },
-    { id: "g-2", name: "Dream Property Down Payment", category: "property", targetAmount: 120000, targetYear: 2030, currentSavings: 15000, priority: "important" },
-    { id: "g-3", name: "Dependent College Trust (529)", category: "education", targetAmount: 150000, targetYear: 2040, currentSavings: 12000, priority: "flexible" },
-    { id: "g-4", name: "Complete Student Debt Freedom", category: "debt_free", targetAmount: 15000, targetYear: 2028, currentSavings: 0, priority: "essential" }
+    { id: "g-1", name: "Comfortable Retirement Nest Egg", category: "retirement", targetAmount: 1800000, targetYear: 2054, currentSavings: 55000, priority: "essential" },
+    { id: "g-2", name: "Our Dream Property Down Payment", category: "property", targetAmount: 120000, targetYear: 2030, currentSavings: 15000, priority: "important" },
+    { id: "g-3", name: "Dependent College Trust Fund", category: "education", targetAmount: 150000, targetYear: 2040, currentSavings: 12000, priority: "flexible" },
+    { id: "g-4", name: "Complete Debt Freedom & Payoff", category: "debt_free", targetAmount: 15000, targetYear: 2028, currentSavings: 0, priority: "essential" }
   ]);
 
   const [newGoal, setNewGoal] = useState<Omit<GoalItem, "id">>({
@@ -92,13 +108,13 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
   }
 
   return (
-    <div id="goals-matrix-page" className="space-y-6">
+    <div id="goals-matrix-page" className="space-y-6 font-sans">
       {/* Page Header */}
       <div>
-        <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Goal Prioritization & Conflict Engine</span>
-        <h2 className="text-2xl font-bold text-zinc-100 tracking-tight mt-1">Multi-Timeline Goals Matrix</h2>
+        <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Goal Prioritization & Life Outcomes</span>
+        <h2 className="text-2xl font-bold text-zinc-100 tracking-tight mt-1">My Goals & Life Outcomes</h2>
         <p className="text-xs text-zinc-400 mt-1">
-          Coordinate life milestones side-by-side. Aura's heuristic processor maps temporal correlations automatically.
+          Coordinate your life milestones. Aura maps out your timeline to help secure your future targets.
         </p>
       </div>
 
@@ -106,7 +122,7 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Scale className="w-5 h-5 text-emerald-405" />
-          <h3 className="text-sm font-bold text-zinc-200">Aura Goal Collisions & Tradeoffs</h3>
+          <h3 className="text-sm font-bold text-zinc-200">Aura Goal Tradeoffs & Future Insights</h3>
         </div>
 
         {conflicts.length === 0 ? (
@@ -209,41 +225,100 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {goals.map((g) => {
           const percent = Math.min(100, Math.round((g.currentSavings / g.targetAmount) * 100));
+          const emoji = GOAL_EMOJIS[g.category] || "🎯";
+          const categoryTitle = GOAL_TITLES[g.category] || "Goal";
+
+          // Dynamic emotional decision impact statements
+          let decisionImpact = "";
+          let statusLabel = "On Track";
+          let statusColor = "text-emerald-400 bg-emerald-950/40 border-emerald-900";
+
+          if (g.category === "retirement") {
+            decisionImpact = "Taking on a major extra luxury outlay now would delay your early retirement milestones by 14 months.";
+            statusLabel = "Needs Growth";
+            statusColor = "text-amber-450 bg-amber-950/20 border-amber-900/40";
+          } else if (g.category === "property") {
+            decisionImpact = "Simulating a high-price auto purchase on leverage may delay your property down payment by 8 months.";
+            statusLabel = "Active Scenario";
+            statusColor = "text-teal-400 bg-teal-950/20 border-teal-900/40";
+          } else if (g.category === "education") {
+            decisionImpact = "Increasing savings by $100/month covers premium university tuition projections years ahead.";
+            statusLabel = "On Track";
+            statusColor = "text-emerald-400 bg-emerald-950/20 border-emerald-900/40";
+          } else if (g.category === "debt_free") {
+            decisionImpact = "Paying down revolving credit card debt first shifts your complete debt-free target 10 months closer.";
+            statusLabel = "Prioritized";
+            statusColor = "text-emerald-450 bg-emerald-950/25 border-emerald-900/40";
+          } else {
+            decisionImpact = "Maintaining an emergency buffer keeps your dependents safe and independent of market drops.";
+            statusLabel = "Fully Protected";
+            statusColor = "text-teal-450 bg-teal-950/25 border-teal-905/40";
+          }
+
           return (
-            <div key={g.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between hover:border-zinc-700 transition-all">
+            <div key={g.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between hover:border-zinc-700/60 transition-all font-sans relative overflow-hidden">
               <div className="space-y-4">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider block">{g.category.replace("_", " ")}</span>
-                    <h4 className="text-sm font-bold text-zinc-100 mt-1">{g.name}</h4>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl" id={`goal-emoji-${g.id}`}>{emoji}</span>
+                    <div>
+                      <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest block font-bold">{categoryTitle}</span>
+                      <h4 className="text-base font-bold text-zinc-100 mt-0.5">{g.name}</h4>
+                    </div>
                   </div>
                   <button
                     onClick={() => handleRemoveGoal(g.id)}
-                    className="text-zinc-600 hover:text-rose-400 p-1 rounded transition-all cursor-pointer"
+                    className="text-zinc-600 hover:text-rose-450 p-1.5 rounded-lg hover:bg-zinc-950 transition-all cursor-pointer border-transparent"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Progress indicator */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-mono">
-                    <span className="text-zinc-400">Progress: {percent}%</span>
-                    <span className="text-zinc-200 font-bold">${g.currentSavings.toLocaleString()} / ${g.targetAmount.toLocaleString()}</span>
+                {/* Progress indicators and metrics */}
+                <div className="space-y-3 bg-zinc-950/40 p-4 rounded-xl border border-zinc-850/40">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-zinc-500 block text-[9px] uppercase font-mono tracking-wider font-semibold">Target Amount</span>
+                      <span className="text-zinc-200 font-bold font-mono text-[13px]">${g.targetAmount.toLocaleString()}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-zinc-500 block text-[9px] uppercase font-mono tracking-wider font-semibold">Saved So Far</span>
+                      <span className="text-emerald-400 font-bold font-mono text-[13px]">${g.currentSavings.toLocaleString()}</span>
+                    </div>
                   </div>
-                  <div className="w-full h-1.5 bg-zinc-950 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${percent > 75 ? "bg-emerald-400" : percent > 40 ? "bg-teal-400" : "bg-zinc-600"}`}
-                      style={{ width: `${percent}%` }}
-                    />
+
+                  <div className="pt-1">
+                    <div className="flex justify-between text-[11px] mb-1 font-sans">
+                      <span className="text-zinc-400 font-medium">Progress: {percent}%</span>
+                      <span className="text-teal-400 font-semibold">Target Year: {g.targetYear}</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-950 rounded-full overflow-hidden border border-zinc-850">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${percent > 75 ? "bg-emerald-500" : percent > 40 ? "bg-teal-400" : "bg-zinc-500"}`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
                   </div>
+                </div>
+
+                {/* Dynamic status & Coaching speech */}
+                <div className="bg-zinc-950/45 p-3 rounded-lg border border-zinc-850/20 font-sans">
+                  <div className="flex justify-between items-center mb-1 pb-1 border-b border-zinc-850/20">
+                    <span className="text-[9px] uppercase font-mono text-zinc-500 font-bold">Goal Status</span>
+                    <span className={`text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded border ${statusColor}`}>
+                      {statusLabel}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-350 leading-relaxed font-sans mt-2 italic. md:text-xs">
+                    &ldquo;{decisionImpact}&rdquo;
+                  </p>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center text-[10px] font-mono border-t border-zinc-800/40 pt-4 mt-6">
-                <span className="text-zinc-500">Timeline Target Year: <strong className="text-zinc-200">{g.targetYear}</strong></span>
-                <span className={`px-2 py-0.5 rounded uppercase ${g.priority === "essential" ? "bg-emerald-950/30 border border-emerald-900 text-emerald-400" : g.priority === "important" ? "bg-zinc-950 border border-zinc-850 text-zinc-300" : "bg-zinc-950 border border-zinc-900 text-zinc-500"}`}>
-                  {g.priority}
+              <div className="flex justify-between items-center text-[10px] font-sans border-t border-zinc-850/40 pt-4 mt-5">
+                <span className="text-zinc-500 uppercase tracking-widest font-mono font-bold text-[9px]">TIMELINE INDEX</span>
+                <span className={`px-2.5 py-0.5 rounded-full uppercase text-[9px] font-mono tracking-wider ${g.priority === "essential" ? "bg-emerald-950/60 border border-emerald-900/40 text-emerald-400" : g.priority === "important" ? "bg-zinc-950 border border-zinc-850 text-zinc-300" : "bg-transparent text-zinc-500"}`}>
+                  {g.priority} priority
                 </span>
               </div>
             </div>

@@ -305,7 +305,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* OPPORTUNITIES */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
-          <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider block font-bold">Proactive System Opportunities</span>
+          <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider block font-bold">Proactive Opportunities</span>
           <div className="space-y-3">
             {opportunities.map((opp, i) => (
               <div key={i} className="bg-zinc-950 border border-zinc-850 p-4 rounded-xl space-y-2 hover:border-zinc-800 transition-all">
@@ -321,7 +321,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
 
         {/* RISKS */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
-          <span className="text-[10px] font-mono text-rose-450 uppercase tracking-wider block font-bold">Identified Volatility Risks</span>
+          <span className="text-[10px] font-mono text-rose-450 uppercase tracking-wider block font-bold">Potential Risks</span>
           <div className="space-y-3">
             {risks.map((risk, i) => (
               <div key={i} className="bg-zinc-950 border border-zinc-850 p-4 rounded-xl space-y-2 hover:border-zinc-800 transition-all">
