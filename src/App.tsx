@@ -111,8 +111,9 @@ export default function App() {
   }, [userRole, activeMenu]);
 
   // Combined saving orchestrations
-  const handleSaveTwin = async (updatedTwin: FinancialTwin) => {
+  const handleSaveTwin = async (updatedTwin: FinancialTwin, skipDbSave = false) => {
     setTwin(updatedTwin);
+    if (skipDbSave) return;
     setSyncingState("syncing");
     
     const uId = session?.user?.userId || session?.user?.id;
@@ -124,8 +125,9 @@ export default function App() {
     }
   };
 
-  const handleSaveGoals = async (updatedGoals: any[]) => {
+  const handleSaveGoals = async (updatedGoals: any[], skipDbSave = false) => {
     setGoals(updatedGoals);
+    if (skipDbSave) return;
     setSyncingState("syncing");
     
     const uId = session?.user?.userId || session?.user?.id;
@@ -513,8 +515,11 @@ export default function App() {
           {activeMenu === "twin" && (
             <TwinConfigurator 
               twin={twin} 
-              onChange={(updated) => {
-                handleSaveTwin(updated);
+              profileId={profileId}
+              syncingState={syncingState}
+              setSyncingState={setSyncingState}
+              onChange={(updated, skipDbSave) => {
+                handleSaveTwin(updated, skipDbSave);
                 // Append secure audit log
                 const audit: AuditLog = {
                   id: Math.random().toString(36).substring(2, 9),
@@ -544,7 +549,10 @@ export default function App() {
             <GoalsMatrix 
               twin={twin} 
               goals={goals} 
-              onSaveGoals={handleSaveGoals} 
+              profileId={profileId}
+              syncingState={syncingState}
+              setSyncingState={setSyncingState}
+              onSaveGoals={(updated, skipDbSave) => handleSaveGoals(updated, skipDbSave)} 
             />
           )}
 

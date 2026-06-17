@@ -162,25 +162,25 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 2. USER ROLES Policies
 CREATE POLICY "Users can view their own role" 
     ON public.user_roles FOR SELECT 
-    USING (auth.uid() = auth_user_id OR auth.uid() IS NULL);
+    USING (auth.uid() = auth_user_id);
 
 CREATE POLICY "Users can insert their own initial role"
     ON public.user_roles FOR INSERT
-    WITH CHECK ((auth.uid() = auth_user_id OR auth.uid() IS NULL) AND role = 'customer');
+    WITH CHECK (auth.uid() = auth_user_id AND role = 'customer');
 
-CREATE POLICY "Only super admins can modify roles" 
+CREATE POLICY "Super admins can manage all roles" 
     ON public.user_roles FOR ALL 
-    USING (public.get_auth_role(auth.uid()) = 'super_admin');
+    USING ((SELECT r.role FROM public.user_roles r WHERE r.auth_user_id = auth.uid() LIMIT 1) = 'super_admin');
 
 
 -- 3. USER IDENTITY (PII Vault) Policies
 CREATE POLICY "PII Customer Access" 
     ON public.user_identity FOR SELECT 
-    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) = 'super_admin' OR auth.uid() IS NULL);
+    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) = 'super_admin');
 
 CREATE POLICY "PII Self Insert" 
     ON public.user_identity FOR INSERT 
-    WITH CHECK (auth.uid() = auth_user_id OR auth.uid() IS NULL);
+    WITH CHECK (auth.uid() = auth_user_id);
 
 CREATE POLICY "PII Self Update" 
     ON public.user_identity FOR UPDATE 
@@ -197,11 +197,11 @@ CREATE POLICY "PII Self Delete"
 -- 4. PROFILES Policies
 CREATE POLICY "Profile self select" 
     ON public.profiles FOR SELECT 
-    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor') OR auth.uid() IS NULL);
+    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
 
 CREATE POLICY "Profile self insert"
     ON public.profiles FOR INSERT
-    WITH CHECK (auth.uid() = auth_user_id OR auth.uid() IS NULL);
+    WITH CHECK (auth.uid() = auth_user_id);
 
 CREATE POLICY "Profile self update"
     ON public.profiles FOR UPDATE
@@ -219,20 +219,20 @@ CREATE POLICY "Profile self delete"
 -- FINANCIAL TWINS Policies
 CREATE POLICY "Twin self select"
     ON public.financial_twins FOR SELECT
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
 
 CREATE POLICY "Twin self insert"
     ON public.financial_twins FOR INSERT
-    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL) OR auth.uid() IS NULL);
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
 
 CREATE POLICY "Twin self update"
     ON public.financial_twins FOR UPDATE
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL))
-    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL));
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()))
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
 
 CREATE POLICY "Twin self delete"
     ON public.financial_twins FOR DELETE
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL) OR public.get_auth_role(auth.uid()) = 'super_admin');
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) = 'super_admin');
 
 
 -- ASSETS Policies

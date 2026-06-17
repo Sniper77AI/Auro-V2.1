@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FinancialTwin } from "../types";
 import { Award, AlertTriangle, CheckCircle, Scale, Plus, Trash2, Calendar, Target, HelpCircle } from "lucide-react";
+import { SupabaseService } from "../supabaseService";
 
 interface GoalItem {
   id: string;
@@ -36,10 +37,13 @@ const GOAL_TITLES: Record<string, string> = {
 interface GoalsMatrixProps {
   twin: FinancialTwin;
   goals: GoalItem[];
-  onSaveGoals: (updated: GoalItem[]) => void;
+  profileId: string;
+  syncingState?: "synced" | "syncing" | "error";
+  setSyncingState?: (state: "synced" | "syncing" | "error") => void;
+  onSaveGoals: (updated: GoalItem[], skipDbSave?: boolean) => void;
 }
 
-export default function GoalsMatrix({ twin, goals, onSaveGoals }: GoalsMatrixProps) {
+export default function GoalsMatrix({ twin, goals, profileId, syncingState, setSyncingState, onSaveGoals }: GoalsMatrixProps) {
   const [newGoal, setNewGoal] = useState<Omit<GoalItem, "id">>({
     name: "",
     category: "property",
@@ -49,18 +53,86 @@ export default function GoalsMatrix({ twin, goals, onSaveGoals }: GoalsMatrixPro
     priority: "important"
   });
 
-  const handleCreateGoal = () => {
-    if (!newGoal.name) return;
-    const item: GoalItem = {
-      ...newGoal,
-      id: "g-" + Math.random().toString(36).substring(2, 9)
+  const timeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(timeoutsRef.current).forEach(clearTimeout);
     };
-    onSaveGoals([...goals, item]);
+  }, []);
+
+  const handleEditGoal = (id: string, field: keyof GoalItem, value: any) => {
+    const updatedGoals = goals.map(g => {
+      if (g.id === id) {
+        return { ...g, [field]: value };
+      }
+      return g;
+    });
+
+    onSaveGoals(updatedGoals, true);
+
+    if (!SupabaseService.isConfigured() || !id || id.startsWith("g-")) return;
+
+    if (timeoutsRef.current[id]) {
+      clearTimeout(timeoutsRef.current[id]);
+    }
+
+    setSyncingState?.("syncing");
+
+    timeoutsRef.current[id] = setTimeout(async () => {
+      try {
+        await SupabaseService.updateGoal(id, { [field]: value });
+        setSyncingState?.("synced");
+      } catch (err) {
+        console.error("Auto-save goal failed:", err);
+        setSyncingState?.("error");
+      }
+    }, 800);
+  };
+
+  const handleCreateGoal = async () => {
+    if (!newGoal.name) return;
+    setSyncingState?.("syncing");
+    try {
+      let newItem: GoalItem;
+      if (SupabaseService.isConfigured() && profileId) {
+        const dbResult = await SupabaseService.insertGoal(profileId, newGoal);
+        newItem = {
+          id: dbResult.id,
+          name: dbResult.goal_name,
+          category: dbResult.goal_type as any,
+          targetAmount: Number(dbResult.target_amount),
+          targetYear: parseInt(dbResult.target_date) || 2035,
+          currentSavings: Number(dbResult.current_progress),
+          priority: "important"
+        };
+      } else {
+        newItem = {
+          ...newGoal,
+          id: "g-" + Math.random().toString(36).substring(2, 9)
+        };
+      }
+      onSaveGoals([...goals, newItem], true);
+      setSyncingState?.("synced");
+    } catch (err) {
+      console.error("Failed to create goal:", err);
+      setSyncingState?.("error");
+    }
     setNewGoal({ name: "", category: "property", targetAmount: 50000, targetYear: 2032, currentSavings: 0, priority: "important" });
   };
 
-  const handleRemoveGoal = (id: string) => {
-    onSaveGoals(goals.filter(g => g.id !== id));
+  const handleRemoveGoal = async (id: string) => {
+    setSyncingState?.("syncing");
+    try {
+      if (SupabaseService.isConfigured() && !id.startsWith("g-") && id.length > 10) {
+        await SupabaseService.deleteGoal(id);
+      }
+      onSaveGoals(goals.filter(g => g.id !== id), true);
+      setSyncingState?.("synced");
+    } catch (err) {
+      console.error("Failed to delete goal:", err);
+      setSyncingState?.("error");
+    }
   };
 
   // Conflict detection algorithms:
@@ -356,8 +428,23 @@ export default function GoalsMatrix({ twin, goals, onSaveGoals }: GoalsMatrixPro
                   <div className="flex items-center gap-2.5">
                     <span className="text-2xl" id={`goal-emoji-${g.id}`}>{emoji}</span>
                     <div>
-                      <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest block font-bold">{categoryTitle}</span>
-                      <h4 className="text-base font-bold text-zinc-100 mt-0.5">{g.name}</h4>
+                      <select
+                        value={g.category}
+                        onChange={(e) => handleEditGoal(g.id, "category", e.target.value as any)}
+                        className="bg-transparent text-[10px] font-mono text-zinc-500 uppercase tracking-widest block font-bold cursor-pointer hover:text-zinc-300 focus:outline-none focus:text-emerald-400 p-0"
+                      >
+                        <option value="property" className="bg-zinc-900 text-zinc-300">Dream Home</option>
+                        <option value="retirement" className="bg-zinc-900 text-zinc-300">Retirement</option>
+                        <option value="education" className="bg-zinc-900 text-zinc-300">College Fund</option>
+                        <option value="debt_free" className="bg-zinc-900 text-zinc-300">Debt Freedom</option>
+                        <option value="other" className="bg-zinc-905 text-zinc-300">Family Security</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={g.name}
+                        onChange={(e) => handleEditGoal(g.id, "name", e.target.value)}
+                        className="bg-transparent text-zinc-100 text-base font-bold mt-0.5 border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-0.5 px-1 rounded focus:outline-none w-full"
+                      />
                     </div>
                   </div>
                   <button
@@ -373,18 +460,42 @@ export default function GoalsMatrix({ twin, goals, onSaveGoals }: GoalsMatrixPro
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-zinc-500 block text-[9px] uppercase font-mono tracking-wider font-semibold">Target Amount</span>
-                      <span className="text-zinc-200 font-bold font-mono text-[13px]">${g.targetAmount.toLocaleString()}</span>
+                      <div className="relative flex items-center mt-1">
+                        <span className="text-zinc-500 mr-0.5 text-xs font-mono">$</span>
+                        <input
+                          type="number"
+                          value={g.targetAmount}
+                          onChange={(e) => handleEditGoal(g.id, "targetAmount", parseFloat(e.target.value) || 0)}
+                          className="bg-transparent text-zinc-200 font-bold font-mono text-[13px] border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-0.5 px-1 rounded focus:outline-none w-full"
+                        />
+                      </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end">
                       <span className="text-zinc-500 block text-[9px] uppercase font-mono tracking-wider font-semibold">Saved So Far</span>
-                      <span className="text-emerald-400 font-bold font-mono text-[13px]">${g.currentSavings.toLocaleString()}</span>
+                      <div className="relative flex items-center justify-end mt-1">
+                        <span className="text-zinc-500 mr-0.5 text-xs font-mono">$</span>
+                        <input
+                          type="number"
+                          value={g.currentSavings}
+                          onChange={(e) => handleEditGoal(g.id, "currentSavings", parseFloat(e.target.value) || 0)}
+                          className="bg-transparent text-emerald-400 font-bold font-mono text-[13px] text-right border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-0.5 px-1 rounded focus:outline-none w-28"
+                        />
+                      </div>
                     </div>
                   </div>
 
                   <div className="pt-1">
-                    <div className="flex justify-between text-[11px] mb-1 font-sans">
-                      <span className="text-zinc-400 font-medium">Progress: {percent}%</span>
-                      <span className="text-teal-400 font-semibold">Target Year: {g.targetYear}</span>
+                    <div className="flex justify-between items-center text-[11px] mb-1 font-sans">
+                      <span className="text-zinc-400 font-medium font-mono">Progress: {percent}%</span>
+                      <div className="flex items-center gap-1 font-mono">
+                        <span className="text-zinc-400 font-medium">Year:</span>
+                        <input
+                          type="number"
+                          value={g.targetYear}
+                          onChange={(e) => handleEditGoal(g.id, "targetYear", parseInt(e.target.value) || 2035)}
+                          className="bg-transparent text-teal-400 font-semibold border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-0.5 px-1 rounded focus:outline-none w-14 font-mono text-right"
+                        />
+                      </div>
                     </div>
                     <div className="w-full h-2 bg-zinc-950 rounded-full overflow-hidden border border-zinc-850">
                       <div
@@ -403,7 +514,7 @@ export default function GoalsMatrix({ twin, goals, onSaveGoals }: GoalsMatrixPro
                       {statusLabel}
                     </span>
                   </div>
-                  <p className="text-[11px] text-zinc-350 leading-relaxed font-sans mt-2 italic. md:text-xs">
+                  <p className="text-[11px] text-zinc-350 leading-relaxed font-sans mt-2 italic md:text-xs">
                     &ldquo;{decisionImpact}&rdquo;
                   </p>
                 </div>
@@ -411,9 +522,17 @@ export default function GoalsMatrix({ twin, goals, onSaveGoals }: GoalsMatrixPro
 
               <div className="flex justify-between items-center text-[10px] font-sans border-t border-zinc-850/40 pt-4 mt-5">
                 <span className="text-zinc-500 uppercase tracking-widest font-mono font-bold text-[9px]">TIMELINE INDEX</span>
-                <span className={`px-2.5 py-0.5 rounded-full uppercase text-[9px] font-mono tracking-wider ${g.priority === "essential" ? "bg-emerald-950/60 border border-emerald-900/40 text-emerald-400" : g.priority === "important" ? "bg-zinc-950 border border-zinc-850 text-zinc-300" : "bg-transparent text-zinc-500"}`}>
-                  {g.priority} priority
-                </span>
+                <div>
+                  <select
+                    value={g.priority}
+                    onChange={(e) => handleEditGoal(g.id, "priority", e.target.value as any)}
+                    className="bg-transparent text-[9px] font-mono uppercase tracking-wider font-bold cursor-pointer hover:text-zinc-350 border-b border-transparent hover:border-zinc-700 focus:outline-none focus:text-emerald-400 p-0 text-right"
+                  >
+                    <option value="essential" className="bg-zinc-900 text-emerald-400 uppercase">Essential Priority</option>
+                    <option value="important" className="bg-zinc-900 text-zinc-300 uppercase">Important Priority</option>
+                    <option value="flexible" className="bg-zinc-900 text-zinc-500 uppercase">Flexible Priority</option>
+                  </select>
+                </div>
               </div>
             </div>
           );

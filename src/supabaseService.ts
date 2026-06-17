@@ -54,7 +54,7 @@ const setSandboxValue = (key: string, val: any) => {
 };
 
 export class SupabaseService {
-  private static isConfigured(): boolean {
+  public static isConfigured(): boolean {
     const metaEnv = (import.meta as any).env || {};
     const url = metaEnv.VITE_SUPABASE_URL;
     const key = metaEnv.VITE_SUPABASE_ANON_KEY;
@@ -642,7 +642,7 @@ export class SupabaseService {
           monthly_income: totalIncome / 12,
           monthly_expenses: twin.monthlyExpenses,
           financial_readiness_score: netWorth > 100000 ? 82 : 45,
-          plan_health: twin.assets.length > 2 ? 88 : 55,
+          plan_health: twin.assets.length > 2 ? "strong" : "stable",
           profile_completeness: 100,
           updated_at: new Date().toISOString()
         })
@@ -814,6 +814,315 @@ export class SupabaseService {
       return true;
     } catch (e) {
       console.error("Goals sync failed:", e);
+      return false;
+    }
+  }
+
+  // UPDATE METHODS
+  static async updateIncomeSource(id: string, updates: any): Promise<any> {
+    if (!this.isConfigured()) return null;
+    const dbPayload: any = {};
+    if (updates.name !== undefined) {
+      dbPayload.income_name = updates.name;
+      dbPayload.source_name = updates.name;
+    }
+    if (updates.amount !== undefined) {
+      dbPayload.current_value = updates.amount;
+    }
+    if (updates.frequency !== undefined) {
+      dbPayload.frequency = updates.frequency;
+    }
+    if (updates.type !== undefined) {
+      const typeStr = ["salary", "bonus", "investment", "business", "other"].includes(updates.type) ? updates.type : "other";
+      dbPayload.income_type = typeStr;
+      dbPayload.category = typeStr;
+    }
+    if (updates.amount !== undefined || updates.frequency !== undefined) {
+      const freq = updates.frequency || "annual";
+      const amt = updates.amount !== undefined ? updates.amount : 0;
+      dbPayload.annual_amount = freq === "monthly" ? amt * 12 : amt;
+    }
+
+    const { data, error } = await supabase
+      .from("income_sources")
+      .update(dbPayload)
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("[AURA DB] updateIncomeSource failed:", error);
+      throw error;
+    }
+    return data?.[0] || null;
+  }
+
+  static async updateAsset(id: string, updates: any): Promise<any> {
+    if (!this.isConfigured()) return null;
+    const dbPayload: any = {};
+    if (updates.name !== undefined) {
+      dbPayload.asset_name = updates.name;
+    }
+    if (updates.amount !== undefined) {
+      dbPayload.current_value = updates.amount;
+    }
+    if (updates.type !== undefined) {
+      dbPayload.asset_type = ["cash", "retirement", "brokerage", "real_estate", "other"].includes(updates.type) ? updates.type : "other";
+    }
+    if (updates.annualGrowth !== undefined) {
+      dbPayload.growth_rate = updates.annualGrowth;
+    }
+
+    const { data, error } = await supabase
+      .from("assets")
+      .update(dbPayload)
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("[AURA DB] updateAsset failed:", error);
+      throw error;
+    }
+    return data?.[0] || null;
+  }
+
+  static async updateLiability(id: string, updates: any): Promise<any> {
+    if (!this.isConfigured()) return null;
+    const dbPayload: any = {};
+    if (updates.name !== undefined) {
+      dbPayload.liability_name = updates.name;
+    }
+    if (updates.amount !== undefined) {
+      dbPayload.current_balance = updates.amount;
+    }
+    if (updates.type !== undefined) {
+      dbPayload.liability_type = ["mortgage", "student_loan", "auto_loan", "credit_card", "other"].includes(updates.type) ? updates.type : "other";
+    }
+    if (updates.interestRate !== undefined) {
+      dbPayload.interest_rate = updates.interestRate;
+    }
+    if (updates.monthlyPayment !== undefined) {
+      dbPayload.monthly_payment = updates.monthlyPayment;
+    }
+
+    const { data, error } = await supabase
+      .from("liabilities")
+      .update(dbPayload)
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("[AURA DB] updateLiability failed:", error);
+      throw error;
+    }
+    return data?.[0] || null;
+  }
+
+  static async updateGoal(id: string, updates: any): Promise<any> {
+    if (!this.isConfigured()) return null;
+    const dbPayload: any = {};
+    if (updates.name !== undefined) {
+      dbPayload.goal_name = updates.name;
+    }
+    if (updates.category !== undefined) {
+      dbPayload.goal_type = ["retirement", "property", "education", "debt_free", "other"].includes(updates.category) ? updates.category : "other";
+    }
+    if (updates.targetAmount !== undefined) {
+      dbPayload.target_amount = updates.targetAmount;
+    }
+    if (updates.targetYear !== undefined) {
+      dbPayload.target_date = String(updates.targetYear);
+    }
+    if (updates.currentSavings !== undefined) {
+      dbPayload.current_progress = updates.currentSavings;
+    }
+    if (updates.status !== undefined) {
+      dbPayload.status = updates.status;
+    }
+
+    const { data, error } = await supabase
+      .from("goals")
+      .update(dbPayload)
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("[AURA DB] updateGoal failed:", error);
+      throw error;
+    }
+    return data?.[0] || null;
+  }
+
+  // INSERT METHODS
+  static async insertIncomeSource(profileId: string, i: any): Promise<any> {
+    if (!this.isConfigured()) return null;
+    const dbPayload = {
+      profile_id: profileId,
+      income_type: (["salary", "bonus", "investment", "business", "other"].includes(i.type) ? i.type : "other"),
+      income_name: i.name,
+      current_value: i.amount,
+      frequency: i.frequency || "annual",
+      source_name: i.name,
+      category: (["salary", "bonus", "investment", "business", "other"].includes(i.type) ? i.type : "other"),
+      annual_amount: i.frequency === "monthly" ? i.amount * 12 : i.amount
+    };
+    const { data, error } = await supabase
+      .from("income_sources")
+      .insert(dbPayload)
+      .select()
+      .single();
+    if (error) {
+      console.error("[AURA DB] insertIncomeSource failed:", error);
+      throw error;
+    }
+    return data;
+  }
+
+  static async insertAsset(profileId: string, a: any): Promise<any> {
+    if (!this.isConfigured()) return null;
+    const dbPayload = {
+      profile_id: profileId,
+      asset_type: (["cash", "retirement", "brokerage", "real_estate", "other"].includes(a.type) ? a.type : "other"),
+      asset_name: a.name,
+      current_value: a.amount,
+      growth_rate: a.annualGrowth
+    };
+    const { data, error } = await supabase
+      .from("assets")
+      .insert(dbPayload)
+      .select()
+      .single();
+    if (error) {
+      console.error("[AURA DB] insertAsset failed:", error);
+      throw error;
+    }
+    return data;
+  }
+
+  static async insertLiability(profileId: string, l: any): Promise<any> {
+    if (!this.isConfigured()) return null;
+    const dbPayload = {
+      profile_id: profileId,
+      liability_type: (["mortgage", "student_loan", "auto_loan", "credit_card", "other"].includes(l.type) ? l.type : "other"),
+      liability_name: l.name,
+      current_balance: l.amount,
+      interest_rate: l.interestRate,
+      monthly_payment: l.monthlyPayment
+    };
+    const { data, error } = await supabase
+      .from("liabilities")
+      .insert(dbPayload)
+      .select()
+      .single();
+    if (error) {
+      console.error("[AURA DB] insertLiability failed:", error);
+      throw error;
+    }
+    return data;
+  }
+
+  static async insertGoal(profileId: string, g: any): Promise<any> {
+    if (!this.isConfigured()) return null;
+    const dbPayload = {
+      profile_id: profileId,
+      goal_type: (["retirement", "property", "education", "debt_free", "other"].includes(g.category) ? g.category : "other"),
+      goal_name: g.name,
+      target_amount: g.targetAmount,
+      target_date: String(g.targetYear),
+      current_progress: g.currentSavings,
+      status: g.status || "active"
+    };
+    const { data, error } = await supabase
+      .from("goals")
+      .insert(dbPayload)
+      .select()
+      .single();
+    if (error) {
+      console.error("[AURA DB] insertGoal failed:", error);
+      throw error;
+    }
+    return data;
+  }
+
+  // DELETE METHODS
+  static async deleteIncomeSource(id: string): Promise<boolean> {
+    if (!this.isConfigured()) return true;
+    const { error } = await supabase
+      .from("income_sources")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("[AURA DB] deleteIncomeSource failed:", error);
+      throw error;
+    }
+    return true;
+  }
+
+  static async deleteAsset(id: string): Promise<boolean> {
+    if (!this.isConfigured()) return true;
+    const { error } = await supabase
+      .from("assets")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("[AURA DB] deleteAsset failed:", error);
+      throw error;
+    }
+    return true;
+  }
+
+  static async deleteLiability(id: string): Promise<boolean> {
+    if (!this.isConfigured()) return true;
+    const { error } = await supabase
+      .from("liabilities")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("[AURA DB] deleteLiability failed:", error);
+      throw error;
+    }
+    return true;
+  }
+
+  static async deleteGoal(id: string): Promise<boolean> {
+    if (!this.isConfigured()) return true;
+    const { error } = await supabase
+      .from("goals")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      console.error("[AURA DB] deleteGoal failed:", error);
+      throw error;
+    }
+    return true;
+  }
+
+  static async updateFinancialTwinAggregates(profileId: string, twin: FinancialTwin): Promise<boolean> {
+    if (!this.isConfigured()) return true;
+    try {
+      const totalIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
+      const totalAssets = twin.assets.reduce((acc, curr) => acc + curr.amount, 0);
+      const totalLiabilities = twin.liabilities.reduce((acc, curr) => acc + curr.amount, 0);
+      const netWorth = totalAssets - totalLiabilities;
+
+      const { error } = await supabase
+        .from("financial_twins")
+        .update({
+          net_worth: netWorth,
+          monthly_income: totalIncome / 12,
+          monthly_expenses: twin.monthlyExpenses,
+          financial_readiness_score: netWorth > 100000 ? 82 : 45,
+          plan_health: twin.assets.length > 2 ? "strong" : "stable",
+          profile_completeness: 100,
+          updated_at: new Date().toISOString()
+        })
+        .eq("profile_id", profileId);
+      if (error) {
+        console.error("[AURA DB] updateFinancialTwinAggregates failed:", error);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error("Failed to update aggregates:", e);
       return false;
     }
   }

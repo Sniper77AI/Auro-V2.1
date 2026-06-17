@@ -34,7 +34,7 @@ export interface FinancialTwin {
   monthly_income: number;
   monthly_expenses: number;
   financial_readiness_score: number; // 0 to 100
-  plan_health: number; // 0 to 100
+  plan_health: string;
   profile_completeness: number; // 0 to 100
   created_at: string;
   updated_at: string;

@@ -3,13 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FinancialTwin, IncomeSource, AssetItem, LiabilityItem } from "../types";
 import { Plus, Trash2, ShieldAlert, DollarSign, Award, ArrowUpRight, Scale, Briefcase, ChevronRight, HelpCircle } from "lucide-react";
+import { SupabaseService } from "../supabaseService";
 
 interface TwinConfiguratorProps {
   twin: FinancialTwin;
-  onChange: (updatedTwin: FinancialTwin) => void;
+  profileId: string;
+  syncingState?: "synced" | "syncing" | "error";
+  setSyncingState?: (state: "synced" | "syncing" | "error") => void;
+  onChange: (updatedTwin: FinancialTwin, skipDbSave?: boolean) => void;
 }
 
 const US_STATES = [
@@ -25,7 +29,7 @@ const US_STATES = [
   { code: "NC", name: "North Carolina (4.5% Flat State Tax)" }
 ];
 
-export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorProps) {
+export default function TwinConfigurator({ twin, profileId, syncingState, setSyncingState, onChange }: TwinConfiguratorProps) {
   const [activeTab, setActiveTab ] = useState<"income" | "savings" | "debts" | "family" | "retirement" | "risk">("income");
 
   // Local state for adding entries easily
@@ -51,6 +55,125 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
     type: "student_loan"
   });
 
+  const timeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(timeoutsRef.current).forEach(clearTimeout);
+    };
+  }, []);
+
+  const handleEditIncome = (id: string, field: keyof IncomeSource, value: any) => {
+    const updatedIncomes = twin.incomes.map(inc => {
+      if (inc.id === id) {
+        return { ...inc, [field]: value };
+      }
+      return inc;
+    });
+
+    const updatedTwin = {
+      ...twin,
+      incomes: updatedIncomes
+    };
+
+    // 1. Instantly update local profile state
+    onChange(updatedTwin, true);
+
+    // 2. Debounce Database auto-save if configured
+    if (!SupabaseService.isConfigured() || !id || id.startsWith("inc-")) return;
+
+    if (timeoutsRef.current[id]) {
+      clearTimeout(timeoutsRef.current[id]);
+    }
+
+    setSyncingState?.("syncing");
+
+    timeoutsRef.current[id] = setTimeout(async () => {
+      try {
+        await SupabaseService.updateIncomeSource(id, { [field]: value });
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updatedTwin);
+        setSyncingState?.("synced");
+      } catch (err) {
+        console.error("Auto-save income failed:", err);
+        setSyncingState?.("error");
+      }
+    }, 800);
+  };
+
+  const handleEditAsset = (id: string, field: keyof AssetItem, value: any) => {
+    const updatedAssets = twin.assets.map(ast => {
+      if (ast.id === id) {
+        return { ...ast, [field]: value };
+      }
+      return ast;
+    });
+
+    const updatedTwin = {
+      ...twin,
+      assets: updatedAssets
+    };
+
+    // 1. Instantly update local profile state
+    onChange(updatedTwin, true);
+
+    // 2. Debounce Database auto-save
+    if (!SupabaseService.isConfigured() || !id || id.startsWith("ast-")) return;
+
+    if (timeoutsRef.current[id]) {
+      clearTimeout(timeoutsRef.current[id]);
+    }
+
+    setSyncingState?.("syncing");
+
+    timeoutsRef.current[id] = setTimeout(async () => {
+      try {
+        await SupabaseService.updateAsset(id, { [field]: value });
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updatedTwin);
+        setSyncingState?.("synced");
+      } catch (err) {
+        console.error("Auto-save asset failed:", err);
+        setSyncingState?.("error");
+      }
+    }, 800);
+  };
+
+  const handleEditLiability = (id: string, field: keyof LiabilityItem, value: any) => {
+    const updatedLiabs = twin.liabilities.map(lia => {
+      if (lia.id === id) {
+        return { ...lia, [field]: value };
+      }
+      return lia;
+    });
+
+    const updatedTwin = {
+      ...twin,
+      liabilities: updatedLiabs
+    };
+
+    // 1. Instantly update local profile state
+    onChange(updatedTwin, true);
+
+    // 2. Debounce Database auto-save
+    if (!SupabaseService.isConfigured() || !id || id.startsWith("lia-")) return;
+
+    if (timeoutsRef.current[id]) {
+      clearTimeout(timeoutsRef.current[id]);
+    }
+
+    setSyncingState?.("syncing");
+
+    timeoutsRef.current[id] = setTimeout(async () => {
+      try {
+        await SupabaseService.updateLiability(id, { [field]: value });
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updatedTwin);
+        setSyncingState?.("synced");
+      } catch (err) {
+        console.error("Auto-save liability failed:", err);
+        setSyncingState?.("error");
+      }
+    }, 800);
+  };
+
   // Action helpers
   const handleUpdateGeneral = (field: keyof FinancialTwin, value: any) => {
     onChange({
@@ -59,56 +182,169 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
     });
   };
 
-  const handleAddIncome = () => {
+  const handleAddIncome = async () => {
     if (!newInc.name) return;
-    const item: IncomeSource = {
-      ...newInc,
-      id: Math.random().toString(36).substring(2, 9)
-    };
-    onChange({
-      ...twin,
-      incomes: [...twin.incomes, item]
-    });
+    setSyncingState?.("syncing");
+    try {
+      let newItem: IncomeSource;
+      if (SupabaseService.isConfigured() && profileId) {
+        const dbResult = await SupabaseService.insertIncomeSource(profileId, newInc);
+        newItem = {
+          id: dbResult.id,
+          name: dbResult.income_name || dbResult.source_name,
+          amount: Number(dbResult.current_value),
+          frequency: dbResult.frequency,
+          type: dbResult.income_type || dbResult.category
+        };
+      } else {
+        newItem = {
+          ...newInc,
+          id: Math.random().toString(36).substring(2, 9)
+        };
+      }
+      
+      const updated = {
+        ...twin,
+        incomes: [...twin.incomes, newItem]
+      };
+      
+      onChange(updated, true);
+      
+      if (SupabaseService.isConfigured() && profileId) {
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updated);
+      }
+      setSyncingState?.("synced");
+    } catch (err) {
+      console.error("Failed to add income:", err);
+      setSyncingState?.("error");
+    }
     setNewInc({ name: "", amount: 50000, frequency: "annual", type: "salary" });
   };
 
-  const handleRemoveIncome = (id: string) => {
-    onChange({
-      ...twin,
-      incomes: twin.incomes.filter(i => i.id !== id)
-    });
+  const handleRemoveIncome = async (id: string) => {
+    setSyncingState?.("syncing");
+    try {
+      if (SupabaseService.isConfigured() && !id.startsWith("inc-") && id.length > 10) {
+        await SupabaseService.deleteIncomeSource(id);
+      }
+      
+      const updated = {
+        ...twin,
+        incomes: twin.incomes.filter(i => i.id !== id)
+      };
+      
+      onChange(updated, true);
+      
+      if (SupabaseService.isConfigured() && profileId) {
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updated);
+      }
+      setSyncingState?.("synced");
+    } catch (err) {
+      console.error("Failed to remove income:", err);
+      setSyncingState?.("error");
+    }
   };
 
-  const handleAddAsset = () => {
+  const handleAddAsset = async () => {
     if (!newAsset.name) return;
-    const item: AssetItem = {
-      ...newAsset,
-      id: Math.random().toString(36).substring(2, 9)
-    };
-    onChange({
-      ...twin,
-      assets: [...twin.assets, item]
-    });
+    setSyncingState?.("syncing");
+    try {
+      let newItem: AssetItem;
+      if (SupabaseService.isConfigured() && profileId) {
+        const dbResult = await SupabaseService.insertAsset(profileId, newAsset);
+        newItem = {
+          id: dbResult.id,
+          name: dbResult.asset_name,
+          amount: Number(dbResult.current_value),
+          type: dbResult.asset_type,
+          annualGrowth: Number(dbResult.growth_rate)
+        };
+      } else {
+        newItem = {
+          ...newAsset,
+          id: Math.random().toString(36).substring(2, 9)
+        };
+      }
+      
+      const updated = {
+        ...twin,
+        assets: [...twin.assets, newItem]
+      };
+      
+      onChange(updated, true);
+      
+      if (SupabaseService.isConfigured() && profileId) {
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updated);
+      }
+      setSyncingState?.("synced");
+    } catch (err) {
+      console.error("Failed to add asset:", err);
+      setSyncingState?.("error");
+    }
     setNewAsset({ name: "", amount: 10000, type: "brokerage", annualGrowth: 0.07 });
   };
 
-  const handleRemoveAsset = (id: string) => {
-    onChange({
-      ...twin,
-      assets: twin.assets.filter(a => a.id !== id)
-    });
+  const handleRemoveAsset = async (id: string) => {
+    setSyncingState?.("syncing");
+    try {
+      if (SupabaseService.isConfigured() && !id.startsWith("ast-") && id.length > 10) {
+        await SupabaseService.deleteAsset(id);
+      }
+      
+      const updated = {
+        ...twin,
+        assets: twin.assets.filter(a => a.id !== id)
+      };
+      
+      onChange(updated, true);
+      
+      if (SupabaseService.isConfigured() && profileId) {
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updated);
+      }
+      setSyncingState?.("synced");
+    } catch (err) {
+      console.error("Failed to remove asset:", err);
+      setSyncingState?.("error");
+    }
   };
 
-  const handleAddLiability = () => {
+  const handleAddLiability = async () => {
     if (!newLiab.name) return;
-    const item: LiabilityItem = {
-      ...newLiab,
-      id: Math.random().toString(36).substring(2, 9)
-    };
-    onChange({
-      ...twin,
-      liabilities: [...twin.liabilities, item]
-    });
+    setSyncingState?.("syncing");
+    try {
+      let newItem: LiabilityItem;
+      if (SupabaseService.isConfigured() && profileId) {
+        const dbResult = await SupabaseService.insertLiability(profileId, newLiab);
+        newItem = {
+          id: dbResult.id,
+          name: dbResult.liability_name,
+          amount: Number(dbResult.current_balance),
+          interestRate: Number(dbResult.interest_rate),
+          monthlyPayment: Number(dbResult.monthly_payment),
+          type: dbResult.liability_type
+        };
+      } else {
+        newItem = {
+          ...newLiab,
+          id: Math.random().toString(36).substring(2, 9)
+        };
+      }
+      
+      const updated = {
+        ...twin,
+        liabilities: [...twin.liabilities, newItem]
+      };
+      
+      onChange(updated, true);
+      
+      if (SupabaseService.isConfigured() && profileId) {
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updated);
+      }
+      setSyncingState?.("synced");
+    } catch (err) {
+      console.error("Failed to add liability:", err);
+      setSyncingState?.("error");
+    }
     setNewLiab({
       name: "",
       amount: 15000,
@@ -118,11 +354,28 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
     });
   };
 
-  const handleRemoveLiability = (id: string) => {
-    onChange({
-      ...twin,
-      liabilities: twin.liabilities.filter(l => l.id !== id)
-    });
+  const handleRemoveLiability = async (id: string) => {
+    setSyncingState?.("syncing");
+    try {
+      if (SupabaseService.isConfigured() && !id.startsWith("lia-") && id.length > 10) {
+        await SupabaseService.deleteLiability(id);
+      }
+      
+      const updated = {
+        ...twin,
+        liabilities: twin.liabilities.filter(l => l.id !== id)
+      };
+      
+      onChange(updated, true);
+      
+      if (SupabaseService.isConfigured() && profileId) {
+        await SupabaseService.updateFinancialTwinAggregates(profileId, updated);
+      }
+      setSyncingState?.("synced");
+    } catch (err) {
+      console.error("Failed to remove liability:", err);
+      setSyncingState?.("error");
+    }
   };
 
   // Aggregated summaries
@@ -149,6 +402,28 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
             <p className="text-xs text-zinc-400 mt-1 font-sans">
               To give you precise outcomes on high-impact lifestyle moves, please complete this friendly life-oriented questionnaire with Aura.
             </p>
+            {syncingState && (
+              <div className="mt-2.5 flex items-center gap-1.5 text-xs">
+                {syncingState === "syncing" && (
+                  <span className="text-amber-400 font-mono flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    Saving changes to database...
+                  </span>
+                )}
+                {syncingState === "synced" && (
+                  <span className="text-emerald-400 font-mono flex items-center gap-1.5">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[8px] border border-emerald-500/40">✓</span>
+                    Synced to Supabase
+                  </span>
+                )}
+                {syncingState === "error" && (
+                  <span className="text-rose-400 font-mono flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-rose-500" />
+                    Save failed. Check connection.
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex gap-4 self-stretch md:self-auto font-sans">
             <div className="bg-zinc-950/60 border border-zinc-805/80 p-3 rounded-lg text-left flex-1 md:flex-initial">
@@ -570,10 +845,37 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                   ) : (
                     twin.incomes.map((inc) => (
                       <tr key={inc.id} className="hover:bg-zinc-900/40">
-                        <td className="p-3 font-semibold text-zinc-200">{inc.name}</td>
-                        <td className="p-3 font-mono text-zinc-400 capitalize">{inc.type}</td>
-                        <td className="p-3 font-mono text-zinc-200 text-right font-bold">
-                          ${inc.amount.toLocaleString()}
+                        <td className="p-3">
+                          <input
+                            type="text"
+                            value={inc.name}
+                            onChange={(e) => handleEditIncome(inc.id, "name", e.target.value)}
+                            className="bg-transparent text-zinc-200 border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1.5 rounded w-full focus:outline-none font-semibold text-xs"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <select
+                            value={inc.type}
+                            onChange={(e) => handleEditIncome(inc.id, "type", e.target.value as any)}
+                            className="bg-transparent text-zinc-400 font-mono capitalize border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1.5 rounded focus:outline-none cursor-pointer text-xs"
+                          >
+                            <option value="salary" className="bg-zinc-900 text-zinc-300">Salary</option>
+                            <option value="bonus" className="bg-zinc-900 text-zinc-300">Bonus</option>
+                            <option value="investment" className="bg-zinc-900 text-zinc-300">Investment</option>
+                            <option value="business" className="bg-zinc-900 text-zinc-300">Business</option>
+                            <option value="other" className="bg-zinc-905 text-zinc-300">Other Inflow</option>
+                          </select>
+                        </td>
+                        <td className="p-3">
+                          <div className="relative flex justify-end items-center text-right">
+                            <span className="text-zinc-500 mr-1 text-xs">$</span>
+                            <input
+                              type="number"
+                              value={inc.amount}
+                              onChange={(e) => handleEditIncome(inc.id, "amount", parseFloat(e.target.value) || 0)}
+                              className="bg-transparent text-zinc-200 font-mono text-right font-bold border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1 rounded w-28 focus:outline-none text-xs"
+                            />
+                          </div>
                         </td>
                         <td className="p-3 text-center">
                           <button
@@ -694,11 +996,49 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                   ) : (
                     twin.assets.map((ast) => (
                       <tr key={ast.id} className="hover:bg-zinc-900/40">
-                        <td className="p-3 font-semibold text-zinc-200">{ast.name}</td>
-                        <td className="p-3 font-mono text-zinc-400 capitalize">{ast.type.replace("_", " ")}</td>
-                        <td className="p-3 font-mono text-emerald-400 text-right">{(ast.annualGrowth * 100).toFixed(1)}%</td>
-                        <td className="p-3 font-mono text-zinc-200 text-right font-bold">
-                          ${ast.amount.toLocaleString()}
+                        <td className="p-3">
+                          <input
+                            type="text"
+                            value={ast.name}
+                            onChange={(e) => handleEditAsset(ast.id, "name", e.target.value)}
+                            className="bg-transparent text-zinc-200 border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1.5 rounded w-full focus:outline-none font-semibold text-xs"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <select
+                            value={ast.type}
+                            onChange={(e) => handleEditAsset(ast.id, "type", e.target.value as any)}
+                            className="bg-transparent text-zinc-400 font-mono capitalize border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1.5 rounded focus:outline-none cursor-pointer text-xs"
+                          >
+                            <option value="cash" className="bg-zinc-900 text-zinc-300">Liquid Cash</option>
+                            <option value="retirement" className="bg-zinc-900 text-zinc-300">Retirement Account</option>
+                            <option value="brokerage" className="bg-zinc-900 text-zinc-300">Brokerage Portfolio</option>
+                            <option value="real_estate" className="bg-zinc-900 text-zinc-300">Real Estate equity</option>
+                            <option value="other" className="bg-zinc-905 text-zinc-300">Other Asset</option>
+                          </select>
+                        </td>
+                        <td className="p-3">
+                          <div className="relative flex justify-end items-center text-right font-mono text-emerald-400">
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={Math.round(ast.annualGrowth * 1000) / 10}
+                              onChange={(e) => handleEditAsset(ast.id, "annualGrowth", (parseFloat(e.target.value) || 0) / 100)}
+                              className="bg-transparent text-emerald-400 font-mono text-right border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1 rounded w-16 focus:outline-none text-xs"
+                            />
+                            <span className="text-emerald-500/80 ml-0.5 text-xs">%</span>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="relative flex justify-end items-center text-right font-mono text-zinc-200">
+                            <span className="text-zinc-500 mr-1 text-xs">$</span>
+                            <input
+                              type="number"
+                              value={ast.amount}
+                              onChange={(e) => handleEditAsset(ast.id, "amount", parseFloat(e.target.value) || 0)}
+                              className="bg-transparent text-zinc-200 font-mono text-right font-bold border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1 rounded w-28 focus:outline-none text-xs"
+                            />
+                          </div>
                         </td>
                         <td className="p-3 text-center">
                           <button
@@ -824,12 +1164,60 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                   ) : (
                     twin.liabilities.map((lia) => (
                       <tr key={lia.id} className="hover:bg-zinc-900/40">
-                        <td className="p-3 font-semibold text-zinc-200">{lia.name}</td>
-                        <td className="p-3 font-mono text-zinc-400 capitalize">{lia.type.replace("_", " ")}</td>
-                        <td className="p-3 font-mono text-rose-400 text-right">{(lia.interestRate * 100).toFixed(1)}%</td>
-                        <td className="p-3 font-mono text-zinc-350 text-right">${lia.monthlyPayment.toLocaleString()}</td>
-                        <td className="p-3 font-mono text-zinc-200 text-right font-bold">
-                          ${lia.amount.toLocaleString()}
+                        <td className="p-3">
+                          <input
+                            type="text"
+                            value={lia.name}
+                            onChange={(e) => handleEditLiability(lia.id, "name", e.target.value)}
+                            className="bg-transparent text-zinc-200 border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1.5 rounded w-full focus:outline-none font-semibold text-xs"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <select
+                            value={lia.type}
+                            onChange={(e) => handleEditLiability(lia.id, "type", e.target.value as any)}
+                            className="bg-transparent text-zinc-400 font-mono capitalize border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1.5 rounded focus:outline-none cursor-pointer text-xs"
+                          >
+                            <option value="student_loan" className="bg-zinc-900 text-zinc-300">Student Loan</option>
+                            <option value="mortgage" className="bg-zinc-900 text-zinc-300">Mortgage</option>
+                            <option value="auto_loan" className="bg-zinc-900 text-zinc-300">Vehicle Loan</option>
+                            <option value="credit_card" className="bg-zinc-900 text-zinc-300">Credit Card</option>
+                            <option value="other" className="bg-zinc-905 text-zinc-300">Other Liability</option>
+                          </select>
+                        </td>
+                        <td className="p-3">
+                          <div className="relative flex justify-end items-center text-right font-mono text-rose-400">
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={Math.round(lia.interestRate * 1000) / 10}
+                              onChange={(e) => handleEditLiability(lia.id, "interestRate", (parseFloat(e.target.value) || 0) / 100)}
+                              className="bg-transparent text-rose-400 font-mono text-right border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1 rounded w-16 focus:outline-none text-xs"
+                            />
+                            <span className="text-rose-500/80 ml-0.5 text-xs">%</span>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="relative flex justify-end items-center text-right font-mono text-zinc-350">
+                            <span className="text-zinc-500 mr-1 text-xs">$</span>
+                            <input
+                              type="number"
+                              value={lia.monthlyPayment}
+                              onChange={(e) => handleEditLiability(lia.id, "monthlyPayment", parseFloat(e.target.value) || 0)}
+                              className="bg-transparent text-zinc-350 font-mono text-right border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1 rounded w-20 focus:outline-none text-xs"
+                            />
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="relative flex justify-end items-center text-right font-mono text-zinc-200">
+                            <span className="text-zinc-500 mr-1 text-xs">$</span>
+                            <input
+                              type="number"
+                              value={lia.amount}
+                              onChange={(e) => handleEditLiability(lia.id, "amount", parseFloat(e.target.value) || 0)}
+                              className="bg-transparent text-zinc-200 font-mono text-right font-bold border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-1 px-1 rounded w-28 focus:outline-none text-xs"
+                            />
+                          </div>
                         </td>
                         <td className="p-3 text-center">
                           <button
