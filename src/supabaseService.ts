@@ -283,6 +283,140 @@ export class SupabaseService {
     }
   }
 
+  // Core Database Seeding and Profile Integrity Audit Helper
+  static async ensureDatabaseBootstrap(authUserId: string, email: string): Promise<{ profileId: string; userRole: string }> {
+    if (!authUserId) throw new Error("AURA BOOTSTRAP: Missing authUserId coordinates.");
+
+    console.log(`[AURA BOOTSTRAP] Running profile integrity audit for authenticated key: ${authUserId}`);
+
+    // 1. Ensure user_role exists
+    let userRole = "customer";
+    const { data: roleRow, error: roleGetErr } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
+
+    if (roleGetErr) {
+      console.error("[AURA BOOTSTRAP] Role query warning:", roleGetErr);
+    }
+
+    if (!roleRow) {
+      console.log("[AURA BOOTSTRAP] Seeding missing user role registration...");
+      const { error: roleInsErr } = await supabase
+        .from("user_roles")
+        .insert([{ auth_user_id: authUserId, role: "customer" }]);
+      if (roleInsErr) {
+        console.error("[AURA BOOTSTRAP] Critical warning: role seeding failed:", roleInsErr);
+      } else {
+        userRole = "customer";
+      }
+    } else {
+      userRole = roleRow.role;
+    }
+
+    // 2. Ensure user_identity records are stored safely
+    const { data: identityRow, error: idGetErr } = await supabase
+      .from("user_identity")
+      .select("id")
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
+
+    if (idGetErr) {
+      console.error("[AURA BOOTSTRAP] Identity lookup failed:", idGetErr);
+    }
+
+    if (!identityRow) {
+      console.log("[AURA BOOTSTRAP] Bootstrapping PII isolation vault...");
+      const parts = email.split("@");
+      const namePart = parts[0] ? parts[0] : "Aura";
+      const { error: idInsErr } = await supabase
+        .from("user_identity")
+        .insert([{
+          auth_user_id: authUserId,
+          first_name: encryptPII(namePart),
+          last_name: encryptPII("User"),
+          email: encryptPII(email),
+          phone: null
+        }]);
+      if (idInsErr) {
+        console.error("[AURA BOOTSTRAP] Identity insertion warning:", idInsErr);
+      }
+    }
+
+    // 3. Ensure profile coordinates are active
+    let profileId = "";
+    const { data: profileRow, error: profGetErr } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
+
+    if (profGetErr) {
+      console.error("[AURA BOOTSTRAP] Profile query failed:", profGetErr);
+    }
+
+    if (!profileRow) {
+      console.log("[AURA BOOTSTRAP] Seeding profile coordinate root...");
+      const parts = email.split("@");
+      const namePart = parts[0] ? parts[0] : "Aura User";
+      const { data: freshProf, error: profInsErr } = await supabase
+        .from("profiles")
+        .insert([{
+          auth_user_id: authUserId,
+          display_name: namePart,
+          state: "CA",
+          country: "United States",
+          currency: "USD",
+          risk_preference: "moderate",
+          retirement_target_age: 65
+        }])
+        .select("id")
+        .maybeSingle();
+
+      if (profInsErr || !freshProf) {
+        console.error("[AURA BOOTSTRAP] Profile creation failure:", profInsErr);
+      } else {
+        profileId = freshProf.id;
+      }
+    } else {
+      profileId = profileRow.id;
+    }
+
+    // 4. Ensure analytical financial twin exists for calculations
+    if (profileId) {
+      const { data: twinRow, error: twinGetErr } = await supabase
+        .from("financial_twins")
+        .select("id")
+        .eq("profile_id", profileId)
+        .maybeSingle();
+
+      if (twinGetErr) {
+        console.error("[AURA BOOTSTRAP] Twin analytics retrieval warning:", twinGetErr);
+      }
+
+      if (!twinRow) {
+        console.log("[AURA BOOTSTRAP] Initializing empty analytical twin...");
+        const { error: twinInsErr } = await supabase
+          .from("financial_twins")
+          .insert([{
+            profile_id: profileId,
+            net_worth: 0,
+            monthly_income: 0,
+            monthly_expenses: 4200,
+            financial_readiness_score: 50,
+            plan_health: 55,
+            profile_completeness: 10
+          }]);
+        if (twinInsErr) {
+          console.error("[AURA BOOTSTRAP] Twin creation mismatch:", twinInsErr);
+        }
+      }
+    }
+
+    return { profileId, userRole };
+  }
+
   // Load Combined Profile, Twin metrics, assets, liabilities
   static async loadCombinedProfile(userId: string): Promise<{ twin: FinancialTwin; profileId: string }> {
     if (!this.isConfigured()) {
@@ -326,41 +460,78 @@ export class SupabaseService {
     }
 
     try {
-      // 1. Fetch Profile
+      // 1. Fetch user email to authorize bootstrap identity seeding
+      const { data: { user } } = await supabase.auth.getUser();
+      const email = user?.email || "sandbox@aura.org";
+
+      // 2. Drive profile bootstrap to heal or seed any missing nodes
+      const { profileId } = await this.ensureDatabaseBootstrap(userId, email);
+
+      if (!profileId) {
+        throw new Error("AURA BOOTSTRAP FAILED: Could not register profile coordinates in database.");
+      }
+
+      // 3. Retrieve Profile properties
       const { data: profileRow, error: pErr } = await supabase
         .from("profiles")
         .select("*")
-        .eq("auth_user_id", userId)
+        .eq("id", profileId)
         .single();
       
       if (pErr || !profileRow) {
-        throw new Error(pErr?.message || "Profile coordinates missing, initializing defaults.");
+        throw new Error(pErr?.message || "Profile coordinates missing after security bootstrap checks.");
       }
 
-      const pId = profileRow.id;
-
-      // 2. Fetch Assets
-      const { data: assetsArr } = await supabase
+      // 4. Retrieve Assets
+      const { data: assetsArr, error: assetErr } = await supabase
         .from("assets")
         .select("*")
-        .eq("profile_id", pId);
+        .eq("profile_id", profileId);
 
-      // 3. Fetch Liabilities
-      const { data: liabArr } = await supabase
+      if (assetErr) {
+        console.error("[AURA DB] Error querying assets:", assetErr);
+      }
+
+      // 5. Retrieve Liabilities
+      const { data: liabArr, error: liabilitiesErr } = await supabase
         .from("liabilities")
         .select("*")
-        .eq("profile_id", pId);
+        .eq("profile_id", profileId);
 
-      // 4. Fetch Twin Row
-      const { data: twinRow } = await supabase
+      if (liabilitiesErr) {
+        console.error("[AURA DB] Error querying liabilities:", liabilitiesErr);
+      }
+
+      // 6. Retrieve Twin Row
+      const { data: twinRow, error: twinRowErr } = await supabase
         .from("financial_twins")
         .select("*")
-        .eq("profile_id", pId)
+        .eq("profile_id", profileId)
         .single();
 
-      // For incomes, let's map any assets/liabilities or hold salary fields in database schema
-      // To bypass un-approved schema adjustments, we store incomes dynamically or as asset node
-      const mappedIncomes: IncomeSource[] = [];
+      if (twinRowErr) {
+        console.error("[AURA DB] Error querying financial twin:", twinRowErr);
+      }
+
+      // 7. Retrieve Incomes
+      const { data: incomesArr, error: incomesRowErr } = await supabase
+        .from("income_sources")
+        .select("*")
+        .eq("profile_id", profileId);
+
+      if (incomesRowErr) {
+        console.warn("[AURA DB] Income sources retrieval unsupported or missing:", incomesRowErr);
+      }
+
+      // Map DB formats back to our types
+      const mappedIncomes: IncomeSource[] = (incomesArr || []).map(i => ({
+        id: i.id,
+        name: i.income_name,
+        amount: Number(i.current_value),
+        frequency: i.frequency as any,
+        type: i.income_type as any
+      }));
+
       const mappedAssets: AssetItem[] = (assetsArr || []).map(a => ({
         id: a.id,
         name: a.asset_name,
@@ -395,29 +566,11 @@ export class SupabaseService {
         liabilities: mappedLiabilities
       };
 
-      return { twin, profileId: pId };
-    } catch (e) {
-      console.error("Error loading combined profile:", e);
-      // Fail gracefully to sandbox mock values rather than blocking runtime
-      return {
-        twin: {
-          age: 32,
-          monthlyExpenses: 4200,
-          dependants: 1,
-          retirementAge: 65,
-          riskTolerance: "moderate",
-          taxState: "CA",
-          country: "United States",
-          incomes: [
-            { id: "inc-1", name: "Primary W2 Base Salary", amount: 115000, frequency: "annual", type: "salary" }
-          ],
-          assets: [
-            { id: "ast-1", name: "High-Yield Liquid Checking", amount: 32000, type: "cash", annualGrowth: 0.042 }
-          ],
-          liabilities: []
-        },
-        profileId: "fallback_prof_id"
-      };
+      return { twin, profileId };
+    } catch (e: any) {
+      console.error("Critical Profile Database extraction failed:", e);
+      // Under configured DB environments, we must throw or warn rather than silent mock overrides
+      throw new Error(`AURA ARCHITECTURE EXCEPTION: Database query failure: ${e.message || e}`);
     }
   }
 
@@ -440,8 +593,10 @@ export class SupabaseService {
     }
 
     try {
+      console.log(`[AURA DB] Syncing twin configuration variables to profile key: ${profileId}`);
+
       // 1. Update Profile Properties
-      await supabase
+      const { error: profileErr } = await supabase
         .from("profiles")
         .update({
           state: twin.taxState,
@@ -452,14 +607,19 @@ export class SupabaseService {
         })
         .eq("id", profileId);
 
-      // Calculate totals
+      if (profileErr) {
+        console.error("[AURA DB] Profiles table update failed:", profileErr);
+        throw profileErr;
+      }
+
+      // Calculate aggregated totals for the Twin
       const totalIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
       const totalAssets = twin.assets.reduce((acc, curr) => acc + curr.amount, 0);
       const totalLiabilities = twin.liabilities.reduce((acc, curr) => acc + curr.amount, 0);
       const netWorth = totalAssets - totalLiabilities;
 
       // 2. Update Financial Twin Aggregation Records
-      await supabase
+      const { error: twinErr } = await supabase
         .from("financial_twins")
         .update({
           net_worth: netWorth,
@@ -472,10 +632,47 @@ export class SupabaseService {
         })
         .eq("profile_id", profileId);
 
-      // 3. Clear and rewrite Assets to prevent duplication
-      await supabase.from("assets").delete().eq("profile_id", profileId);
+      if (twinErr) {
+        console.error("[AURA DB] Financial twin update failed:", twinErr);
+        throw twinErr;
+      }
+
+      // 3. Clear and rewrite Incomes (if database supports custom incomes table)
+      try {
+        const { error: delIncErr } = await supabase.from("income_sources").delete().eq("profile_id", profileId);
+        if (delIncErr) {
+          console.error("[AURA DB] Deleting old income sources failed:", delIncErr);
+          throw delIncErr;
+        }
+
+        if (twin.incomes.length) {
+          const { error: insIncErr } = await supabase.from("income_sources").insert(
+            twin.incomes.map(i => ({
+              profile_id: profileId,
+              income_type: (["salary", "bonus", "investment", "business", "other"].includes(i.type) ? i.type : "other"),
+              income_name: i.name,
+              current_value: i.amount,
+              frequency: i.frequency || "annual"
+            }))
+          );
+          if (insIncErr) {
+            console.error("[AURA DB] Inserting new income sources failed:", insIncErr);
+            throw insIncErr;
+          }
+        }
+      } catch (incSupportErr: any) {
+        console.warn("[AURA DB] Optional income_sources seeding warning:", incSupportErr.message || incSupportErr);
+      }
+
+      // 4. Clear and rewrite Assets to prevent duplication
+      const { error: assetDelErr } = await supabase.from("assets").delete().eq("profile_id", profileId);
+      if (assetDelErr) {
+        console.error("[AURA DB] Assets deletion transaction failed:", assetDelErr);
+        throw assetDelErr;
+      }
+
       if (twin.assets.length) {
-        await supabase.from("assets").insert(
+        const { error: assetInsErr } = await supabase.from("assets").insert(
           twin.assets.map(a => ({
             profile_id: profileId,
             asset_type: (["cash", "retirement", "brokerage", "real_estate", "other"].includes(a.type) ? a.type : "other"),
@@ -484,12 +681,21 @@ export class SupabaseService {
             growth_rate: a.annualGrowth
           }))
         );
+        if (assetInsErr) {
+          console.error("[AURA DB] Assets insertion transaction failed:", assetInsErr);
+          throw assetInsErr;
+        }
       }
 
-      // 4. Clear and rewrite Liabilities
-      await supabase.from("liabilities").delete().eq("profile_id", profileId);
+      // 5. Clear and rewrite Liabilities
+      const { error: liabDelErr } = await supabase.from("liabilities").delete().eq("profile_id", profileId);
+      if (liabDelErr) {
+        console.error("[AURA DB] Liabilities deletion transaction failed:", liabDelErr);
+        throw liabDelErr;
+      }
+
       if (twin.liabilities.length) {
-        await supabase.from("liabilities").insert(
+        const { error: liabInsErr } = await supabase.from("liabilities").insert(
           twin.liabilities.map(l => ({
             profile_id: profileId,
             liability_type: (["mortgage", "student_loan", "auto_loan", "credit_card", "other"].includes(l.type) ? l.type : "other"),
@@ -499,10 +705,15 @@ export class SupabaseService {
             monthly_payment: l.monthlyPayment
           }))
         );
+        if (liabInsErr) {
+          console.error("[AURA DB] Liabilities insertion transaction failed:", liabInsErr);
+          throw liabInsErr;
+        }
       }
 
+      console.log("[AURA DB] Profile updates successfully committed to all relational tables.");
       return true;
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to commit profile updates:", e);
       return false;
     }
@@ -525,7 +736,10 @@ export class SupabaseService {
         .select("*")
         .eq("profile_id", profileId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("[AURA DB] Fetching goals failed:", error);
+        throw error;
+      }
 
       return (data || []).map(g => ({
         id: g.id,
@@ -536,9 +750,9 @@ export class SupabaseService {
         currentSavings: Number(g.current_progress),
         priority: "important" // Default mapping
       }));
-    } catch (e) {
+    } catch (e: any) {
       console.error("Goals loaded failed:", e);
-      return [];
+      throw new Error(`AURA ARCHITECTURE EXCEPTION: Goals query failure: ${e.message || e}`);
     }
   }
 
@@ -550,8 +764,14 @@ export class SupabaseService {
     }
 
     try {
-      // Clear out the previous goals to write the current frozen state list
-      await supabase.from("goals").delete().eq("profile_id", profileId);
+      console.log(`[AURA DB] Syncing user goals array to profile key: ${profileId}`);
+
+      // Clear out previous goals to rewrite the current state list
+      const { error: delErr } = await supabase.from("goals").delete().eq("profile_id", profileId);
+      if (delErr) {
+        console.error("[AURA DB] Goals deletion failed:", delErr);
+        throw delErr;
+      }
 
       if (goals.length) {
         const payload = goals.map(g => ({
@@ -564,9 +784,14 @@ export class SupabaseService {
           status: "active"
         }));
 
-        const { error } = await supabase.from("goals").insert(payload);
-        if (error) throw error;
+        const { error: insErr } = await supabase.from("goals").insert(payload);
+        if (insErr) {
+          console.error("[AURA DB] Goals insertion failed:", insErr);
+          throw insErr;
+        }
       }
+
+      console.log("[AURA DB] Goals updates successfully committed to goals table.");
       return true;
     } catch (e) {
       console.error("Goals sync failed:", e);

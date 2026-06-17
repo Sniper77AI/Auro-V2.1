@@ -78,7 +78,14 @@ export default function App() {
       try {
         const active = await SupabaseService.getActiveUser();
         if (active.userId) {
-          setSession({ user: active });
+          setSession({
+            user: {
+              id: active.userId,
+              userId: active.userId,
+              userEmail: active.userEmail,
+              role: active.role
+            }
+          });
           setUserRole(active.role);
           
           // Load specific coordinates and goals array
@@ -108,8 +115,9 @@ export default function App() {
     setTwin(updatedTwin);
     setSyncingState("syncing");
     
-    if (session?.user?.userId) {
-      const success = await SupabaseService.saveCombinedProfile(session.user.userId, profileId, updatedTwin);
+    const uId = session?.user?.userId || session?.user?.id;
+    if (uId) {
+      const success = await SupabaseService.saveCombinedProfile(uId, profileId, updatedTwin);
       setSyncingState(success ? "synced" : "error");
     } else {
       setSyncingState("synced");
@@ -120,8 +128,9 @@ export default function App() {
     setGoals(updatedGoals);
     setSyncingState("syncing");
     
-    if (session?.user?.userId) {
-      const success = await SupabaseService.saveLifeGoals(session.user.userId, profileId, updatedGoals);
+    const uId = session?.user?.userId || session?.user?.id;
+    if (uId) {
+      const success = await SupabaseService.saveLifeGoals(uId, profileId, updatedGoals);
       setSyncingState(success ? "synced" : "error");
     } else {
       setSyncingState("synced");
@@ -217,14 +226,25 @@ export default function App() {
     return (
       <AuthContainer 
         onSuccess={async (sess, sRole) => {
-          setSession(sess);
+          const normalizedSession = {
+            ...sess,
+            user: {
+              ...sess.user,
+              id: sess.user?.id,
+              userId: sess.user?.id || sess.user?.userId,
+              userEmail: sess.user?.email || "sandbox@aura.org",
+              role: sRole
+            }
+          };
+          setSession(normalizedSession);
           setUserRole(sRole as any);
           
-          const loadedProfile = await SupabaseService.loadCombinedProfile(sess.user.id || sess.user.userId);
+          const uId = sess.user?.id || sess.user?.userId;
+          const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
           setTwin(loadedProfile.twin);
           setProfileId(loadedProfile.profileId);
 
-          const loadedGoals = await SupabaseService.loadLifeGoals(sess.user.id || sess.user.userId, loadedProfile.profileId);
+          const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
           setGoals(loadedGoals);
         }} 
       />

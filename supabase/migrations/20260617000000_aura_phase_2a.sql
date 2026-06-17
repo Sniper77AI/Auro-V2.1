@@ -104,6 +104,19 @@ CREATE TABLE IF NOT EXISTS public.goals (
 
 CREATE INDEX IF NOT EXISTS idx_goals_profile ON public.goals(profile_id);
 
+-- 7B. SECURE CASH-INFLOW INCOME SOURCES
+CREATE TABLE IF NOT EXISTS public.income_sources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    income_type VARCHAR(50) NOT NULL CHECK (income_type IN ('salary', 'bonus', 'investment', 'business', 'other')),
+    income_name VARCHAR(255) NOT NULL,
+    current_value NUMERIC(15,2) NOT NULL DEFAULT 0.00 CHECK (current_value >= 0),
+    frequency VARCHAR(50) NOT NULL DEFAULT 'annual' CHECK (frequency IN ('annual', 'monthly')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_incomes_profile ON public.income_sources(profile_id);
+
 -- 8. REGIONAL STATE ASSUMPTIONS
 CREATE TABLE IF NOT EXISTS public.state_assumptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -130,6 +143,7 @@ ALTER TABLE public.financial_twins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.liabilities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.income_sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.state_assumptions ENABLE ROW LEVEL SECURITY;
 
 
@@ -145,9 +159,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 2. USER ROLES Policies
 CREATE POLICY "Users can view their own role" 
     ON public.user_roles FOR SELECT 
-    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin'));
+    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
 
-CREATE POLICY "Only super admins can write roles" 
+CREATE POLICY "Users can insert their own initial role"
+    ON public.user_roles FOR INSERT
+    WITH CHECK (auth.uid() = auth_user_id AND role = 'customer');
+
+CREATE POLICY "Only super admins can modify roles" 
     ON public.user_roles FOR ALL 
     USING (public.get_auth_role(auth.uid()) = 'super_admin');
 
@@ -166,45 +184,120 @@ CREATE POLICY "PII Self Update"
 
 
 -- 4. PROFILES Policies
-CREATE POLICY "Profile self access" 
-    ON public.profiles FOR ALL 
-    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin'));
-
-CREATE POLICY "Auditors can query core statistics across profiles" 
+CREATE POLICY "Profile self select" 
     ON public.profiles FOR SELECT 
-    USING (public.get_auth_role(auth.uid()) = 'auditor');
+    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
+
+CREATE POLICY "Profile self insert"
+    ON public.profiles FOR INSERT
+    WITH CHECK (auth.uid() = auth_user_id);
+
+CREATE POLICY "Profile self update"
+    ON public.profiles FOR UPDATE
+    USING (auth.uid() = auth_user_id)
+    WITH CHECK (auth.uid() = auth_user_id);
+
+CREATE POLICY "Profile self delete"
+    ON public.profiles FOR DELETE
+    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) = 'super_admin');
 
 
--- 5. FINANCIAL TWINS, ASSETS, LIABILITIES, GOALS Policies
--- Users can read/write their own records mapped via profile_id
-CREATE POLICY "Customer twin isolation"
-    ON public.financial_twins FOR ALL
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin'));
+-- 5. FINANCIAL TWINS, ASSETS, LIABILITIES, GOALS, INCOME SOURCES Policies
+-- Users can read/write/delete their own records mapped via profile_id
 
-CREATE POLICY "Customer assets isolation"
-    ON public.assets FOR ALL
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin'));
+-- FINANCIAL TWINS Policies
+CREATE POLICY "Twin self select"
+    ON public.financial_twins FOR SELECT
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
 
-CREATE POLICY "Customer liabilities isolation"
-    ON public.liabilities FOR ALL
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin'));
+CREATE POLICY "Twin self insert"
+    ON public.financial_twins FOR INSERT
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
 
-CREATE POLICY "Customer goals isolation"
-    ON public.goals FOR ALL
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin'));
+CREATE POLICY "Twin self update"
+    ON public.financial_twins FOR UPDATE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()))
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
 
--- Auditors can read these for analytics metrics but cannot access identity matching names
-CREATE POLICY "Auditors analytical access to metrics"
-    ON public.financial_twins FOR SELECT USING (public.get_auth_role(auth.uid()) = 'auditor');
+CREATE POLICY "Twin self delete"
+    ON public.financial_twins FOR DELETE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) = 'super_admin');
 
-CREATE POLICY "Auditors analytical access to asset classes"
-    ON public.assets FOR SELECT USING (public.get_auth_role(auth.uid()) = 'auditor');
 
-CREATE POLICY "Auditors analytical access to liability profiles"
-    ON public.liabilities FOR SELECT USING (public.get_auth_role(auth.uid()) = 'auditor');
+-- ASSETS Policies
+CREATE POLICY "Assets self select"
+    ON public.assets FOR SELECT
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
 
-CREATE POLICY "Auditors analytical access to goals progress"
-    ON public.goals FOR SELECT USING (public.get_auth_role(auth.uid()) = 'auditor');
+CREATE POLICY "Assets self insert"
+    ON public.assets FOR INSERT
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "Assets self update"
+    ON public.assets FOR UPDATE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()))
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "Assets self delete"
+    ON public.assets FOR DELETE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+
+-- LIABILITIES Policies
+CREATE POLICY "Liabilities self select"
+    ON public.liabilities FOR SELECT
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
+
+CREATE POLICY "Liabilities self insert"
+    ON public.liabilities FOR INSERT
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "Liabilities self update"
+    ON public.liabilities FOR UPDATE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()))
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "Liabilities self delete"
+    ON public.liabilities FOR DELETE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+
+-- GOALS Policies
+CREATE POLICY "Goals self select"
+    ON public.goals FOR SELECT
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
+
+CREATE POLICY "Goals self insert"
+    ON public.goals FOR INSERT
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "Goals self update"
+    ON public.goals FOR UPDATE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()))
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "Goals self delete"
+    ON public.goals FOR DELETE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+
+-- INCOME SOURCES Policies
+CREATE POLICY "Incomes self select"
+    ON public.income_sources FOR SELECT
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
+
+CREATE POLICY "Incomes self insert"
+    ON public.income_sources FOR INSERT
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "Incomes self update"
+    ON public.income_sources FOR UPDATE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()))
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY "Incomes self delete"
+    ON public.income_sources FOR DELETE
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
 
 
 -- 6. STATE ASSUMPTIONS Policies
