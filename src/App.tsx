@@ -12,10 +12,12 @@ import GovernanceHub from "./components/GovernanceHub";
 import FeedbackHub from "./components/FeedbackHub";
 import GoalsMatrix from "./components/GoalsMatrix";
 import UnifiedSettings from "./components/UnifiedSettings";
+import AuthContainer from "./components/AuthContainer";
+import { SupabaseService } from "./supabaseService";
 import { 
   LayoutDashboard, Wallet, Sparkles, Scale, 
   MessageSquare, ChevronRight, Coins, 
-  Activity, MapPin, User, ShieldAlert, Target, Settings, Eye, EyeOff
+  Activity, MapPin, User, ShieldAlert, Target, Settings, Eye, EyeOff, LogOut, Database, ShieldCheck
 } from "lucide-react";
 
 // Pre-populated default financial twin representation
@@ -55,23 +57,85 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
 ];
 
 export default function App() {
-  const [userRole, setUserRole] = useState<"customer" | "admin">("customer");
+  const [session, setSession] = useState<any>(null);
+  const [profileId, setProfileId] = useState<string>("fallback_profile_id");
+  const [userRole, setUserRole] = useState<"customer" | "auditor" | "governance_admin" | "super_admin">("customer");
   const [activeMenu, setActiveMenu] = useState<"command" | "twin" | "simulator" | "goals" | "settings" | "governance" | "feedback">("command");
   const [activeScenarioType, setActiveScenarioType] = useState<any>(undefined);
   
   // Real active state trackers
   const [twin, setTwin] = useState<FinancialTwin>(INITIAL_TWIN);
+  const [goals, setGoals] = useState<any[]>([]);
   const [savedSimulations, setSavedSimulations] = useState<SimulationResult[]>([]);
   const [governanceEvents, setGovernanceEvents] = useState<GovernanceEvent[]>(INITIAL_GOVERNANCE_EVENTS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
+  const [syncingState, setSyncingState] = useState<"synced" | "syncing" | "error">("synced");
 
-  // Enforce access control: if user is customer and activeMenu is admin-only, reset to command center
+  // Initial Auth checking and Profile database sync
+  useEffect(() => {
+    const checkSessionAndSync = async () => {
+      try {
+        const active = await SupabaseService.getActiveUser();
+        if (active.userId) {
+          setSession({ user: active });
+          setUserRole(active.role);
+          
+          // Load specific coordinates and goals array
+          const loadedProfile = await SupabaseService.loadCombinedProfile(active.userId);
+          setTwin(loadedProfile.twin);
+          setProfileId(loadedProfile.profileId);
+
+          const loadedGoals = await SupabaseService.loadLifeGoals(active.userId, loadedProfile.profileId);
+          setGoals(loadedGoals);
+        }
+      } catch (err) {
+        console.error("Auth initialization failure:", err);
+      }
+    };
+    checkSessionAndSync();
+  }, []);
+
+  // Enforce access control redirect filters
   useEffect(() => {
     if (userRole === "customer" && ["governance", "feedback"].includes(activeMenu)) {
       setActiveMenu("command");
     }
   }, [userRole, activeMenu]);
+
+  // Combined saving orchestrations
+  const handleSaveTwin = async (updatedTwin: FinancialTwin) => {
+    setTwin(updatedTwin);
+    setSyncingState("syncing");
+    
+    if (session?.user?.userId) {
+      const success = await SupabaseService.saveCombinedProfile(session.user.userId, profileId, updatedTwin);
+      setSyncingState(success ? "synced" : "error");
+    } else {
+      setSyncingState("synced");
+    }
+  };
+
+  const handleSaveGoals = async (updatedGoals: any[]) => {
+    setGoals(updatedGoals);
+    setSyncingState("syncing");
+    
+    if (session?.user?.userId) {
+      const success = await SupabaseService.saveLifeGoals(session.user.userId, profileId, updatedGoals);
+      setSyncingState(success ? "synced" : "error");
+    } else {
+      setSyncingState("synced");
+    }
+  };
+
+  const handleSignOut = async () => {
+    await SupabaseService.signOut();
+    setSession(null);
+    setUserRole("customer");
+    setTwin(INITIAL_TWIN);
+    setGoals([]);
+    setActiveMenu("command");
+  };
 
   // Calculate high level KPI totals for header display
   const totalAnnualIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
@@ -87,7 +151,7 @@ export default function App() {
     const log: AuditLog = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
-      userEmail: "sinior.bkk@gmail.com",
+      userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
       action: "SIM_PERSIST",
       source: "simulation_engine",
       status: "success",
@@ -95,6 +159,7 @@ export default function App() {
     };
     setAuditLogs([log, ...auditLogs]);
   };
+
 
   const handleLogGovernanceEvent = (event: Omit<GovernanceEvent, "id" | "timestamp">) => {
     const freshEvent: GovernanceEvent = {
@@ -139,7 +204,7 @@ export default function App() {
     const audit: AuditLog = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
-      userEmail: "sinior.bkk@gmail.com",
+      userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
       action: "GRV_DISPUTE",
       source: "governance_dashboard",
       status: "violation",
@@ -147,6 +212,24 @@ export default function App() {
     };
     setAuditLogs([audit, ...auditLogs]);
   };
+
+  if (!session) {
+    return (
+      <AuthContainer 
+        onSuccess={async (sess, sRole) => {
+          setSession(sess);
+          setUserRole(sRole as any);
+          
+          const loadedProfile = await SupabaseService.loadCombinedProfile(sess.user.id || sess.user.userId);
+          setTwin(loadedProfile.twin);
+          setProfileId(loadedProfile.profileId);
+
+          const loadedGoals = await SupabaseService.loadLifeGoals(sess.user.id || sess.user.userId, loadedProfile.profileId);
+          setGoals(loadedGoals);
+        }} 
+      />
+    );
+  }
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden">
@@ -242,10 +325,10 @@ export default function App() {
                 <span>Settings</span>
               </button>
 
-              {/* SYSTEM ADMINISTRATIVE SECTOR (Visible ONLY under admin role) */}
-              {userRole === "admin" && (
+              {/* SYSTEM ADMINISTRATIVE SECTOR (Visible ONLY under non-customer roles) */}
+              {userRole !== "customer" && (
                 <div className="pt-4 space-y-1.5">
-                  <span className="text-[9px] uppercase font-mono tracking-wider text-rose-400 block pb-2 border-b border-zinc-805">
+                  <span className="text-[9px] uppercase font-mono tracking-wider text-rose-450 block pb-2 border-b border-zinc-805">
                     Oversight & Compliance
                   </span>
 
@@ -278,41 +361,61 @@ export default function App() {
           </div>
 
           {/* ROLE AUTHORIZATION TOGGLE (Interactive Client Security Layer) */}
-          <div className="bg-zinc-950 border border-zinc-850/80 p-3.5 rounded-xl space-y-2.5 pt-4 mt-6">
+          <div className="bg-zinc-950 border border-zinc-850/80 p-3.5 rounded-xl space-y-2 mt-6">
             <div className="flex justify-between items-center text-[9px] font-mono">
-              <span className="text-zinc-500 uppercase">SYSTEM SHELL</span>
-              <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${userRole === "admin" ? "bg-rose-950/20 text-rose-400 border border-rose-900/40" : "bg-emerald-950/20 text-emerald-400 border border-emerald-900/40"}`}>
-                {userRole === "admin" ? "Role: Admin" : "Role: Customer"}
-              </span>
+              <span className="text-zinc-500 uppercase">RLS CONTEXT SHELL</span>
+              <span className="text-emerald-450 text-[8px] font-bold">MODE: SECURE</span>
             </div>
-            <button
-              onClick={() => setUserRole(userRole === "customer" ? "admin" : "customer")}
-              className="w-full text-[10px] bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 py-1.5 text-zinc-300 rounded font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            
+            <select
+              value={userRole}
+              onChange={(e) => {
+                const r = e.target.value as any;
+                setUserRole(r);
+                // Log audit action
+                const log: AuditLog = {
+                  id: Math.random().toString(36).substring(2, 9),
+                  timestamp: new Date().toISOString(),
+                  userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
+                  action: "ROLE_UPGRADE",
+                  source: "system_shell",
+                  status: "success",
+                  description: `Switched token security context role to "${r.toUpperCase()}" for Row Level Security compliance audit.`
+                };
+                setAuditLogs([log, ...auditLogs]);
+              }}
+              className="w-full text-[10px] bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 p-2 text-zinc-200 rounded font-bold cursor-pointer focus:outline-none"
             >
-              {userRole === "customer" ? (
-                <>
-                  <Eye className="w-3.5 h-3.5 text-rose-400" /> Unlock Admin Views
-                </>
-              ) : (
-                <>
-                  <EyeOff className="w-3.5 h-3.5 text-emerald-405" /> Restrict to Customer
-                </>
-              )}
-            </button>
+              <option value="customer">👤 Customer Persona</option>
+              <option value="auditor">🔍 Auditor Persona</option>
+              <option value="governance_admin">⚖️ Gov Admin Persona</option>
+              <option value="super_admin">⚡ Super Admin Persona</option>
+            </select>
           </div>
         </div>
 
         {/* User Identity bottom tag */}
-        <div className="p-4 border-t border-zinc-805 bg-zinc-950/40 text-xs shrink-0 font-sans">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-full bg-zinc-800 text-zinc-400">
+        <div className="p-4 border-t border-zinc-805 bg-zinc-950/40 text-xs shrink-0 font-sans flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1.5 rounded-full bg-zinc-805 text-zinc-400 shrink-0">
               <User className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="font-semibold block text-zinc-200 truncate font-sans">sinior.bkk@gmail.com</span>
-              <span className="text-[9px] font-mono text-emerald-500 uppercase leading-none block mt-1">Verified Account Holder</span>
+              <span className="font-semibold block text-zinc-200 truncate font-sans text-xs">
+                {session?.user?.userEmail || "guest@domain.com"}
+              </span>
+              <span className="text-[9px] font-mono text-emerald-450 uppercase leading-none block mt-1">
+                Authorized Node Holder
+              </span>
             </div>
           </div>
+          <button
+            onClick={handleSignOut}
+            title="Terminate secure session key"
+            className="p-2 hover:bg-zinc-850 rounded-lg text-zinc-500 hover:text-emerald-400 transition-all cursor-pointer shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </aside>
 
@@ -368,12 +471,12 @@ export default function App() {
             <TwinConfigurator 
               twin={twin} 
               onChange={(updated) => {
-                setTwin(updated);
+                handleSaveTwin(updated);
                 // Append secure audit log
                 const audit: AuditLog = {
                   id: Math.random().toString(36).substring(2, 9),
                   timestamp: new Date().toISOString(),
-                  userEmail: "sinior.bkk@gmail.com",
+                  userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
                   action: "TWIN_RECAL",
                   source: "twin_configurator",
                   status: "success",
@@ -395,18 +498,22 @@ export default function App() {
           )}
 
           {activeMenu === "goals" && (
-            <GoalsMatrix twin={twin} />
+            <GoalsMatrix 
+              twin={twin} 
+              goals={goals} 
+              onSaveGoals={handleSaveGoals} 
+            />
           )}
 
           {activeMenu === "settings" && (
             <UnifiedSettings 
               twin={twin} 
               onChangeTwin={(updated) => {
-                setTwin(updated);
+                handleSaveTwin(updated);
                 const audit: AuditLog = {
                   id: Math.random().toString(36).substring(2, 9),
                   timestamp: new Date().toISOString(),
-                  userEmail: "sinior.bkk@gmail.com",
+                  userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
                   action: "SETTING_UPDATE",
                   source: "settings_dashboard",
                   status: "success",
@@ -417,7 +524,7 @@ export default function App() {
             />
           )}
 
-          {activeMenu === "governance" && userRole === "admin" && (
+          {activeMenu === "governance" && userRole !== "customer" && (
             <GovernanceHub 
               events={governanceEvents} 
               auditLogs={auditLogs}
@@ -425,7 +532,7 @@ export default function App() {
             />
           )}
 
-          {activeMenu === "feedback" && userRole === "admin" && (
+          {activeMenu === "feedback" && userRole !== "customer" && (
             <FeedbackHub 
               feedbacks={feedbacks}
             />

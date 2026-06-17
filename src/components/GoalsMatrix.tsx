@@ -35,16 +35,11 @@ const GOAL_TITLES: Record<string, string> = {
 
 interface GoalsMatrixProps {
   twin: FinancialTwin;
+  goals: GoalItem[];
+  onSaveGoals: (updated: GoalItem[]) => void;
 }
 
-export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
-  const [goals, setGoals] = useState<GoalItem[]>([
-    { id: "g-1", name: "Comfortable Retirement Nest Egg", category: "retirement", targetAmount: 1800000, targetYear: 2054, currentSavings: 55000, priority: "essential" },
-    { id: "g-2", name: "Our Dream Property Down Payment", category: "property", targetAmount: 120000, targetYear: 2030, currentSavings: 15000, priority: "important" },
-    { id: "g-3", name: "Dependent College Trust Fund", category: "education", targetAmount: 150000, targetYear: 2040, currentSavings: 12000, priority: "flexible" },
-    { id: "g-4", name: "Complete Debt Freedom & Payoff", category: "debt_free", targetAmount: 15000, targetYear: 2028, currentSavings: 0, priority: "essential" }
-  ]);
-
+export default function GoalsMatrix({ twin, goals, onSaveGoals }: GoalsMatrixProps) {
   const [newGoal, setNewGoal] = useState<Omit<GoalItem, "id">>({
     name: "",
     category: "property",
@@ -58,14 +53,14 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
     if (!newGoal.name) return;
     const item: GoalItem = {
       ...newGoal,
-      id: Math.random().toString(36).substring(2, 9)
+      id: "g-" + Math.random().toString(36).substring(2, 9)
     };
-    setGoals([...goals, item]);
+    onSaveGoals([...goals, item]);
     setNewGoal({ name: "", category: "property", targetAmount: 50000, targetYear: 2032, currentSavings: 0, priority: "important" });
   };
 
   const handleRemoveGoal = (id: string) => {
-    setGoals(goals.filter(g => g.id !== id));
+    onSaveGoals(goals.filter(g => g.id !== id));
   };
 
   // Conflict detection algorithms:
