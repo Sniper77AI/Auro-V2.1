@@ -455,6 +455,29 @@ export default function App() {
               <Coins className="w-3.5 h-3.5 text-teal-400" />
               <span>Long-Term Growth Assumption: {(twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span>
             </div>
+
+            {session?.user && (
+              <div className="ml-2">
+                {syncingState === "syncing" && (
+                  <span className="text-[11px] font-mono text-amber-400 animate-pulse bg-amber-950/40 px-2.5 py-1.5 rounded-md border border-amber-900/30 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    Syncing changes...
+                  </span>
+                )}
+                {syncingState === "synced" && (
+                  <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 px-2.5 py-1.5 rounded-md border border-emerald-900/30 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Synced to Supabase
+                  </span>
+                )}
+                {syncingState === "error" && (
+                  <span className="text-[11px] font-mono text-rose-400 bg-rose-950/40 px-2.5 py-1.5 rounded-md border border-rose-900/30 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    ⚠ Database Save Error
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono">

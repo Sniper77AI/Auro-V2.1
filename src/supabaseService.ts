@@ -111,7 +111,10 @@ export class SupabaseService {
       const { error: roleErr } = await supabase
         .from("user_roles")
         .insert([{ auth_user_id: authUserId, role: "customer" }]);
-      if (roleErr) console.error("Role writing failure:", roleErr);
+      if (roleErr) {
+        console.error("Role writing failure:", roleErr);
+        throw new Error(`Role allocation failed: ${roleErr.message}`);
+      }
 
       // 2. Write Encrypted PII to public.user_identity
       const { error: piiErr } = await supabase.from("user_identity").insert([
@@ -123,7 +126,10 @@ export class SupabaseService {
           phone: phone ? encryptPII(phone) : null,
         },
       ]);
-      if (piiErr) console.error("PII isolation writing failure:", piiErr);
+      if (piiErr) {
+        console.error("PII isolation writing failure:", piiErr);
+        throw new Error(`PII identity allocation failed: ${piiErr.message}`);
+      }
 
       // 3. Write default empty profile
       const { data: profileObj, error: profileErr } = await supabase
@@ -142,7 +148,10 @@ export class SupabaseService {
         .select()
         .single();
 
-      if (profileErr) console.error("Default profile error:", profileErr);
+      if (profileErr) {
+        console.error("Default profile error:", profileErr);
+        throw new Error(`Profile initialization failed: ${profileErr.message}`);
+      }
 
       // 4. Write default analytical twin
       if (profileObj) {
@@ -153,11 +162,14 @@ export class SupabaseService {
             monthly_income: 0,
             monthly_expenses: 0,
             financial_readiness_score: 50,
-            plan_health: 50,
+            plan_health: "stable",
             profile_completeness: 10,
           },
         ]);
-        if (twinErr) console.error("Default twin calculation error:", twinErr);
+        if (twinErr) {
+          console.error("Default twin calculation error:", twinErr);
+          throw new Error(`Financial twin allocation failed: ${twinErr.message}`);
+        }
       }
 
       return { success: true, message: "Account created successfully in Supabase.", user: data.user };
@@ -250,19 +262,16 @@ export class SupabaseService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { userEmail: null, role: "customer", userId: null };
 
-      // Retrieve public role
-      const { data: roleObj } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("auth_user_id", user.id)
-        .single();
+      // Dynamically run profile integrity audit to restore/ensure complete record cascades
+      const { userRole } = await this.ensureDatabaseBootstrap(user.id, user.email || "");
 
       return {
         userEmail: user.email || null,
-        role: (roleObj?.role || "customer") as any,
+        role: userRole as any,
         userId: user.id
       };
     } catch (e) {
+      console.error("[AURA] getActiveUser recovery/bootstrap error:", e);
       return { userEmail: null, role: "customer", userId: null };
     }
   }
@@ -298,7 +307,8 @@ export class SupabaseService {
       .maybeSingle();
 
     if (roleGetErr) {
-      console.error("[AURA BOOTSTRAP] Role query warning:", roleGetErr);
+      console.error("[AURA BOOTSTRAP] Role query failed:", roleGetErr);
+      throw new Error(`Role check failed: ${roleGetErr.message || roleGetErr}`);
     }
 
     if (!roleRow) {
@@ -308,9 +318,9 @@ export class SupabaseService {
         .insert([{ auth_user_id: authUserId, role: "customer" }]);
       if (roleInsErr) {
         console.error("[AURA BOOTSTRAP] Critical warning: role seeding failed:", roleInsErr);
-      } else {
-        userRole = "customer";
+        throw new Error(`Role insertion failed: ${roleInsErr.message || roleInsErr}`);
       }
+      userRole = "customer";
     } else {
       userRole = roleRow.role;
     }
@@ -324,6 +334,7 @@ export class SupabaseService {
 
     if (idGetErr) {
       console.error("[AURA BOOTSTRAP] Identity lookup failed:", idGetErr);
+      throw new Error(`Identity check failed: ${idGetErr.message || idGetErr}`);
     }
 
     if (!identityRow) {
@@ -341,6 +352,7 @@ export class SupabaseService {
         }]);
       if (idInsErr) {
         console.error("[AURA BOOTSTRAP] Identity insertion warning:", idInsErr);
+        throw new Error(`Identity seeding failed: ${idInsErr.message || idInsErr}`);
       }
     }
 
@@ -354,6 +366,7 @@ export class SupabaseService {
 
     if (profGetErr) {
       console.error("[AURA BOOTSTRAP] Profile query failed:", profGetErr);
+      throw new Error(`Profile check failed: ${profGetErr.message || profGetErr}`);
     }
 
     if (!profileRow) {
@@ -376,6 +389,7 @@ export class SupabaseService {
 
       if (profInsErr || !freshProf) {
         console.error("[AURA BOOTSTRAP] Profile creation failure:", profInsErr);
+        throw new Error(`Profile seeding failed: ${profInsErr ? profInsErr.message : "no data returned"}`);
       } else {
         profileId = freshProf.id;
       }
@@ -393,6 +407,7 @@ export class SupabaseService {
 
       if (twinGetErr) {
         console.error("[AURA BOOTSTRAP] Twin analytics retrieval warning:", twinGetErr);
+        throw new Error(`Financial twin check failed: ${twinGetErr.message || twinGetErr}`);
       }
 
       if (!twinRow) {
@@ -405,11 +420,12 @@ export class SupabaseService {
             monthly_income: 0,
             monthly_expenses: 4200,
             financial_readiness_score: 50,
-            plan_health: 55,
+            plan_health: "stable",
             profile_completeness: 10
           }]);
         if (twinInsErr) {
           console.error("[AURA BOOTSTRAP] Twin creation mismatch:", twinInsErr);
+          throw new Error(`Financial twin seeding failed: ${twinInsErr.message || twinInsErr}`);
         }
       }
     }
@@ -526,10 +542,10 @@ export class SupabaseService {
       // Map DB formats back to our types
       const mappedIncomes: IncomeSource[] = (incomesArr || []).map(i => ({
         id: i.id,
-        name: i.income_name,
-        amount: Number(i.current_value),
-        frequency: i.frequency as any,
-        type: i.income_type as any
+        name: i.income_name || i.source_name || "Primary Income",
+        amount: Number(i.current_value !== undefined && i.current_value !== null ? i.current_value : (i.annual_amount || 0)),
+        frequency: (i.frequency || "annual") as any,
+        type: (i.income_type || i.category || "salary") as any
       }));
 
       const mappedAssets: AssetItem[] = (assetsArr || []).map(a => ({
@@ -652,7 +668,10 @@ export class SupabaseService {
               income_type: (["salary", "bonus", "investment", "business", "other"].includes(i.type) ? i.type : "other"),
               income_name: i.name,
               current_value: i.amount,
-              frequency: i.frequency || "annual"
+              frequency: i.frequency || "annual",
+              source_name: i.name,
+              category: (["salary", "bonus", "investment", "business", "other"].includes(i.type) ? i.type : "other"),
+              annual_amount: i.frequency === "monthly" ? i.amount * 12 : i.amount
             }))
           );
           if (insIncErr) {

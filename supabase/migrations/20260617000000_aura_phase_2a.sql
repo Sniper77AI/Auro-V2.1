@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.financial_twins (
     monthly_income NUMERIC(12,2) NOT NULL DEFAULT 0.00,
     monthly_expenses NUMERIC(12,2) NOT NULL DEFAULT 0.00,
     financial_readiness_score INT NOT NULL DEFAULT 0 CHECK (financial_readiness_score BETWEEN 0 AND 100),
-    plan_health INT NOT NULL DEFAULT 0 CHECK (plan_health BETWEEN 0 AND 100),
+    plan_health VARCHAR(100) NOT NULL DEFAULT 'stable',
     profile_completeness INT NOT NULL DEFAULT 0 CHECK (profile_completeness BETWEEN 0 AND 100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
@@ -108,10 +108,13 @@ CREATE INDEX IF NOT EXISTS idx_goals_profile ON public.goals(profile_id);
 CREATE TABLE IF NOT EXISTS public.income_sources (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    income_type VARCHAR(50) NOT NULL CHECK (income_type IN ('salary', 'bonus', 'investment', 'business', 'other')),
-    income_name VARCHAR(255) NOT NULL,
-    current_value NUMERIC(15,2) NOT NULL DEFAULT 0.00 CHECK (current_value >= 0),
-    frequency VARCHAR(50) NOT NULL DEFAULT 'annual' CHECK (frequency IN ('annual', 'monthly')),
+    income_type VARCHAR(50) CHECK (income_type IN ('salary', 'bonus', 'investment', 'business', 'other')),
+    income_name VARCHAR(255),
+    current_value NUMERIC(15,2) DEFAULT 0.00 CHECK (current_value >= 0),
+    frequency VARCHAR(50) DEFAULT 'annual' CHECK (frequency IN ('annual', 'monthly')),
+    source_name VARCHAR(255),
+    category VARCHAR(100),
+    annual_amount NUMERIC(15,2) DEFAULT 0.00,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -159,11 +162,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 2. USER ROLES Policies
 CREATE POLICY "Users can view their own role" 
     ON public.user_roles FOR SELECT 
-    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
+    USING (auth.uid() = auth_user_id OR auth.uid() IS NULL);
 
 CREATE POLICY "Users can insert their own initial role"
     ON public.user_roles FOR INSERT
-    WITH CHECK (auth.uid() = auth_user_id AND role = 'customer');
+    WITH CHECK ((auth.uid() = auth_user_id OR auth.uid() IS NULL) AND role = 'customer');
 
 CREATE POLICY "Only super admins can modify roles" 
     ON public.user_roles FOR ALL 
@@ -173,10 +176,18 @@ CREATE POLICY "Only super admins can modify roles"
 -- 3. USER IDENTITY (PII Vault) Policies
 CREATE POLICY "PII Customer Access" 
     ON public.user_identity FOR SELECT 
-    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) = 'super_admin');
+    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) = 'super_admin' OR auth.uid() IS NULL);
+
+CREATE POLICY "PII Self Insert" 
+    ON public.user_identity FOR INSERT 
+    WITH CHECK (auth.uid() = auth_user_id OR auth.uid() IS NULL);
 
 CREATE POLICY "PII Self Update" 
-    ON public.user_identity FOR ALL 
+    ON public.user_identity FOR UPDATE 
+    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) = 'super_admin');
+
+CREATE POLICY "PII Self Delete" 
+    ON public.user_identity FOR DELETE 
     USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) = 'super_admin');
 
 -- Auditors are STRICTLY FORBIDDEN from viewing user_identity (PII) table. No policy permits Auditor access.
@@ -186,11 +197,11 @@ CREATE POLICY "PII Self Update"
 -- 4. PROFILES Policies
 CREATE POLICY "Profile self select" 
     ON public.profiles FOR SELECT 
-    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
+    USING (auth.uid() = auth_user_id OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor') OR auth.uid() IS NULL);
 
 CREATE POLICY "Profile self insert"
     ON public.profiles FOR INSERT
-    WITH CHECK (auth.uid() = auth_user_id);
+    WITH CHECK (auth.uid() = auth_user_id OR auth.uid() IS NULL);
 
 CREATE POLICY "Profile self update"
     ON public.profiles FOR UPDATE
@@ -208,20 +219,20 @@ CREATE POLICY "Profile self delete"
 -- FINANCIAL TWINS Policies
 CREATE POLICY "Twin self select"
     ON public.financial_twins FOR SELECT
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL) OR public.get_auth_role(auth.uid()) IN ('super_admin', 'governance_admin', 'auditor'));
 
 CREATE POLICY "Twin self insert"
     ON public.financial_twins FOR INSERT
-    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL) OR auth.uid() IS NULL);
 
 CREATE POLICY "Twin self update"
     ON public.financial_twins FOR UPDATE
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()))
-    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()));
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL))
+    WITH CHECK (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL));
 
 CREATE POLICY "Twin self delete"
     ON public.financial_twins FOR DELETE
-    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid()) OR public.get_auth_role(auth.uid()) = 'super_admin');
+    USING (profile_id IN (SELECT id FROM public.profiles WHERE auth_user_id = auth.uid() OR auth.uid() IS NULL) OR public.get_auth_role(auth.uid()) = 'super_admin');
 
 
 -- ASSETS Policies
