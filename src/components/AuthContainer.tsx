@@ -275,22 +275,24 @@ export default function AuthContainer({ onSuccess }: AuthContainerProps) {
         </div>
 
         {/* Interactive fast-entry credentials for reviewers */}
-        <div className="bg-zinc-900/40 border border-zinc-850/60 p-4 rounded-xl text-center space-y-2">
-          <p className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider font-bold">
-            Assessor Fast-Onboarding Account
-          </p>
-          <div className="flex flex-wrap gap-2 justify-center text-[10px] select-all">
-            <span className="bg-zinc-950 px-2 py-1 rounded border border-zinc-805/80 text-zinc-350">
-              Email: <strong className="text-zinc-200">sinior.bkk@gmail.com</strong>
-            </span>
-            <span className="bg-zinc-950 px-2 py-1 rounded border border-zinc-805/80 text-zinc-350">
-              Password: <strong className="text-zinc-200">any-password</strong>
-            </span>
+        {!!(import.meta as any).env?.DEV && (
+          <div className="bg-zinc-900/40 border border-zinc-850/60 p-4 rounded-xl text-center space-y-2">
+            <p className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider font-bold">
+              Assessor Fast-Onboarding Account
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center text-[10px] select-all">
+              <span className="bg-zinc-950 px-2 py-1 rounded border border-zinc-805/80 text-zinc-350">
+                Email: <strong className="text-zinc-200">sinior.bkk@gmail.com</strong>
+              </span>
+              <span className="bg-zinc-950 px-2 py-1 rounded border border-zinc-805/80 text-zinc-350">
+                Password: <strong className="text-zinc-200">any-password</strong>
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-550 leading-normal max-w-xs mx-auto">
+              Clicking "Sign In to Command Center" with these credentials boots the full sandbox mode immediately without waiting for API keys configuration.
+            </p>
           </div>
-          <p className="text-[9px] text-zinc-550 leading-normal max-w-xs mx-auto">
-            Clicking "Sign In to Command Center" with these credentials boots the full sandbox mode immediately without waiting for API keys configuration.
-          </p>
-        </div>
+        )}
 
       </div>
     </div>

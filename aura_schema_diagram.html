@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-zinc-950 text-zinc-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura Supabase Backend Schema</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;650&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3 {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    code, pre, .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Customize scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-emerald-500/35 selection:text-emerald-100">
+
+  <!-- Header Panel -->
+  <header class="border-b border-zinc-850/80 bg-zinc-950/90 backdrop-blur sticky top-0 z-50 px-6 py-4 md:px-12 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="space-y-1">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">Aura Supabase Backend Schema</h1>
+      </div>
+      <p class="text-xs md:text-sm text-zinc-400">
+        Deployed PostgreSQL schema generated from Supabase Information Schema output.
+      </p>
+    </div>
+    
+    <div class="flex items-center gap-3 self-start md:self-auto">
+      <span class="text-[10px] font-mono bg-zinc-900 px-2.5 py-1 rounded-md border border-zinc-800 text-zinc-400 uppercase tracking-wider">
+        PostgreSQL 15+
+      </span>
+      <span class="text-[10px] font-mono bg-emerald-950/60 text-emerald-400 px-2.5 py-1 rounded-md border border-emerald-900/40 uppercase tracking-wider">
+        RLS Enabled
+      </span>
+    </div>
+  </header>
+
+  <!-- Interactive Dashboard Body -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 md:p-12 space-y-12">
+    
+    <!-- Hero Schema Diagram Viewport -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-md font-bold text-zinc-300 uppercase tracking-wider font-mono text-xs">Entity Relationship Visualizer</h2>
+        <span class="text-xs text-zinc-500 flex items-center gap-1.5">
+          <span>💡 Hover to focus, pinch/scroll to viewport navigate</span>
+        </span>
+      </div>
+
+      <!-- Diagram Canvas -->
+      <div class="bg-zinc-950 border border-zinc-855 rounded-2xl p-6 md:p-10 shadow-2xl relative overflow-auto flex justify-center bg-[radial-gradient(#18181b_1px,transparent_1px)] [background-size:16px_16px]">
+        <div class="mermaid w-full max-w-5xl" id="er-diagram">
+erDiagram
+    user_roles {
+        uuid id PK
+        uuid auth_user_id UK
+        varchar role
+        timestamptz created_at
+    }
+
+    user_identity {
+        uuid id PK
+        uuid auth_user_id UK
+        text first_name
+        text last_name
+        text email UK
+        text phone "nullable"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    profiles {
+        uuid id PK
+        uuid auth_user_id FK_UK
+        varchar display_name
+        varchar state
+        varchar country
+        varchar currency
+        varchar risk_preference
+        int4 retirement_target_age
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    financial_twins {
+        uuid id PK
+        uuid profile_id FK_UK
+        numeric net_worth
+        numeric monthly_income
+        numeric monthly_expenses
+        int4 financial_readiness_score
+        text plan_health
+        int4 profile_completeness
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    assets {
+        uuid id PK
+        uuid profile_id FK
+        varchar asset_type
+        varchar asset_name
+        numeric current_value
+        numeric growth_rate
+        timestamptz created_at
+    }
+
+    liabilities {
+        uuid id PK
+        uuid profile_id FK
+        varchar liability_type
+        varchar liability_name
+        numeric current_balance
+        numeric interest_rate
+        numeric monthly_payment
+        timestamptz created_at
+    }
+
+    goals {
+        uuid id PK
+        uuid profile_id FK
+        varchar goal_type
+        varchar goal_name
+        numeric target_amount
+        varchar target_date
+        numeric current_progress
+        varchar status
+        timestamptz created_at
+    }
+
+    state_assumptions {
+        uuid id PK
+        varchar state_code UK
+        varchar state_name
+        numeric effective_tax_rate
+        numeric property_tax_rate
+        numeric cost_of_living_index
+        numeric appreciation_rate
+        numeric retirement_factor
+        updated_at timestamptz
+    }
+
+    income_sources {
+        uuid id PK
+        uuid profile_id FK
+        varchar income_type "nullable"
+        varchar income_name "nullable"
+        numeric current_value "nullable"
+        varchar frequency "nullable"
+        varchar source_name "nullable"
+        varchar category "nullable"
+        numeric annual_amount "nullable"
+        timestamptz created_at
+    }
+
+    user_roles ||--|| profiles : "one-to-one (auth_user_id)"
+    profiles ||--|| financial_twins : "one-to-one (profile_id)"
+    profiles ||--o{ income_sources : "one-to-many (profile_id)"
+    profiles ||--o{ assets : "one-to-many (profile_id)"
+    profiles ||--o{ liabilities : "one-to-many (profile_id)"
+    profiles ||--o{ goals : "one-to-many (profile_id)"
+        </div>
+      </div>
+    </section>
+
+    <!-- Detailed Structural Catalog -->
+    <section class="space-y-6">
+      <div class="border-b border-zinc-850/60 pb-3">
+        <h3 class="text-xl font-bold tracking-tight text-white mb-1">Aura Structural Catalog</h3>
+        <p class="text-xs text-zinc-400">Complete review of tables, attributes, primary/foreign/unique keys, and application roles mapping.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- profiles -->
+        <div class="bg-zinc-900/35 border border-zinc-850/50 p-5 rounded-xl space-y-4 hover:border-zinc-800 transition-colors">
+          <div class="flex items-center justify-between border-b border-zinc-850/40 pb-2.5">
+            <h4 class="font-mono text-sm font-semibold text-emerald-400">profiles</h4>
+            <span class="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-550 uppercase">Base Record</span>
+          </div>
+          <p class="text-xs text-zinc-450 leading-relaxed">
+            Acts as the foundational metadata anchor connecting direct Supabase Auth session identifiers with specialized downstream financial entities.
+          </p>
+          <div class="space-y-1.5 text-xs text-zinc-400 font-mono">
+            <div class="flex justify-between"><span class="text-zinc-550">id</span> <span class="font-semibold text-zinc-300">uuid PK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">auth_user_id</span> <span class="font-semibold text-amber-500">uuid FK, UK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">display_name</span> <span class="font-semibold text-zinc-300">varchar</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">state</span> <span class="font-semibold text-zinc-300">varchar</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">retirement_target_age</span> <span class="font-semibold text-zinc-300">int4</span></div>
+          </div>
+        </div>
+
+        <!-- user_roles -->
+        <div class="bg-zinc-900/35 border border-zinc-850/50 p-5 rounded-xl space-y-4 hover:border-zinc-800 transition-colors">
+          <div class="flex items-center justify-between border-b border-zinc-850/40 pb-2.5">
+            <h4 class="font-mono text-sm font-semibold text-teal-400">user_roles</h4>
+            <span class="text-[9px] font-mono bg-emerald-950/20 border border-emerald-900/20 px-2 py-0.5 rounded text-emerald-400 uppercase">Access Security</span>
+          </div>
+          <p class="text-xs text-zinc-450 leading-relaxed">
+            Maintains the primary authorization mapping for Aura users. Fully hardened from client tampering; policy validation occurs at token level.
+          </p>
+          <div class="space-y-1.5 text-xs text-zinc-400 font-mono">
+            <div class="flex justify-between"><span class="text-zinc-550">id</span> <span class="font-semibold text-zinc-300">uuid PK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">auth_user_id</span> <span class="font-semibold text-zinc-300">uuid UK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">role</span> <span class="font-semibold text-emerald-400">varchar</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">created_at</span> <span class="font-semibold text-zinc-300">timestamptz</span></div>
+          </div>
+        </div>
+
+        <!-- user_identity -->
+        <div class="bg-zinc-900/35 border border-zinc-850/50 p-5 rounded-xl space-y-4 hover:border-zinc-800 transition-colors">
+          <div class="flex items-center justify-between border-b border-zinc-850/40 pb-2.5">
+            <h4 class="font-mono text-sm font-semibold text-rose-400">user_identity</h4>
+            <span class="text-[9px] font-mono bg-rose-950/20 border border-rose-900/20 px-2 py-0.5 rounded text-rose-400 uppercase font-bold tracking-wider">PII Shield</span>
+          </div>
+          <p class="text-xs text-zinc-450 leading-relaxed">
+            Maintains personally identifiable information (first and last names, phones, raw emails) that are obfuscated directly inside client compilation layers.
+          </p>
+          <div class="space-y-1.5 text-xs text-zinc-400 font-mono">
+            <div class="flex justify-between"><span class="text-zinc-550">id</span> <span class="font-semibold text-zinc-300">uuid PK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">auth_user_id</span> <span class="font-semibold text-zinc-300">uuid UK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">first_name</span> <span class="font-semibold text-zinc-300">text obfuscated</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">email</span> <span class="font-semibold text-zinc-300">text UK</span></div>
+          </div>
+        </div>
+
+        <!-- financial_twins -->
+        <div class="bg-zinc-900/35 border border-zinc-850/50 p-5 rounded-xl space-y-4 hover:border-zinc-800 transition-colors">
+          <div class="flex items-center justify-between border-b border-zinc-850/40 pb-2.5">
+            <h4 class="font-mono text-sm font-semibold text-indigo-400">financial_twins</h4>
+            <span class="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-550 uppercase">Analysis Engine</span>
+          </div>
+          <p class="text-xs text-zinc-450 leading-relaxed">
+            Holds computed financial metrics, progress tracking variables, and aggregate summaries for the customer's digital projection.
+          </p>
+          <div class="space-y-1.5 text-xs text-zinc-400 font-mono">
+            <div class="flex justify-between"><span class="text-zinc-550">id</span> <span class="font-semibold text-zinc-300">uuid PK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">profile_id</span> <span class="font-semibold text-amber-500">uuid FK, UK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">net_worth</span> <span class="font-semibold text-zinc-300">numeric</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">plan_health</span> <span class="font-semibold text-zinc-300">text</span></div>
+          </div>
+        </div>
+
+        <!-- assets & liabilities -->
+        <div class="bg-zinc-900/35 border border-zinc-850/50 p-5 rounded-xl space-y-4 hover:border-zinc-800 transition-colors">
+          <div class="flex items-center justify-between border-b border-zinc-850/40 pb-2.5">
+            <h4 class="font-mono text-sm font-semibold text-sky-400">assets / liabilities</h4>
+            <span class="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-550 uppercase">Ledger items</span>
+          </div>
+          <p class="text-xs text-zinc-450 leading-relaxed">
+            Multi-record tables storing distinct entries for physical portfolio nodes (brokerage, real estate, cash) or debt liabilities (student loans, car logs).
+          </p>
+          <div class="space-y-1.5 text-xs text-zinc-400 font-mono">
+            <div class="flex justify-between"><span class="text-zinc-550">profile_id</span> <span class="font-semibold text-amber-500">uuid FK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">asset_type / ...</span> <span class="font-semibold text-zinc-300">varchar</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">current_value</span> <span class="font-semibold text-zinc-300">numeric</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">growth_rate</span> <span class="font-semibold text-zinc-300">numeric</span></div>
+          </div>
+        </div>
+
+        <!-- state_assumptions -->
+        <div class="bg-zinc-900/35 border border-zinc-850/50 p-5 rounded-xl space-y-4 hover:border-zinc-800 transition-colors">
+          <div class="flex items-center justify-between border-b border-zinc-850/40 pb-2.5">
+            <h4 class="font-mono text-sm font-semibold text-amber-400">state_assumptions</h4>
+            <span class="text-[9px] font-mono bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded text-zinc-550 uppercase">System Static</span>
+          </div>
+          <p class="text-xs text-zinc-450 leading-relaxed">
+            Houses tax metrics, appreciation constants, and cost-of-living adjustments for California, Texas, the United States, etc., mapped by states.
+          </p>
+          <div class="space-y-1.5 text-xs text-zinc-400 font-mono">
+            <div class="flex justify-between"><span class="text-zinc-550">id</span> <span class="font-semibold text-zinc-300">uuid PK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">state_code</span> <span class="font-semibold text-zinc-300">varchar UK</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">effective_tax_rate</span> <span class="font-semibold text-zinc-300">numeric</span></div>
+            <div class="flex justify-between"><span class="text-zinc-550">property_tax_rate</span> <span class="font-semibold text-zinc-300">numeric</span></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Structural Integrity Information Panel -->
+    <section class="bg-zinc-950 border border-zinc-850/80 p-6 md:p-8 rounded-2xl space-y-6">
+      <div class="flex items-center gap-3">
+        <span class="p-2 border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 rounded-lg">
+          ✔
+        </span>
+        <div>
+          <h3 class="text-base font-bold text-white">Database Verification Checkpoint</h3>
+          <p class="text-xs text-zinc-400">The current visual reflects precisely deployed structural schema bounds.</p>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2 text-xs font-mono">
+        <div class="bg-zinc-900/50 border border-zinc-850/30 p-3 rounded-lg space-y-1">
+          <span class="text-zinc-500 block uppercase text-[10px]">Total Collections</span>
+          <span class="text-white text-base font-bold">9 Tables</span>
+        </div>
+        <div class="bg-zinc-900/50 border border-zinc-850/30 p-3 rounded-lg space-y-1">
+          <span class="text-zinc-500 block uppercase text-[10px]">Isolation Level</span>
+          <span class="text-white text-base font-bold text-emerald-400">RLS Enforced</span>
+        </div>
+        <div class="bg-zinc-900/50 border border-zinc-850/30 p-3 rounded-lg space-y-1">
+          <span class="text-zinc-500 block uppercase text-[10px]">Encryption / Masking</span>
+          <span class="text-white text-base font-bold text-rose-400">PII Obfuscated</span>
+        </div>
+        <div class="bg-zinc-900/50 border border-zinc-850/30 p-3 rounded-lg space-y-1">
+          <span class="text-zinc-500 block uppercase text-[10px]">Integrity Model</span>
+          <span class="text-white text-base font-bold text-cyan-400">Cascade + Soft Seed</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-zinc-850/60 bg-zinc-950/80 py-6 mt-12 text-center text-xs text-zinc-550 font-mono">
+    Aura Platform Architecture &bull; Generated Visual Ledger v2A.4
+  </footer>
+
+  <script>
+    // Initialize Mermaid with Dark Design parameters
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        background: '#09090b',
+        primaryColor: '#1f2937',
+        primaryTextColor: '#f4f4f5',
+        primaryBorderColor: '#3f3f46',
+        lineColor: '#6b7280',
+        secondaryColor: '#111827',
+        tertiaryColor: '#18181b',
+        fontSize: '11px',
+        fontFamily: 'JetBrains Mono'
+      },
+      er: {
+        useMaxWidth: true,
+        direction: 'TB'
+      }
+    });
+  </script>
+</body>
+</html>

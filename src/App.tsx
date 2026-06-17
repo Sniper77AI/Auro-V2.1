@@ -382,38 +382,6 @@ export default function App() {
             </nav>
           </div>
 
-          {/* ROLE AUTHORIZATION TOGGLE (Interactive Client Security Layer) */}
-          <div className="bg-zinc-950 border border-zinc-850/80 p-3.5 rounded-xl space-y-2 mt-6">
-            <div className="flex justify-between items-center text-[9px] font-mono">
-              <span className="text-zinc-500 uppercase">RLS CONTEXT SHELL</span>
-              <span className="text-emerald-450 text-[8px] font-bold">MODE: SECURE</span>
-            </div>
-            
-            <select
-              value={userRole}
-              onChange={(e) => {
-                const r = e.target.value as any;
-                setUserRole(r);
-                // Log audit action
-                const log: AuditLog = {
-                  id: Math.random().toString(36).substring(2, 9),
-                  timestamp: new Date().toISOString(),
-                  userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
-                  action: "ROLE_UPGRADE",
-                  source: "system_shell",
-                  status: "success",
-                  description: `Switched token security context role to "${r.toUpperCase()}" for Row Level Security compliance audit.`
-                };
-                setAuditLogs([log, ...auditLogs]);
-              }}
-              className="w-full text-[10px] bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 p-2 text-zinc-200 rounded font-bold cursor-pointer focus:outline-none"
-            >
-              <option value="customer">👤 Customer Persona</option>
-              <option value="auditor">🔍 Auditor Persona</option>
-              <option value="governance_admin">⚖️ Gov Admin Persona</option>
-              <option value="super_admin">⚡ Super Admin Persona</option>
-            </select>
-          </div>
         </div>
 
         {/* User Identity bottom tag */}
@@ -427,7 +395,7 @@ export default function App() {
                 {session?.user?.userEmail || "guest@domain.com"}
               </span>
               <span className="text-[9px] font-mono text-emerald-450 uppercase leading-none block mt-1">
-                Authorized Node Holder
+                ROLE: {userRole.replace("_", " ")}
               </span>
             </div>
           </div>

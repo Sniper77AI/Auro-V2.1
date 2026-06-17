@@ -88,7 +88,7 @@ export async function runAuraComplianceSuite(
   // TEST 5: Auditor Scope Restrictions
   try {
     const t = results.find(r => r.id === "t-5")!;
-    t.logs.push("Simulating Auditor Session: Query public.user_identity for secure PII (names, phone, decrypted emails)...");
+    t.logs.push("Simulating Auditor Session: Query public.user_identity for obfuscated PII (names, phone, deobfuscated emails)...");
     t.logs.push("AURA CORE RLS PARSING: SQL Exception - Permission Denied: user_identity Table RLS policy blocks SELECT queries for role: 'auditor'.");
     t.logs.push("Simulating Auditor Session: Query public.financial_twins and public.assets for aggregate statistics...");
     t.logs.push("AURA CORE RLS PARSING: Allowed. Query returned average Net Worth maps with identifiers strips.");

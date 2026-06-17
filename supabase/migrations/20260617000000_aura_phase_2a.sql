@@ -170,7 +170,9 @@ CREATE POLICY "Users can insert their own initial role"
 
 CREATE POLICY "Super admins can manage all roles" 
     ON public.user_roles FOR ALL 
-    USING ((SELECT r.role FROM public.user_roles r WHERE r.auth_user_id = auth.uid() LIMIT 1) = 'super_admin');
+    USING (
+        coalesce(auth.jwt() -> 'app_metadata' ->> 'role', auth.jwt() -> 'user_metadata' ->> 'role', '') = 'super_admin'
+    );
 
 
 -- 3. USER IDENTITY (PII Vault) Policies

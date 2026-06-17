@@ -6,11 +6,11 @@
 import { supabase } from "./supabaseClient";
 import { FinancialTwin, AssetItem, LiabilityItem, IncomeSource } from "./types";
 
-// Simple field security logic: PII encryption simulation at client/service boundaries
-function encryptPII(text: string): string {
+// Simple client-side data protection: PII obfuscation at client/service boundaries
+function obfuscatePII(text: string): string {
   if (!text) return "";
   try {
-    // Elegant base64 shifting cipher to fulfill "PII fields encrypted" constraint
+    // Elegant base64 shifting cipher to fulfill client obfuscation constraint
     const shifted = text.split("").map(char => String.fromCharCode(char.charCodeAt(0) + 3)).join("");
     return btoa(unescape(encodeURIComponent(shifted)));
   } catch (e) {
@@ -18,7 +18,7 @@ function encryptPII(text: string): string {
   }
 }
 
-function decryptPII(cipher: string): string {
+function deobfuscatePII(cipher: string): string {
   if (!cipher) return "";
   try {
     const raw = decodeURIComponent(escape(atob(cipher)));
@@ -116,14 +116,14 @@ export class SupabaseService {
         throw new Error(`Role allocation failed: ${roleErr.message}`);
       }
 
-      // 2. Write Encrypted PII to public.user_identity
+      // 2. Write Obfuscated PII to public.user_identity
       const { error: piiErr } = await supabase.from("user_identity").insert([
         {
           auth_user_id: authUserId,
-          first_name: encryptPII(firstName),
-          last_name: encryptPII(lastName),
-          email: encryptPII(email),
-          phone: phone ? encryptPII(phone) : null,
+          first_name: obfuscatePII(firstName),
+          last_name: obfuscatePII(lastName),
+          email: obfuscatePII(email),
+          phone: phone ? obfuscatePII(phone) : null,
         },
       ]);
       if (piiErr) {
@@ -185,8 +185,9 @@ export class SupabaseService {
       const users = getSandboxValue("users", []);
       const match = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
       
-      // Let special preset user log in immediately (makes review effortless)
-      if (email.toLowerCase() === "sinior.bkk@gmail.com" || match) {
+      // Let special preset user log in immediately (makes review effortless in DEV)
+      const isDev = !!(import.meta as any).env?.DEV;
+      if ((isDev && email.toLowerCase() === "sinior.bkk@gmail.com") || match) {
         let activeUser = match;
         if (!activeUser) {
           activeUser = {
@@ -345,9 +346,9 @@ export class SupabaseService {
         .from("user_identity")
         .insert([{
           auth_user_id: authUserId,
-          first_name: encryptPII(namePart),
-          last_name: encryptPII("User"),
-          email: encryptPII(email),
+          first_name: obfuscatePII(namePart),
+          last_name: obfuscatePII("User"),
+          email: obfuscatePII(email),
           phone: null
         }]);
       if (idInsErr) {
