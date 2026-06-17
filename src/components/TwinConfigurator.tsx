@@ -181,31 +181,75 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                       : activeTab === "family" ? 4 
                       : activeTab === "retirement" ? 5 
                       : 6;
-        const completionPercent = Math.round((stepNum / 6) * 100);
-        const filled = Math.round((stepNum / 6) * 15);
+        
+        // Calculate dynamic profile completeness based on actual stored profile attributes
+        const hasIncomes = twin.incomes && twin.incomes.length > 0;
+        const hasBasicSavings = twin.assets && twin.assets.some(a => a.type === "cash" && a.amount > 0);
+        const hasInvestments = twin.assets && twin.assets.some(a => a.type === "brokerage" && a.amount > 0);
+        const hasRetirement = twin.assets && twin.assets.some(a => a.type === "retirement" && a.amount > 0);
+        const hasRealEstate = twin.assets && twin.assets.some(a => a.type === "real_estate" && a.amount > 0);
+        const hasDebtInfo = twin.liabilities && twin.liabilities.length > 0;
+        const hasCollegeSavings = (twin.assets && twin.assets.some(a => a.name.toLowerCase().includes("529") || a.name.toLowerCase().includes("college") || a.name.toLowerCase().includes("education"))) || (twin.dependants > 0);
+
+        const items = [
+          { label: "Income Sources", met: hasIncomes },
+          { label: "Basic Savings", met: hasBasicSavings },
+          { label: "Investment Accounts", met: hasInvestments },
+          { label: "Retirement Accounts", met: hasRetirement },
+          { label: "Real Estate Holdings", met: hasRealEstate },
+          { label: "Detailed Debt Information", met: hasDebtInfo },
+          { label: "College Savings Goals", met: hasCollegeSavings }
+        ];
+
+        const metCount = items.filter(it => it.met).length;
+        const completionPercent = Math.round((metCount / items.length) * 100);
+        const filled = Math.round((completionPercent / 100) * 15);
         const empty = 15 - filled;
         const pBar = "█".repeat(filled) + "░".repeat(empty);
 
         return (
-          <div className="bg-zinc-950/60 px-6 py-3.5 border-b border-zinc-800/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div className="flex items-center gap-3">
-              <span className="bg-emerald-950/80 text-emerald-400 border border-emerald-900/40 text-[10px] font-mono rounded px-2.5 py-1 font-bold">
-                Step {stepNum} of 6
-              </span>
-              <span className="text-xs text-zinc-350 select-none">
-                Profile Completion: <strong className="text-zinc-150 font-bold">{completionPercent}%</strong>
-              </span>
+          <div className="bg-zinc-950/60 border-b border-zinc-800/80 divide-y divide-zinc-850">
+            <div className="px-6 py-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div className="flex items-center gap-3">
+                <span className="bg-emerald-950/80 text-emerald-400 border border-emerald-900/40 text-[10px] font-mono rounded px-2.5 py-1 font-bold">
+                  Step {stepNum} of 6
+                </span>
+                <span className="text-xs text-zinc-350 select-none">
+                  Profile Completeness: <strong className="text-emerald-400 font-bold font-mono">{completionPercent}%</strong>
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-3 self-stretch sm:self-auto">
+                <span className="text-emerald-400 font-mono text-[11px] select-none tracking-normal leading-none font-bold">
+                  {pBar}
+                </span>
+                <div className="w-24 h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800 shrink-0">
+                  <div 
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                    style={{ width: `${completionPercent}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-3 self-stretch sm:self-auto">
-              <span className="text-emerald-400 font-mono text-[11px] select-none tracking-normal leading-none font-bold">
-                {pBar}
-              </span>
-              <div className="w-24 h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800 shrink-0">
-                <div 
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                  style={{ width: `${completionPercent}%` }}
-                />
+
+            {/* Missing Information Panel */}
+            <div className="px-6 py-3 bg-zinc-950/40 font-sans">
+              <div className="flex flex-col md:flex-row md:items-center gap-2.5 justify-between">
+                <span className="text-[10px] font-mono text-zinc-450 uppercase font-bold tracking-wider shrink-0">Missing Information Audit:</span>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] select-none">
+                  {items.map((it, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      {it.met ? (
+                        <span className="text-emerald-400 font-bold block text-[11px]">✓</span>
+                      ) : (
+                        <span className="text-zinc-650 font-bold block text-[11px]">□</span>
+                      )}
+                      <span className={it.met ? "text-zinc-300 font-medium" : "text-zinc-550"}>
+                        {it.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

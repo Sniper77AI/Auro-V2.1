@@ -86,6 +86,62 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
     priorityLevel = "medium";
   }
 
+  // Calculate profile completeness status for dynamic confidence assessment
+  const hasIncomesVal = twin.incomes && twin.incomes.length > 0;
+  const hasBasicSavingsVal = twin.assets && twin.assets.some(a => a.type === "cash" && a.amount > 0);
+  const hasInvestmentsVal = twin.assets && twin.assets.some(a => a.type === "brokerage" && a.amount > 0);
+  const hasRetirementVal = twin.assets && twin.assets.some(a => a.type === "retirement" && a.amount > 0);
+  const hasRealEstateVal = twin.assets && twin.assets.some(a => a.type === "real_estate" && a.amount > 0);
+  const hasDebtInfoVal = twin.liabilities && twin.liabilities.length > 0;
+  const hasCollegeSavingsVal = (twin.assets && twin.assets.some(a => a.name.toLowerCase().includes("529") || a.name.toLowerCase().includes("college") || a.name.toLowerCase().includes("education"))) || (twin.dependants > 0);
+
+  const profileItems = [hasIncomesVal, hasBasicSavingsVal, hasInvestmentsVal, hasRetirementVal, hasRealEstateVal, hasDebtInfoVal, hasCollegeSavingsVal];
+  const profileCompleteness = Math.round((profileItems.filter(Boolean).length / profileItems.length) * 100);
+
+  // Derive model recommendation confidence
+  let confidencePct = Math.round(profileCompleteness * 0.8 + 12);
+  const dataComplexityMod = Math.min(15, (twin.incomes.length + twin.assets.length + twin.liabilities.length) * 2);
+  confidencePct = Math.min(99, confidencePct + dataComplexityMod);
+  if (profileCompleteness < 50) {
+    confidencePct = Math.min(50, confidencePct - 15);
+  } else if (profileCompleteness < 75) {
+    confidencePct = Math.min(75, confidencePct - 5);
+  }
+  const confidenceLevel = confidencePct >= 80 ? "High" : confidencePct >= 55 ? "Medium" : "Low";
+
+  // Dynamic explanation bullets based on user profile and decision state
+  let reasons: string[] = [];
+  if (expensesRatio < 3) {
+    reasons = [
+      `Liquid checking and cash reserves of $${cashAssets.toLocaleString()} cover less than 3 months of basic outflows`,
+      "Protects regular household expenses from forced early liquidation penalties in long-term accounts",
+      "Stabilizes fundamental household cash availability during general macroeconomic transitions",
+      "Establishes a solid baseline emergency buffer before exposing surpluses to asset market valuation volatility"
+    ];
+  } else if (highInterestLiabilities > 10000) {
+    reasons = [
+      "Provides the highest guaranteed return currently available by bypassing standard interest rates",
+      `Directly eliminates compounding interest charges on outstanding $${highInterestLiabilities.toLocaleString()} student / vehicle liabilities`,
+      "Accelerates the overall timeline toward a debt-free calendar horizon",
+      "Improves your financial readiness scores and reduces long-term debt-to-income overhead",
+      "Reclaims active monthly cash flow margins for subsequently powering long-term index compounding"
+    ];
+  } else if (debtToIncomeRatio > 36) {
+    reasons = [
+      `Calibrates your total Debt-to-Income which sits at ${debtToIncomeRatio.toFixed(1)}%, bringing it back below prudent guidelines`,
+      "Reduces structural overhead burdens, granting increased peace of mind and job flexibility",
+      "Minimizes borrowing risk premiums when acquiring future primary real estate holdings",
+      "Accelerates current loan payoff tracks to clear secondary monthly liability overhead"
+    ];
+  } else {
+    reasons = [
+      `Leverages and builds upon your resilient current emergency cushion of ${expensesRatio.toFixed(1)} months of coverage`,
+      "Enables tax-advantaged compounding gains that grow protected from federal and state tax friction",
+      `Improves historical yield trajectory on your existing idle checking capital of $${cashAssets.toLocaleString()}`,
+      `Strengthens and preserves early-retirement tracks ahead of your current target retirement age of ${twin.retirementAge}`
+    ];
+  }
+
   // Opportunities and Risks cards
   const opportunities = [
     {
@@ -355,23 +411,41 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
         </div>
 
         {/* Dynamic CPO Command Center Hero Card */}
-        <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between font-sans">
+        <div id="aura-suggested-recommendation" className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between font-sans">
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-[10px] font-mono text-zinc-450 uppercase tracking-wider font-bold">Aura's Suggested Next Step</span>
               </div>
-              <span className={`text-[9px] font-mono px-2 py-0.5 rounded border capitalize ${priorityLevel === "high" ? "bg-rose-950/20 border-rose-500/60 text-rose-455 font-bold" : "bg-emerald-950/20 border-emerald-500/60 text-emerald-455"}`}>
-                {priorityLevel} priority
-              </span>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                <span className="text-[10px] text-zinc-500 font-mono tracking-tight mr-1 select-none">
+                  Confidence: <span className={`font-semibold ${confidenceLevel === "High" ? "text-emerald-450" : confidenceLevel === "Medium" ? "text-teal-400" : "text-rose-400"}`}>{confidencePct}% ({confidenceLevel})</span>
+                </span>
+                <span className={`text-[9px] font-mono px-2 py-0.5 rounded border capitalize ${priorityLevel === "high" ? "bg-rose-950/20 border-rose-500/60 text-rose-455 font-bold" : "bg-emerald-950/20 border-emerald-500/60 text-emerald-455"}`}>
+                  {priorityLevel} priority
+                </span>
+              </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <h2 className="text-lg font-bold text-zinc-101 tracking-tight">{primaryActionTitle}</h2>
               <p className="text-xs text-zinc-400 leading-relaxed font-sans">
                 {primaryActionDesc}
               </p>
+
+              {/* WHY AURA RECOMMENDS THIS */}
+              <div className="bg-zinc-950/40 border border-zinc-850/65 rounded-xl p-4 mt-3 space-y-2.5">
+                <h4 className="text-[10px] uppercase tracking-wider font-mono font-bold text-emerald-400 select-none">Why Aura Recommends This:</h4>
+                <ul className="space-y-1.5 text-[11px] text-zinc-350 leading-relaxed font-sans list-none pl-0">
+                  {reasons.map((re, rIdx) => (
+                    <li key={rIdx} className="flex items-start gap-2">
+                      <span className="text-emerald-500 font-semibold select-none mt-0.5">•</span>
+                      <span>{re}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
 

@@ -238,13 +238,37 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
         const emptyBlocksCount = 16 - filledBlocksCount;
         const blockProgressBar = "█".repeat(filledBlocksCount) + "░".repeat(emptyBlocksCount);
 
+        // Calculate Plan Health Rating dynamically
+        const onTrackRatio = totalGoalsCount > 0 ? (goalsOnTrackCount / totalGoalsCount) : 1.0;
+        let planHealthLabel = "Stable";
+        let planHealthColor = "text-teal-400";
+        let planHealthBgColor = "bg-teal-950/20 border-teal-900/40 text-teal-400";
+
+        if (onTrackRatio >= 0.8 && overallCompletionPercent >= 15) {
+          planHealthLabel = "Excellent";
+          planHealthColor = "text-emerald-400";
+          planHealthBgColor = "bg-emerald-950/30 border-emerald-900/60 text-emerald-400";
+        } else if (onTrackRatio >= 0.6 || overallCompletionPercent >= 10) {
+          planHealthLabel = "Strong";
+          planHealthColor = "text-emerald-400";
+          planHealthBgColor = "bg-emerald-950/20 border-emerald-900/40 text-emerald-400";
+        } else if (onTrackRatio >= 0.3 || overallCompletionPercent > 0) {
+          planHealthLabel = "Stable";
+          planHealthColor = "text-teal-400";
+          planHealthBgColor = "bg-teal-950/20 border-teal-900/40 text-teal-400";
+        } else {
+          planHealthLabel = "Needs Attention";
+          planHealthColor = "text-rose-450";
+          planHealthBgColor = "bg-rose-955/20 border-rose-900/40 text-rose-450";
+        }
+
         return (
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 font-sans relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-500/5 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
             
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
               <div className="space-y-2">
-                <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest block font-bold leading-none">Life Progress Overview</span>
+                <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest block font-bold leading-none">Overall Plan Health</span>
                 <h3 className="text-lg font-bold text-zinc-100 tracking-tight">Your Cumulative Plan Health</h3>
                 <p className="text-xs text-zinc-400 leading-relaxed max-w-lg">
                   A unified timeline projection coordinating your major lifetime milestones. The status of all essential and optional family milestones are combined here.
@@ -252,11 +276,13 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-6 w-full lg:w-auto items-stretch sm:items-center font-sans">
-                {/* Main Completion Stat */}
-                <div className="bg-zinc-950/60 border border-zinc-800 p-4 rounded-xl flex flex-col justify-center min-w-[200px]">
+                {/* Main Plan Health Stat */}
+                <div className="bg-zinc-950/60 border border-zinc-800 p-4 rounded-xl flex flex-col justify-center min-w-[210px]">
                   <div className="flex justify-between items-baseline mb-1">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase font-bold tracking-wider">Life Progress</span>
-                    <span className="text-emerald-400 font-mono text-xs font-bold leading-none">{overallCompletionPercent}%</span>
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase font-bold tracking-wider">Plan Health</span>
+                    <span className={`font-sans text-[10px] font-bold px-2 py-0.5 rounded border leading-none capitalize ${planHealthBgColor}`}>
+                      {planHealthLabel}
+                    </span>
                   </div>
                   <div className="font-mono text-xs text-emerald-400 tracking-normal select-none leading-none mb-2 font-bold">
                     {blockProgressBar}
@@ -268,6 +294,9 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
                       style={{ width: `${overallCompletionPercent}%` }}
                     />
                   </div>
+                  <span className="text-[9px] text-zinc-500 mt-1 font-mono uppercase block text-left">
+                    {overallCompletionPercent}% funded towards milestones
+                  </span>
                 </div>
 
                 {/* Quick Metrics Grid */}

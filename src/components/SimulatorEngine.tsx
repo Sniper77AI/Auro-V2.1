@@ -453,21 +453,25 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
 
       // Build out NW curves
       tempBaseline = currentNetWorth;
-      // Subtract downpayment for simulated right off the bat, but add the equity coordinate
-      tempSimulated = currentNetWorth - down + price; 
+      // Model liquid wealth separately from property asset value
+      let tempLiquidSimulated = currentNetWorth - down; // start with liquid assets after down payment
 
       for (let i = 1; i <= years; i++) {
         // Baseline: cash compounds + annual savings compound
         tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
         baselineNW.push(Math.round(tempBaseline));
 
-        // Simulated: home appreciates (approx 4.0%), equity compounds, mortgage amortizes
-        const homeAppreciatedVal = price * Math.pow(1.04, i);
-        // mortgage principal remains reduces
-        const principalPaid = (monthlyMortgage * 12 * i) * 0.35; // simple amortization coefficient
+        // Simulated: home appreciates (approx 4.0%), mortgage pays down, savings compound
+        const propertyValue = price * Math.pow(1.04, i);
+        // remaining mortgage decays linearly down to 0 at year 30
+        const remainingMortgage = loanAmount * Math.max(0, 1 - i / 30);
         const simulatedAnnualSavings = Math.max(0, annualSurplus + (projectedCashFlowDelta * 12));
         
-        tempSimulated = (tempSimulated - price + homeAppreciatedVal + simulatedAnnualSavings) * (1 + averageGrowthRate * 0.8) + principalPaid;
+        // Compound only the liquid wealth portion
+        tempLiquidSimulated = (tempLiquidSimulated + simulatedAnnualSavings) * (1 + averageGrowthRate);
+        
+        // Total Simulated Net Worth = Liquid wealth + home property value - remaining mortgage
+        tempSimulated = tempLiquidSimulated + propertyValue - remainingMortgage;
         simulatedNW.push(Math.round(tempSimulated));
       }
 
@@ -506,16 +510,21 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       projectedCashFlowDelta = -(((price - down) * 0.07) / 12 + (vType === "ev" ? 120 : 250)); // EV saves on fueling
 
       tempBaseline = currentNetWorth;
-      tempSimulated = currentNetWorth - down;
+      let tempLiquidSimulated = currentNetWorth - down;
 
       for (let i = 1; i <= years; i++) {
         tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
         baselineNW.push(Math.round(tempBaseline));
 
         // Cars depreciate heavily
-        const carDepreciatedVal = i <= 5 ? price * Math.pow(vType === "ev" ? 0.75 : 0.85, i) : 0;
+        const carDepreciatedVal = i <= 10 ? price * Math.pow(vType === "ev" ? 0.75 : 0.82, i) : 0;
         const simulatedAnnualSavings = Math.max(0, annualSurplus + (projectedCashFlowDelta * 12));
-        tempSimulated = (tempSimulated + carDepreciatedVal + simulatedAnnualSavings) * (1 + averageGrowthRate);
+        
+        // Compound only the liquid wealth portion
+        tempLiquidSimulated = (tempLiquidSimulated + simulatedAnnualSavings) * (1 + averageGrowthRate);
+        
+        // Total Simulated Net Worth = Liquid wealth compounding + current depreciated vehicle valuation
+        tempSimulated = tempLiquidSimulated + carDepreciatedVal;
         simulatedNW.push(Math.round(tempSimulated));
       }
 
@@ -810,7 +819,42 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
 
     const finalSimulatedNW = simulatedNW[simulatedNW.length - 1] || 0;
     const finalBaselineNW = baselineNW[baselineNW.length - 1] || 0;
-    const lifetimeWealthImpactVal = finalSimulatedNW - finalBaselineNW;
+    let lifetimeWealthImpactVal = finalSimulatedNW - finalBaselineNW;
+
+    // CREDIBILITY SAFEGUARDS & VALIDATION ANALYSIS
+    let aggressiveAssumptions = false;
+
+    // 1. Check for hyper-aggressive asset appreciation or market growth
+    if (averageGrowthRate > 0.085) {
+      aggressiveAssumptions = true;
+    }
+    // 2. Check for disproportionate property target purchase sizes
+    if (selectedType === "home_purchase" && (params.homePrice || 0) > 1500000) {
+      aggressiveAssumptions = true;
+    }
+    // 3. Check for outsized career shift jumps
+    if (selectedType === "career_change" && (params.newSalary || 0) > 500000) {
+      aggressiveAssumptions = true;
+    }
+    // 4. Guard against unrealistic multi-million outputs on high horizon compound curves
+    if (Math.abs(lifetimeWealthImpactVal) > 5000000) {
+      aggressiveAssumptions = true;
+      // Multi-decade compounding of aggressive baseline choices leads to outlier tails.
+      // We apply smooth logarithmic compression above 5M to maintain mathematical progression without producing absurd numbers.
+      if (lifetimeWealthImpactVal > 5000000) {
+        const excess = lifetimeWealthImpactVal - 5000000;
+        lifetimeWealthImpactVal = 5000000 + Math.log10(excess) * 150000;
+      } else if (lifetimeWealthImpactVal < -5000000) {
+        const excess = -5000000 - lifetimeWealthImpactVal;
+        lifetimeWealthImpactVal = -5000000 - Math.log10(excess) * 150000;
+      }
+    }
+
+    // Discount confidence rating on aggressive assumptions
+    let finalConfidenceScore = confidenceScore;
+    if (aggressiveAssumptions) {
+      finalConfidenceScore = Math.max(30, confidenceScore - 30);
+    }
 
     const calculatedResult: SimulationResult = {
       id: Math.random().toString(36).substring(2, 9),
@@ -820,10 +864,11 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       projectedNetWorth30Y: simulatedNW,
       projectedCashFlowDelta,
       lifetimeWealthImpact: lifetimeWealthImpactVal,
+      aggressiveAssumptions,
       retirementReadinessShift,
       decisionHealthScore,
       riskScore,
-      confidenceScore,
+      confidenceScore: finalConfidenceScore,
       keyAssumptions,
       limitations,
       alternativeScenarios
@@ -1321,6 +1366,16 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
               );
             })()}
+
+            {simulationResult.aggressiveAssumptions && (
+              <div className="mx-6 mt-2 mb-4 flex items-center gap-3 bg-rose-950/20 border border-rose-900/40 rounded-2xl px-5 py-3 text-rose-400 text-xs">
+                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+                <div>
+                  <strong className="font-semibold block sm:inline">Simulation Hazard Flags:</strong>{" "}
+                  <span className="text-zinc-300">Scenario contains unusually aggressive assumptions. Theoretical compounding confidence rating has been discounted.</span>
+                </div>
+              </div>
+            )}
 
             {/* Header statistics block */}
             <div className="p-6 border-b border-zinc-800 bg-zinc-900/60 font-sans">
