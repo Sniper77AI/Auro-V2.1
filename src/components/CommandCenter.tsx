@@ -50,6 +50,23 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   const rawHealthScore = Math.round(nwScore + dtiScore + liquidityScore + incomeDiversityScore);
   const healthScore = Math.max(10, Math.min(100, rawHealthScore));
 
+  let statusLabel = "On Track";
+  let statusColorClass = "text-emerald-400 border-emerald-900/40 bg-emerald-950/25";
+
+  if (healthScore >= 85) {
+    statusLabel = "Excellent";
+    statusColorClass = "text-emerald-400 border-emerald-900/40 bg-emerald-950/25";
+  } else if (healthScore >= 70) {
+    statusLabel = "Good";
+    statusColorClass = "text-teal-400 border-teal-900/40 bg-teal-950/25";
+  } else if (healthScore >= 50) {
+    statusLabel = "Proceed Carefully";
+    statusColorClass = "text-amber-500 border-amber-900/40 bg-amber-950/25";
+  } else {
+    statusLabel = "Needs Attention";
+    statusColorClass = "text-rose-450 border-rose-900/40 bg-rose-950/25";
+  }
+
   // Chief of Staff priority engine logic
   let primaryActionTitle = "Maximize Compound Velocity";
   let primaryActionDesc = "Your wealth foundations look secure. Shift liquid reserves toward long-term tax-sheltered portfolios (Roth IRA/401k) to maximize annual compounding growth.";
@@ -100,8 +117,82 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
     }
   ];
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+
   return (
     <div className="space-y-6" id="wealth-command-center">
+      {/* DAILY FINANCIAL BRIEFING (CFO MEMO) */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4 font-sans relative overflow-hidden">
+        {/* Elegant subtle gradient background decoration */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-zinc-800/65 pb-4 gap-4">
+          <div>
+            <span className="text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-widest block">Daily Financial Briefing</span>
+            <h2 className="text-xl font-bold tracking-tight text-white mt-1">
+              {greeting}, Ahmad
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Here is your professional CFO summary for {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <span className="bg-emerald-950/40 text-emerald-400 text-[10px] font-mono px-2.5 py-1 rounded border border-emerald-900/40 font-semibold uppercase">
+              CFO Engine: Active
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pt-1.5 text-zinc-300">
+          {/* RETIREMENT TRAJECTORY */}
+          <div className="space-y-1.5 border-r border-zinc-800/40 pr-2 last:border-0">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase block font-bold leading-none tracking-wide">Retirement Trajectory</span>
+            <p className="text-[11px] text-zinc-300 leading-relaxed font-sans">
+              You are currently on track to retire at age <strong className="text-emerald-400">{twin.retirementAge}</strong> with {expensesRatio.toFixed(1)} months of emergency buffer coverage.
+            </p>
+          </div>
+
+          {/* STRONGEST GOAL */}
+          <div className="space-y-1.5 border-r border-zinc-800/40 pr-2 last:border-0">
+            <span className="text-[10px] font-mono text-zinc-500 uppercase block font-bold leading-none tracking-wide">Strongest Goal</span>
+            <p className="text-[11px] text-zinc-300 leading-relaxed font-sans">
+              <strong className="text-teal-400">
+                {twin.liabilities.length > 0 ? "Accelerated Debt Freedom" : "Dream Home Down Payment"}
+              </strong> is your most resilient financial milestone. Trajectory parameters remain steady.
+            </p>
+          </div>
+
+          {/* BIGGEST RISK */}
+          <div className="space-y-1.5 border-r border-zinc-800/40 pr-2 last:border-0">
+            <span className="text-[10px] font-mono text-rose-450 uppercase block font-bold leading-none tracking-wide">Biggest Identified Risk</span>
+            <p className="text-[11px] text-zinc-300 leading-relaxed font-sans">
+              {expensesRatio < 3 ? (
+                <>Liquid emergency assets covering <strong className="text-rose-400">{expensesRatio.toFixed(1)} months</strong> of outflows represent a minor vulnerability index.</>
+              ) : highInterestLiabilities > 10000 ? (
+                <>Carrying <strong className="text-rose-400">${highInterestLiabilities.toLocaleString()}</strong> of debts over 5.0% interest APR is a frictional drag on net worth compounding.</>
+              ) : (
+                <>Cash allocation is healthy. Consider checking other regional state bracket limits for tax efficiency drag.</>
+              )}
+            </p>
+          </div>
+
+          {/* HIGH-IMPACT OPPORTUNITY */}
+          <div className="space-y-1.5 last:border-0">
+            <span className="text-[10px] font-mono text-emerald-400 uppercase block font-bold leading-none tracking-wide">Highest Opportunity</span>
+            <p className="text-[11px] text-zinc-300 leading-relaxed font-sans">
+              {highInterestLiabilities > 0 ? (
+                <>Focusing on debt payoff could preserve up to <strong className="text-emerald-450">$18,000</strong> in lifetime loan interest leak.</>
+              ) : twin.taxState === "CA" ? (
+                <>Simulating zero state-tax residence (e.g., Texas or Florida) shows up to <strong className="text-emerald-450">$540,000</strong> in long-term cumulative gains.</>
+              ) : (
+                <>Reallocating liquid surpluses to a diversified Roth or market portfolio supports up to <strong className="text-emerald-450">$45,000</strong> in tax-sheltered yield.</>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* HERO SIMULATOR SECTOR */}
       <div className="bg-zinc-900 border border-zinc-805/90 rounded-2xl p-6 space-y-4">
         <div>
@@ -247,15 +338,18 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
                 </linearGradient>
               </defs>
             </svg>
-            <div className="absolute text-center font-mono">
-              <span className="text-3xl font-black text-white tracking-tighter block leading-none">{healthScore}</span>
-              <span className="text-[9px] uppercase tracking-widest text-emerald-400 block mt-1">READINESS</span>
+            <div className="absolute text-center font-sans flex flex-col items-center justify-center">
+              <span className="text-4xl font-black text-white tracking-tighter block leading-none">{healthScore}</span>
+              <span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 block mt-1">READINESS</span>
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded border mt-2 block font-sans ${statusColorClass}`}>
+                {statusLabel}
+              </span>
             </div>
           </div>
 
           <div className="text-center pt-2 border-t border-zinc-800/40">
-            <p className="text-[11px] text-zinc-450 leading-relaxed font-sans">
-              Weighted average score based on defensive savings cushion, loan burdens, and cash surplus levels.
+            <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
+              Your score of <strong className="text-zinc-100">{healthScore} ({statusLabel})</strong> is a weighted average based on defensive savings cushion, loan burdens, and cash surplus levels.
             </p>
           </div>
         </div>

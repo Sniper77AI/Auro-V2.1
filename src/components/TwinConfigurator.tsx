@@ -141,12 +141,14 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
   return (
     <div id="twin-configurator" className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl font-sans">
       {/* Top Banner Stat Segment */}
-      <div className="bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900 p-6 border-b border-zinc-800">
+      <div className="bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 p-6 border-b border-zinc-800">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Aura Financial Profile</span>
-            <h2 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">Tell Aura about your financial life</h2>
-            <p className="text-xs text-zinc-405 mt-1 font-sans">Provide your profile details so Aura can personalize future scenarios and next steps for you.</p>
+            <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Guided Coaching Onboarding</span>
+            <h2 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">Onboard Your Financial Decision Coach</h2>
+            <p className="text-xs text-zinc-400 mt-1 font-sans">
+              To give you precise outcomes on high-impact lifestyle moves, please complete this friendly life-oriented questionnaire with Aura.
+            </p>
           </div>
           <div className="flex gap-4 self-stretch md:self-auto font-sans">
             <div className="bg-zinc-950/60 border border-zinc-805/80 p-3 rounded-lg text-left flex-1 md:flex-initial">
@@ -171,43 +173,49 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs styled as progressive coaching questions */}
       <div className="flex flex-wrap gap-1 border-b border-zinc-800 bg-zinc-900/60 text-xs px-4 pt-2 font-sans">
         <button
           onClick={() => setActiveTab("income")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "income" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "income" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          Income ({twin.incomes.length})
+          <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "income" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>1</span>
+          <span>How much do you earn?</span>
         </button>
         <button
           onClick={() => setActiveTab("savings")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "savings" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "savings" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          Savings & Investments ({twin.assets.length})
+          <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "savings" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>2</span>
+          <span>Do you own assets?</span>
         </button>
         <button
           onClick={() => setActiveTab("debts")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "debts" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "debts" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          Debts ({twin.liabilities.length})
+          <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "debts" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>3</span>
+          <span>Do you carry any debt?</span>
         </button>
         <button
           onClick={() => setActiveTab("family")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "family" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "family" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          Family & Dependents
+          <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "family" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>4</span>
+          <span>Do you support dependents?</span>
         </button>
         <button
           onClick={() => setActiveTab("retirement")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "retirement" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "retirement" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          Retirement Goals
+          <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "retirement" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>5</span>
+          <span>When do you want to retire?</span>
         </button>
         <button
           onClick={() => setActiveTab("risk")}
-          className={`px-4 py-2.5 font-medium border-b-2 rounded-t-md transition-all cursor-pointer ${activeTab === "risk" ? "border-emerald-500 text-emerald-400 bg-zinc-955" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
+          className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "risk" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
-          Risk Preference
+          <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "risk" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>6</span>
+          <span>What's your risk tolerance?</span>
         </button>
       </div>
 
@@ -215,102 +223,166 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
       <div className="p-6 text-zinc-200">
         {/* TAB: FAMILY & DEPENDENTS */}
         {activeTab === "family" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-sans">
-            <div>
-              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Your Current Age</label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="18"
-                  max="80"
-                  value={twin.age}
-                  onChange={(e) => handleUpdateGeneral("age", parseInt(e.target.value))}
-                  className="w-full accent-emerald-500 cursor-pointer"
-                />
-                <span className="font-mono text-sm bg-zinc-950 px-2.5 py-1 rounded border border-zinc-800 text-emerald-400 font-bold min-w-[50px] text-center">
-                  {twin.age}
-                </span>
+          <div className="space-y-6 font-sans">
+            <div className="bg-zinc-950/60 border border-zinc-850 p-4 rounded-xl flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-950/40 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-900/40 font-mono text-sm font-bold">
+                A
               </div>
-              <span className="text-[10px] text-zinc-500 mt-1.5 block">Used to calculate your multi-decade timeline.</span>
+              <div>
+                <h4 className="text-xs font-bold text-zinc-200">Aura Onboarding Coach</h4>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  "Let's adjust for your personal circumstances. To model your multi-decade trajectory and understand progressive state tax bracket impacts, I need to know your current age, state of residence, and any dependents you support."
+                </p>
+              </div>
             </div>
 
-            <div>
-              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Where you live</label>
-              <select
-                value={twin.taxState}
-                onChange={(e) => handleUpdateGeneral("taxState", e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm font-sans text-zinc-200 focus:outline-none focus:border-emerald-500"
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase tracking-wide">Do you support dependents?</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={twin.dependants}
+                  onChange={(e) => handleUpdateGeneral("dependants", Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-full bg-zinc-950 border border-zinc-805 rounded-lg p-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-emerald-500"
+                />
+                <span className="text-[10px] text-zinc-500 mt-1.5 block">Number of children, relatives, or loved ones in your care.</span>
+              </div>
+
+              <div>
+                <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase tracking-wide">How old are you?</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="18"
+                    max="80"
+                    value={twin.age}
+                    onChange={(e) => handleUpdateGeneral("age", parseInt(e.target.value))}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                  <span className="font-mono text-sm bg-zinc-950 px-2.5 py-1 rounded border border-zinc-800 text-emerald-400 font-bold min-w-[50px] text-center">
+                    {twin.age}
+                  </span>
+                </div>
+                <span className="text-[10px] text-zinc-500 mt-1.5 block">Used to anchor your timeline projection models.</span>
+              </div>
+
+              <div>
+                <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase tracking-wide">Which state do you call home?</label>
+                <select
+                  value={twin.taxState}
+                  onChange={(e) => handleUpdateGeneral("taxState", e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-805 rounded-lg p-2.5 text-sm font-sans text-zinc-200 focus:outline-none focus:border-emerald-500"
+                >
+                  {US_STATES.map((st) => (
+                    <option key={st.code} value={st.code}>
+                      {st.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-zinc-500 mt-1.5 block">Required to calculate regional state income tax offsets.</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-zinc-850">
+              <button
+                type="button"
+                onClick={() => setActiveTab("retirement")}
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-200 font-bold tracking-tight text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer font-sans"
               >
-                {US_STATES.map((st) => (
-                  <option key={st.code} value={st.code}>
-                    {st.name}
-                  </option>
-                ))}
-              </select>
-              <span className="text-[10px] text-zinc-500 mt-1.5 block">Used to automatically dynamic estimate state tax brackets.</span>
-            </div>
-
-            <div>
-              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Dependents & Family Size</label>
-              <input
-                type="number"
-                min="0"
-                max="10"
-                value={twin.dependants}
-                onChange={(e) => handleUpdateGeneral("dependants", Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-emerald-500"
-              />
-              <span className="text-[10px] text-zinc-500 mt-1.5 block">Number of children or relatives you support.</span>
+                Next question: Retirement timeline <ChevronRight className="w-3.5 h-3.5 text-emerald-400" />
+              </button>
             </div>
           </div>
         )}
 
         {/* TAB: RETIREMENT GOALS */}
         {activeTab === "retirement" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
-            <div>
-              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Target Retirement Age</label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="40"
-                  max="90"
-                  value={twin.retirementAge}
-                  onChange={(e) => handleUpdateGeneral("retirementAge", parseInt(e.target.value))}
-                  className="w-full accent-emerald-500 cursor-pointer"
-                />
-                <span className="font-mono text-sm bg-zinc-950 px-2.5 py-1 rounded border border-zinc-800 text-teal-400 font-bold min-w-[50px] text-center">
-                  {twin.retirementAge}
-                </span>
+          <div className="space-y-6 font-sans">
+            <div className="bg-zinc-950/60 border border-zinc-850 p-4 rounded-xl flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-950/40 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-900/40 font-mono text-sm font-bold">
+                A
               </div>
-              <span className="text-[10px] text-zinc-500 mt-1.5 block">Your ideal retirement age target.</span>
+              <div>
+                <h4 className="text-xs font-bold text-zinc-200">Aura Onboarding Coach</h4>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  "Thinking ahead is the key to building true compound velocity. At what age do you wish to achieve work flexibility or retire completely, and what level of monthly lifestyle spending do you want to sustain?"
+                </p>
+              </div>
             </div>
 
-            <div>
-              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">Desired Spending in Retirement ($ / month)</label>
-              <input
-                type="number"
-                value={twin.monthlyExpenses}
-                onChange={(e) => handleUpdateGeneral("monthlyExpenses", Math.max(0, parseFloat(e.target.value) || 0))}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-sm font-mono text-zinc-200 focus:outline-none focus:border-emerald-500"
-              />
-              <span className="text-[10px] text-zinc-500 mt-1.5 block">Estimated monthly spending for living costs, travel, and personal hobbies.</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase tracking-wide">When do you want to retire?</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="40"
+                    max="90"
+                    value={twin.retirementAge}
+                    onChange={(e) => handleUpdateGeneral("retirementAge", parseInt(e.target.value))}
+                    className="w-full accent-emerald-500 cursor-pointer"
+                  />
+                  <span className="font-mono text-sm bg-zinc-950 px-2.5 py-1 rounded border border-zinc-800 text-teal-400 font-bold min-w-[50px] text-center">
+                    {twin.retirementAge}
+                  </span>
+                </div>
+                <span className="text-[10px] text-zinc-500 mt-1.5 block">Your custom target age threshold.</span>
+              </div>
+
+              <div>
+                <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase tracking-wide">What is your targeted monthly spending in retirement?</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-zinc-550 font-bold font-mono">$</span>
+                  <input
+                    type="number"
+                    value={twin.monthlyExpenses}
+                    onChange={(e) => handleUpdateGeneral("monthlyExpenses", Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-full bg-zinc-950 border border-zinc-805 rounded-lg p-2.5 pl-7 text-sm font-mono text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <span className="text-[10px] text-zinc-500 mt-1.5 block">Calculated in today's dollars, representing your baseline lifestyle and hobby outlays.</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-zinc-850">
+              <button
+                type="button"
+                onClick={() => setActiveTab("risk")}
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-200 font-bold tracking-tight text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer font-sans"
+              >
+                Next question: Risk preferences <ChevronRight className="w-3.5 h-3.5 text-emerald-400" />
+              </button>
             </div>
           </div>
         )}
 
         {/* TAB: RISK PREFERENCE */}
         {activeTab === "risk" && (
-          <div className="space-y-4 font-sans">
+          <div className="space-y-6 font-sans">
+            <div className="bg-zinc-950/60 border border-zinc-850 p-4 rounded-xl flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-950/40 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-900/40 font-mono text-sm font-bold">
+                A
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-zinc-200">Aura Onboarding Coach</h4>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  "Finally, let's align our growth trajectory models with your personal tolerance. How comfortable vary are you with standard stock market fluctuations?"
+                </p>
+              </div>
+            </div>
+
             <div>
-              <label className="text-zinc-400 text-xs font-semibold block mb-1.5 uppercase font-sans tracking-wide">How comfortable are you with investment risk?</label>
-              <p className="text-[11px] text-zinc-500 mb-4 font-sans">Select a risk state that represents how you prefer to invest your savings and grow your retirement nest egg.</p>
+              <label className="text-zinc-400 text-sm font-bold block mb-1.5 tracking-tight font-sans">Select your preferred growth velocity</label>
+              <p className="text-[11px] text-zinc-500 mb-4 font-sans leading-relaxed">This selection calibrates how Aura projects your multi-decade interest compounding and asset accumulation growth.</p>
+              
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {(["conservative", "moderate", "aggressive"] as const).map((lvl) => {
                   const labels = {
-                    conservative: { title: "Stable & Defensive", desc: "Focuses on capital preservation with lower, steady returns." },
-                    moderate: { title: "Balanced Growth", desc: "A blend of secure growth assets and moderate stock market compounding." },
-                    aggressive: { title: "Wealth Optimizer", desc: "Maximum growth with higher market equity allocations and compounding velocity." }
+                    conservative: { title: "Defensive Preservation", desc: "Focuses on capital protection with conservative compound metrics (e.g. 4-5% yields)." },
+                    moderate: { title: "Balanced Trajectory", desc: "A robust blend of capital stability and general market indexes (e.g. 6-7% yields)." },
+                    aggressive: { title: "Optimized Compounder", desc: "Maximizes compound velocity with global index funds (e.g. 8-10% volatility)." }
                   };
                   return (
                     <button
@@ -330,12 +402,29 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                 })}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* TAB 2: INCOME */}
+            <div className="flex justify-between items-center pt-4 border-t border-zinc-850">
+              <span className="text-[10px] text-zinc-500 font-mono">ONBOARDING COMPLETED</span>
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] px-3 py-1.5 rounded-lg font-bold flex items-center gap-1">
+                ✓ Dynamic models calculated instantly
+              </div>
+            </div>
+          </div>
+        )}        {/* TAB 2: INCOME */}
         {activeTab === "income" && (
           <div className="space-y-6">
+            <div className="bg-zinc-950/60 border border-zinc-850 p-4 rounded-xl flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-950/40 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-900/40 font-mono text-sm font-bold">
+                A
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-zinc-200">Aura Onboarding Coach</h4>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  "First, tell me about your inflows. Do you earn an annual salary, self-employment income, business dividends, or have other cash infusions? Add them below so we can accurately gauge your baseline compounding energy."
+                </p>
+              </div>
+            </div>
+
             <div className="bg-zinc-950 border border-zinc-800/80 rounded-xl p-4">
               <span className="text-xs font-mono font-bold text-zinc-300 block mb-3">Add Custom Income Node</span>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -371,7 +460,7 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                   type="button"
                   onClick={handleAddIncome}
                   disabled={!newInc.name}
-                  className="bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold transition-all text-xs rounded py-2 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-zinc-900 font-bold transition-all text-xs rounded py-2 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-3.5 h-3.5" /> Append Node
                 </button>
@@ -418,12 +507,34 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                 </tbody>
               </table>
             </div>
+
+            <div className="flex justify-end pt-4 border-t border-zinc-850/45">
+              <button
+                type="button"
+                onClick={() => setActiveTab("savings")}
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-200 font-bold tracking-tight text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer font-sans"
+              >
+                Next question: Assets & Savings <ChevronRight className="w-3.5 h-3.5 text-emerald-400" />
+              </button>
+            </div>
           </div>
         )}
 
         {/* TAB 3: SAVINGS & INVESTMENTS */}
         {activeTab === "savings" && (
           <div className="space-y-6">
+            <div className="bg-zinc-950/60 border border-zinc-850 p-4 rounded-xl flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-950/40 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-900/40 font-mono text-sm font-bold">
+                A
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-zinc-200">Aura Onboarding Coach</h4>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  "Now let's map out your active resources. Do you hold liquid high-yield cash, retirement accounts like 401(k) / IRAs, a brokerage portfolio, or real estate equity? Let's chart your starting compound blocks."
+                </p>
+              </div>
+            </div>
+
             <div className="bg-zinc-950 border border-zinc-800/80 rounded-xl p-4">
               <span className="text-xs font-mono font-bold text-zinc-300 block mb-3">Add Custom Savings or Investment Balance</span>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -471,7 +582,7 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                     type="button"
                     onClick={handleAddAsset}
                     disabled={!newAsset.name}
-                    className="bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold px-3 transition-all text-xs rounded flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-zinc-900 font-bold px-3 transition-all text-xs rounded flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -521,12 +632,34 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                 </tbody>
               </table>
             </div>
+
+            <div className="flex justify-end pt-4 border-t border-zinc-850/45">
+              <button
+                type="button"
+                onClick={() => setActiveTab("debts")}
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-200 font-bold tracking-tight text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer font-sans"
+              >
+                Next question: Debts & Liabilities <ChevronRight className="w-3.5 h-3.5 text-emerald-400" />
+              </button>
+            </div>
           </div>
         )}
 
         {/* TAB 4: DEBTS */}
         {activeTab === "debts" && (
           <div className="space-y-6">
+            <div className="bg-zinc-950/60 border border-zinc-850 p-4 rounded-xl flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-950/40 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-900/40 font-mono text-sm font-bold">
+                A
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-zinc-200">Aura Onboarding Coach</h4>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  "Finally, let's identify any liabilities that could slow down your compound velocity. Tell me about any student loans, vehicle financing, mortgages, or revolving credit card balance you carry."
+                </p>
+              </div>
+            </div>
+
             <div className="bg-zinc-950 border border-zinc-800/80 rounded-xl p-4">
               <span className="text-xs font-mono font-bold text-zinc-300 block mb-3">Add private debt or mortgage</span>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -578,7 +711,7 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                     type="button"
                     onClick={handleAddLiability}
                     disabled={!newLiab.name}
-                    className="bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold px-3 transition-all text-xs rounded flex items-center justify-center gap-1 cursor-pointer"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-zinc-900 font-bold px-3 transition-all text-xs rounded flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -611,7 +744,7 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                         <td className="p-3 font-semibold text-zinc-200">{lia.name}</td>
                         <td className="p-3 font-mono text-zinc-400 capitalize">{lia.type.replace("_", " ")}</td>
                         <td className="p-3 font-mono text-rose-400 text-right">{(lia.interestRate * 100).toFixed(1)}%</td>
-                        <td className="p-3 font-mono text-zinc-300 text-right">${lia.monthlyPayment.toLocaleString()}</td>
+                        <td className="p-3 font-mono text-zinc-350 text-right">${lia.monthlyPayment.toLocaleString()}</td>
                         <td className="p-3 font-mono text-zinc-200 text-right font-bold">
                           ${lia.amount.toLocaleString()}
                         </td>
@@ -629,6 +762,16 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-zinc-850/45">
+              <button
+                type="button"
+                onClick={() => setActiveTab("family")}
+                className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-200 font-bold tracking-tight text-xs px-4 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer font-sans"
+              >
+                Next question: Family & dependents <ChevronRight className="w-3.5 h-3.5 text-emerald-400" />
+              </button>
             </div>
           </div>
         )}
