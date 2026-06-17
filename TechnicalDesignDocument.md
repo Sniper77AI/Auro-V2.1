@@ -1,4 +1,4 @@
-# Aura V3 — Technical Design Document (TDD)
+# Technical Design Document (TDD) — Aura V3.1
 ## Backend & Intelligence Layer Architecture
 
 *Tagline: "See your future before you spend your money."*
@@ -7,869 +7,693 @@
 
 ## 1. Backend Architecture Overview
 
-The Aura V3 backend architecture is engineered around **Supabase (PostgreSQL + PostgREST)**, utilizing a secure, decoupled full-stack architecture design. This architecture separates interactive client views (Vite/React SPA) from deterministic financial engines and stateful orchestration loops, preventing any client-side exposure of security models, API credentials, or unvetted AI queries.
+The Aura V3.1 backend architecture features a modular full-stack configuration. Client interactions (React/Vite SPA) are handled by a stateless frontend layer, while application data, calculations, security contexts, and AI translation steps are executed using a decoupled server architecture.
 
 ```
-       [ Client Browser (React SPA) ]
-                     │  ▲
-        HTTPS/WSS    │  │ PostgREST / JSON RPC
-                     ▼  │
-┌──────────────────── Supabase Ingress Gateway ──────────────┐
-│                                                            │
-│  ┌───────────────────┐               ┌──────────────────┐  │
-│  │   Supabase Auth   │◄─────────────►│ Row-Level        │  │
-│  │ (GoTrue JWT Auth) │               │ Security (RLS)   │  │
-│  └───────────────────┘               └────────┬─────────┘  │
-│                                               │            │
-│  ┌───────────────────┐               ┌────────▼─────────┐  │
-│  │   Edge Functions  │◄─────────────►│    PostgreSQL    │  │
-│  │  (TypeScript/Deno)│  Reads Schema │ (Database State) │  │
-│  └─────────┬─────────┘               └──────────────────┘  │
-│            │                                               │
-└────────────┼───────────────────────────────────────────────┘
-             │ Proxy Secure Calls
-             ▼
- ┌─────────────────────── Cloud / Intelligence Ingress ──────┐
- │                                                           │
- │  ┌─────────────────────────────────────────────────────┐  │
- │  │        Vertex AI / Google Gen AI API Proxy          │  │
- │  │     (Gemini-2.5-Flash / Gemini-2.5-Pro Engine)      │  │
- │  └─────────────────────────────────────────────────────┘  │
- │                                                           │
- └───────────────────────────────────────────────────────────┘
+                         [ React SPA / Client ]
+                                   │
+              ┌────────────────────┴────────────────────┐
+     HTTPS    │                                         │ WSS
+              ▼                                         ▼
+┌───────────── Supabase Ingress Gateway ──────────────────────────────────────┐
+│                                                                             │
+│   ┌────────────────────┐               ┌────────────────────┐               │
+│   │   Supabase Auth    │◄─────────────►│    Row-Level       │               │
+│   │   (GoTrue Service) │               │   Security (RLS)   │               │
+│   └────────────────────┘               └─────────┬──────────┘               │
+│                                                  │                          │
+│   ┌────────────────────┐               ┌─────────▼──────────┐               │
+│   │   Edge Functions   │◄─────────────►│  PostgreSQL 15+    │               │
+│   │ (Deno TypeScript)  │               │   (Database Nodes) │               │
+│   └─────────┬──────────┘               └────────────────────┘               │
+│             │                                                               │
+└─────────────┼───────────────────────────────────────────────────────────────┘
+              │ Proxy Calls
+              ▼
+┌───────────── Google Cloud Perimeter ────────────────────────────────────────┐
+│                                                                             │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │          Vertex AI / Google Gen AI API (Gemini-2.5-Flash)           │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Components:
-1. **Client Tier**: Fully stateless React Single-Page Application (SPA) served via static hosting CDN (Cloud Run Web Container). All structural routing is client-side.
-2. **Auth & Gateway Tier (GoTrue)**: Supabase Auth issues cryptographically signed JSON Web Tokens (JWTs) containing the user’s Role, UID, and metadata.
-3. **API & Data Tier**: Client queries are handled directly via **PostgREST** (Supabase Client) executing against the PostgreSQL schema, strictly guarded by PostgreSQL **Row-Level Security (RLS)**.
-4. **Compute Tier (Supabase Edge Functions)**: Lightweight TypeScript sandboxes running on Deno. Ideal for processing incoming third-party webhooks, running the safe AI proxy layer, and executing multi-variable calculation runs.
-5. **Database (PostgreSQL 15+)**: Serves as the single source of truth for structured profiles, historical simulations, log files, user roles, security audits, and global variables.
-6. **AI Orchestration & Safe Grounding Layer**: Edge functions proxy and sanitize all structured Gemini requests. Zero raw user-input data propagates unmonitored; deterministic calculation outputs ground every single model prompt template.
+### Dynamic Request-Response Pipeline
+1. **Authentication Assertion**: The customer logs in via Supabase Auth. GoTrue signs a JWT identifying the session.
+2. **Persistence Lookup**: Reads and writes go through Supabase PostgREST, with data access governed by PostgreSQL Row-Level Security (RLS) policies.
+3. **Engine-Driven Projections**: When running scenario simulations, the client invokes secure Edge Functions (`/functions/v1/runSimulation`). 
+4. **Calculations Phase**: Deno nodes run calculation engines inside deterministic TypeScript environments, utilizing the database configuration parameters.
+5. **AI Interpretation**: The calculation results are sent to our AI abstraction adapter, which prompts Gemini to translate the metrics into plain-English narratives.
+6. **Unified Delivery Payload**: The finalized projection tables, confidence metrics, and narratives are returned to the client browser in a single, unified response.
 
 ---
 
-## 2. Database Implementation Plan
+## 1.1 PII Vault Architecture (Objective 1)
 
-The database schema is written in standard DDL for PostgreSQL and deployed inside Supabase under the `public` schema.
+Personally Identifiable Information (PII) is isolated within a cryptographic database perimeter, separating it from the core financial models.
 
 ```
-                  ┌──────────────┐
-                  │    users     │ (auth.users)
-                  └──────┬───────┘
-                         │ 1:1
-                  ┌──────▼───────┐
-                  │   profiles   │
-                  └──────┬───────┘
-                         │ 1:1
-              ┌──────────┴──────────┐
-              │   financial_twins   │
-              └──────┬───┬───┬──────┘
-                     │   │   │
-         ┌───────────┘   │   └───────────┐
-      1:N│            1:N│            1:N│
-┌────────▼─────────┐ ┌───▼───────┐ ┌─────▼───────┐
-│  income_sources  │ │ liabilities│ │   assets    │
-└──────────────────┘ └───────────┘ └─────────────┘
+┌───────────────────────── Database Infrastructure ──────────────────────────┐
+│                                                                             │
+│   ┌──────────────────────────────────┐   ┌──────────────────────────────┐   │
+│   │         PII VAULT SCHEMA         │   │    FINANCIAL CORE SCHEMA     │   │
+│   │                                  │   │                              │   │
+│   │   Table: user_identity           │   │   Table: profiles            │   │
+│   │   - id                           │   │   - profile_id (PK, uuid)    │   │
+│   │   - auth_user_id (unique, links) │   │   - financial_preferences    │   │
+│   │   - first_name (AES-256)         │   │   - retirement_targets       │   │
+│   │   - last_name (AES-256)          │   │   - goals                    │   │
+│   │   - email (AES-256)              │   │   - localization_settings    │   │
+│   │   - phone (AES-256)              │   │                              │   │
+│   │                                  │   │   Table: financial_twins     │   │
+│   │  (Guarded by Strict RLS)         │   │   - twin_id                  │   │
+│   │                                  │   │   - assets, liabilities      │   │
+│   │                                  │   │   - income, expenses         │   │
+│   │                                  │   │                              │   │
+│   └──────────────────────────────────┘   └──────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Table Definitions & Policies
+* **Access Restrictions**: Only the authenticated user has read/write privileges for their personal details inside `user_identity` (enforced via RLS rule `auth.uid() = auth_user_id`).
+* **Systems Administrators & Auditors Boundary**:
+  * Joint database permissions are restricted. Standard system access configuration **blocks select queries on the PII table** for general administrator accounts.
+  * Compliance reports use anonymized financial details, preventing matches with personal identities.
+* **Emergency Override Protocol**:
+  * If needed for high-severity support situations, Governance Admins must submit a formal override bypass request.
+  * This procedure requires dual confirmation: a second administrator (Super Admin) must authorize the decrypt requests.
+  * These bypass operations are recorded with `CRITICAL` severity logs to ensure an audit trail.
 
-#### 2.1 Table: `profiles`
-* **Purpose**: Coordinates user billing tiers, settings, metadata, and security roles mapping to Supabase Auth.
-* **Key Columns**:
-  * `id` (uuid, PK, References `auth.users`)
-  * `email` (text)
-  * `role` (text, default `'customer'`)
-  * `created_at` (timestamptz)
-  * `updated_at` (timestamptz)
-* **RLS Policies**:
-  * `Enable read for self`: `auth.uid() = id`
-  * `Enable update for self`: `auth.uid() = id`
-  * `Admin full bypass`: `EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('super_admin', 'governance_admin'))`
-* **Indexes**: `CREATE INDEX idx_profiles_role ON profiles(role);`
-* **Seed Data Requirements**: At least 1 Super Admin (`super_admin`), 1 Auditor (`auditor`), and 1 Governance Admin (`governance_admin`) credentials pre-configured for internal debugging.
+---
 
-#### 2.2 Table: `financial_twins`
-* **Purpose**: Stores the core financial profile parameters acting as the dynamic baseline "digital twin".
-* **Key Columns**:
-  * `id` (uuid, PK, Default gen_random_uuid())
-  * `profile_id` (uuid, FK, References `profiles(id)`, UNIQUE)
-  * `current_net_worth` (numeric)
-  * `annual_surplus` (numeric)
-  * `target_retirement_age` (integer)
-  * `current_age` (integer)
-  * `life_expectancy` (integer, default `90`)
-  * `dependants` (integer)
-  * `location_state` (varchar(2))
-  * `investment_risk_appetite` (text)
-* **RLS Policies**:
-  * `Read/Write policy`: `auth.uid() = profile_id`
-* **Indexes**: `CREATE INDEX idx_twins_profile ON financial_twins(profile_id);`
+## 2. Database Schema Definition & Implementation (Objective 2)
 
-#### 2.3 Tables: `income_sources`, `assets`, `liabilities`
-* **Purpose**: Multi-row financial specifications linked to a user's core financial twin.
-* **Key Columns**:
-  * `id` (uuid, PK)
-  * `twin_id` (uuid, FK, References `financial_twins(id)`)
-  * `name` (text)
-  * `amount` (numeric)
-  * `type` (text) (e.g. `cash`, `brokerage`, `retirement`, `real_estate` for assets; `student`, `mortgage`, `car_loan`, `credit_card` for liabilities)
-  * `annual_growth` / `annual_growth_rate` (numeric)
-  * `original_principal` (numeric, null)
-  * `monthly_payment` (numeric, null)
-* **RLS Policies**:
-  * `Access via Twin ID owner`: `EXISTS (SELECT 1 FROM financial_twins WHERE id = twin_id AND profile_id = auth.uid())`
-* **Indexes**:
-  * `CREATE INDEX idx_assets_twin ON assets(twin_id);`
-  * `CREATE INDEX idx_liabilities_twin ON liabilities(twin_id);`
+```
+                            ┌───────────────────┐
+                            │   user_identity   │ (auth.users)
+                            └─────────┬─────────┘
+                                      │ 1:1
+                            ┌─────────▼─────────┐
+                            │     profiles      │
+                            └─────────┬─────────┘
+                                      │ 1:1
+                            ┌─────────▼─────────┐
+                            │  financial_twins  │
+                            └────┬─────┬─────┬──┘
+                                 │     │     │
+                     ┌───────────┘     │     └───────────┐
+                  1:N│              1:N│              1:N│
+             ┌───────▼──────┐    ┌─────▼─────┐    ┌──────▼──────┐
+             │income_sources│    │  assets   │    │ liabilities │
+             └──────────────┘    └───────────┘    └─────────────┘
+```
 
-#### 2.4 Table: `goals`
-* **Purpose**: Tracks milestones (e.g., college fund, home downpayment, sabbatical) mapped out by the user.
-* **Key Columns**:
-  * `id` (uuid, PK)
-  * `profile_id` (uuid, FK, References `profiles(id)`)
-  * `title` (text)
-  * `cost` (numeric)
-  * `target_year` (integer)
-  * `priority` (text)
-  * `category` (text)
-  * `amount_funded` (numeric)
-  * `is_essential` (boolean)
-* **RLS Policies**:
-  * `Direct owner update/read`: `auth.uid() = profile_id`
+### Table Specifications & DDL Scripts
 
-#### 2.5 Table: `simulations` & `simulation_results`
-* **Purpose**: Records individual simulation parameters executed by users, pairing them with the resulting calculations.
-* **Key Columns (`simulations`)**:
-  * `id` (uuid, PK)
-  * `profile_id` (uuid, FK)
-  * `type` (text) (e.g., `'home_purchase'`, `'vehicle_purchase'`)
-  * `parameters` (jsonb)
-  * `created_at` (timestamptz)
-* **Key Columns (`simulation_results`)**:
-  * `id` (uuid, PK)
-  * `simulation_id` (uuid, FK, References `simulations(id)`)
-  * `baseline_curve` (numeric[])
-  * `simulated_curve` (numeric[])
-  * `lifetime_wealth_impact` (numeric)
-  * `decision_health_score` (integer)
-  * `risk_score` (integer)
-  * `confidence_score` (integer)
-  * `has_hazard_flags` (boolean)
-  * `raw_recommendation` (jsonb)
-* **RLS Policies**:
-  * `Access by owner`: `auth.uid() = profile_id`
+```sql
+-- Create custom administration user roles
+CREATE TYPE aura_user_role AS ENUM ('customer', 'auditor', 'governance_admin', 'super_admin');
 
-#### 2.6 Table: `feedback`
-* **Purpose**: Holds user ratings of individual recommendations and simulations.
-* **Key Columns**:
-  * `id` (uuid, PK)
-  * `profile_id` (uuid, FK)
-  * `simulation_id` (uuid, FK, Nullable)
-  * `rating` (text) (e.g. `'helpful'`, `'not_helpful'`)
-  * `reason_category` (text)
-  * `comment` (text)
-* **RLS Policies**:
-  * `Write by self`: `auth.uid() = profile_id`
-  * `Read by Auditor / Admins`: `EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('auditor', 'governance_admin', 'super_admin'))`
+-- PII Vault Table
+CREATE TABLE public.user_identity (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    auth_user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    first_name BYTEA NOT NULL, -- AES encrypted binary
+    last_name BYTEA NOT NULL,  -- AES encrypted binary
+    email BYTEA NOT NULL,      -- AES encrypted binary
+    phone BYTEA NULL,          -- AES encrypted binary, nullable
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-#### 2.7 Table: `governance_events` & `audit_logs`
-* **Purpose**: System-wide security tracking for audit compliance.
-* **Key Columns**:
-  * `id` (uuid, PK)
-  * `operator_id` (uuid, FK, References `profiles(id)`)
-  * `event_type` (text) (e.g., `'ACCESS_DENIED'`, `'ROLE_CHANGE'`, `'HIGH_VARIANCE_SIMULATION'`)
-  * `severity` (text) (e.g., `'info'`, `'warning'`, `'high'`, `'critical'`)
-  * `details` (jsonb)
-  * `ip_address` (text)
-  * `timestamp` (timestamptz)
-* **RLS Policies**:
-  * `Insert`: Allowed anonymously or authenticated.
-  * `Read/Select`: Only super_admin, auditor, or governance_admin role levels are permitted to read.
-* **Indexes**: `CREATE INDEX idx_audit_severity ON audit_logs(severity);`
+-- Core Profiles Table
+CREATE TABLE public.profiles (
+    profile_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    role aura_user_role NOT NULL DEFAULT 'customer',
+    financial_preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
+    retirement_targets JSONB NOT NULL DEFAULT '{}'::jsonb,
+    goals JSONB NOT NULL DEFAULT '[]'::jsonb,
+    localization_settings JSONB NOT NULL DEFAULT '{"currency": "USD", "locale": "en-US"}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- State Assumptions Reference Table (Objective 2)
+CREATE TABLE public.state_assumptions (
+    state_code VARCHAR(2) PRIMARY KEY,
+    state_name VARCHAR(100) NOT NULL UNIQUE,
+    effective_tax_rate NUMERIC(5,4) NOT NULL, -- Blended income tax rate (e.g., 0.0825)
+    estimated_property_tax_rate NUMERIC(5,4) NOT NULL, -- Average annual property tax (e.g., 0.0125)
+    cost_of_living_index NUMERIC(4,2) NOT NULL DEFAULT 1.00, -- Relative cost factor (e.g., 1.35)
+    average_home_appreciation_rate NUMERIC(4,3) NOT NULL DEFAULT 0.040, -- Real estate appreciation average (e.g., 0.045)
+    retirement_factor NUMERIC(4,3) NOT NULL DEFAULT 1.000, -- Multiplier for retirement calculations
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Financial Digital Twins Table
+CREATE TABLE public.financial_twins (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id UUID NOT NULL UNIQUE REFERENCES public.profiles(profile_id) ON DELETE CASCADE,
+    current_net_worth NUMERIC(15,2) NOT NULL DEFAULT 0.00,
+    annual_surplus NUMERIC(15,2) NOT NULL DEFAULT 0.00,
+    current_age INTEGER NOT NULL CHECK (current_age >= 18 AND current_age <= 120),
+    target_retirement_age INTEGER NOT NULL CHECK (target_retirement_age >= 18),
+    life_expectancy INTEGER NOT NULL DEFAULT 90 CHECK (life_expectancy >= 18),
+    dependants INTEGER NOT NULL DEFAULT 0 CHECK (dependants >= 0),
+    active_state_code VARCHAR(2) NOT NULL REFERENCES public.state_assumptions(state_code),
+    investment_risk_appetite VARCHAR(50) NOT NULL DEFAULT 'moderate',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Financial Sub-Tables
+CREATE TABLE public.income_sources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    twin_id UUID NOT NULL REFERENCES public.financial_twins(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    amount NUMERIC(15,2) NOT NULL CHECK (amount >= 0),
+    type VARCHAR(100) NOT NULL DEFAULT 'W2_salary',
+    is_recurring BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE public.assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    twin_id UUID NOT NULL REFERENCES public.financial_twins(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    amount NUMERIC(15,2) NOT NULL CHECK (amount >= 0),
+    type VARCHAR(100) NOT NULL DEFAULT 'brokerage',
+    annual_growth_rate NUMERIC(5,4) NOT NULL DEFAULT 0.0700
+);
+
+CREATE TABLE public.liabilities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    twin_id UUID NOT NULL REFERENCES public.financial_twins(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    outstanding_amount NUMERIC(15,2) NOT NULL CHECK (outstanding_amount >= 0),
+    interest_rate NUMERIC(5,4) NOT NULL CHECK (interest_rate >= 0),
+    minimum_monthly_payment NUMERIC(15,2) NOT NULL DEFAULT 0.00 CHECK (minimum_monthly_payment >= 0)
+);
+
+-- Goals Table
+CREATE TABLE public.goals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id UUID NOT NULL REFERENCES public.profiles(profile_id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    cost NUMERIC(15,2) NOT NULL CHECK (cost >= 0),
+    target_year INTEGER NOT NULL,
+    priority VARCHAR(50) NOT NULL CHECK (priority IN ('low', 'medium', 'high')),
+    category VARCHAR(100) NOT NULL,
+    is_essential BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- Scenario Table
+CREATE TABLE public.simulations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id UUID NOT NULL REFERENCES public.profiles(profile_id) ON DELETE CASCADE,
+    type VARCHAR(100) NOT NULL,
+    parameters JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.simulation_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    simulation_id UUID NOT NULL REFERENCES public.simulations(id) ON DELETE CASCADE,
+    baseline_curve NUMERIC[] NOT NULL,
+    simulated_curve NUMERIC[] NOT NULL,
+    lifetime_wealth_impact NUMERIC(15,2) NOT NULL,
+    decision_health_score INTEGER NOT NULL CHECK (decision_health_score >= 0 AND decision_health_score <= 100),
+    confidence_score INTEGER NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 100),
+    has_hazard_flags BOOLEAN NOT NULL DEFAULT FALSE,
+    raw_recommendation JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
+-- Logging, Analytics, and Feedback Tables
+CREATE TABLE public.feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id UUID NOT NULL REFERENCES public.profiles(profile_id) ON DELETE CASCADE,
+    simulation_id UUID NULL REFERENCES public.simulations(id) ON DELETE SET NULL,
+    rating VARCHAR(50) NOT NULL CHECK (rating IN ('helpful', 'not_helpful')),
+    reason_category VARCHAR(100) NOT NULL,
+    comment TEXT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    operator_id UUID NULL REFERENCES public.profiles(profile_id) ON DELETE SET NULL,
+    event_type VARCHAR(100) NOT NULL,
+    severity VARCHAR(50) NOT NULL CHECK (severity IN ('info', 'warning', 'high', 'critical')),
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ip_address VARCHAR(100) NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+### Table Index Profiles
+```sql
+CREATE INDEX idx_user_identity_auth ON public.user_identity(auth_user_id);
+CREATE INDEX idx_profiles_role ON public.profiles(role);
+CREATE INDEX idx_twins_profile ON public.financial_twins(profile_id);
+CREATE INDEX idx_income_twin ON public.income_sources(twin_id);
+CREATE INDEX idx_assets_twin ON public.assets(twin_id);
+CREATE INDEX idx_liabilities_twin ON public.liabilities(twin_id);
+CREATE INDEX idx_goals_profile ON public.goals(profile_id);
+CREATE INDEX idx_simulations_profile ON public.simulations(profile_id);
+CREATE INDEX idx_results_simulation ON public.simulation_results(simulation_id);
+CREATE INDEX idx_audit_severity ON public.audit_logs(severity);
+```
+
+### Table Row-Level Security Rules (DML Policy Scripts)
+```sql
+ALTER TABLE public.user_identity ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.financial_twins ENABLE ROW LEVEL SECURITY;
+
+-- user_identity: Only the owner has access. System administrators & auditors cannot read PII rows.
+CREATE POLICY user_identity_customer_policy ON public.user_identity
+    FOR ALL USING (auth.uid() = auth_user_id);
+
+-- profiles: Users have full access. System administrators & auditors can view details for support audits.
+CREATE POLICY profiles_customer_policy ON public.profiles
+    FOR ALL USING (auth.uid() = profile_id);
+
+CREATE POLICY profiles_admin_read_policy ON public.profiles
+    FOR SELECT TO authenticated
+    USING (EXISTS (
+        SELECT 1 FROM public.profiles 
+        WHERE profile_id = auth.uid() AND role IN ('auditor', 'governance_admin', 'super_admin')
+    ));
+```
 
 ---
 
 ## 3. Authentication & Authorization
 
-Standard JWT claims managed by Supabase Auth are mapped into user roles located in the `public.profiles` database. Every incoming HTTP session passes a cryptographically secure token checked against the database.
+Authentication is managed securely by the platform, validating access across four authorization tiers using profile role variables.
 
 ```
-  [ Client JWT ] ────►  [ PostgREST/Postgres REST Gateway ]
-                                  │
-                                  ▼
-                     [ Read signed JWT claims ]
-                                  │
-                        ┌─────────┴─────────┐
-             Is Admin?  │                   │  Is Customer?
-                        ▼                   ▼
-           [ Read Audit Logs /      [ Strict Row-Level Security ]
-             Modify Global System ]  `profile_id = auth.uid()`
+                  [ Web Session (JWT Token) ]
+                               │
+                   [ Check Session Role ID ]
+                               │
+         ┌─────────────────────┼─────────────────────┐
+         ▼                     ▼                     ▼
+    'customer'             'auditor'         'governance_admin'
+  (Read/Write Self)     (Read-Only Data,     (Manage Library,
+                        No Identity Access)  Anonymized Logs)
 ```
 
-### Role Matrices & Permissions
-Aura divides authorization into four distinct access profiles:
-
-| Role | Financial Sandbox | Simulation Engines | Feedback Metrics | Security Audit Logs | Global Assumptions Control |
-|---|---|---|---|---|---|
-| **Customer** | Complete Read/Write | Yes (Self Only) | Create Only | Denied | Read Only |
-| **Auditor** | Read Only (De-identified) | No | View Full Metrics | Read Only | Read Only |
-| **Governance Admin** | Read Only (De-identified)| No | Yes (Review Comments) | Complete Read/Write | Read Only |
-| **Super Admin** | Complete Read/Write | Full Access | Complete Read/Write | Complete Read/Write | Complete Read/Write |
-
-### Access Violation Flowchart
-If a user attempts an unauthorized action:
-1. Postgres triggers an RLS violation (returns `0` records or standard access permission errors).
-2. The UI intercepts authorization errors, displaying a neutral security alert page and resetting the login token if necessary.
-3. An entry is posted to the database within `/api/log-violation`:
-   ```json
-   {
-     "id": "event_uuid",
-     "operator_id": "current_authenticated_user_id",
-     "event_type": "ACCESS_VIOLATION_ATTEMPT",
-     "severity": "high",
-     "details": {
-       "route": "/admin/governance",
-       "component": "GovernanceHub",
-       "timestamp": "2026-06-16T18:17:42Z"
-     }
-   }
-   ```
-4. If a single account registers three high-severity audit logging exceptions in a 10-minute window, the account is temporarily suspended inside Supabase Auth, and the event level escalates to **Critical**.
+### Action Matrix & RLS Definitions
+* **Customer**: Full operational scope within their associated `profile_id`. Access outside this parameter is systematically blocked.
+* **Auditor**: Read-only access to anonymized databases. Access to personal user names, addresses, and phone mappings is restricted.
+* **Governance Admin**: Configuration access to manage model files, state assumptions libraries, and system rules. Accessing direct user identity fields is restricted unless the multi-sig "Break-Glass" bypass procedure is initialized.
+* **Super Admin**: Unrestricted administrative permissions. Super Admin keys are required to authorize "Break-Glass" identity decryption procedures.
 
 ---
 
 ## 4. Data Persistence Strategy
 
-Aura's data persistence layer enforces clean separation between transient reactive client states and system-validated cloud persistence.
+Aura coordinates data storage across two scopes to manage application state and ensure security:
 
-```
-┌───────────────────────────────── Client Browser State ──────────┐
-│                                                                 │
-│   ┌────────────────────┐               ┌────────────────────┐   │
-│   │  Active User Input │◄─────────────►│ Local React States │   │
-│   │   (Slider, Forms)  │               │ (Uncommitted Drafts│   │
-│   └────────────────────┘               └─────────┬──────────┘   │
-│                                                  │              │
-│                                                  ▼ Save Trigger │
-└──────────────────────────────────────────────────┼──────────────┘
-                                                   │
-                                                   ▼ REST API Payload
-┌───────────────────────────────── Durable Cloud Storage ──────────┐
-│                                                                 │
-│   ┌────────────────────┐               ┌────────────────────┐   │
-│   │    PostgreSQL DB   │◄─────────────►│ Database State DB  │   │
-│   │ (Supabase Engine)  │               │   (Audit Tables)   │   │
-│   └────────────────────┘               └────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Strategic Allocation of State
-* **Transient React Component State**: Sliders moving on forms, temporary sandbox changes in Life Simulator before selecting "Calculate", draft profiles without saved changes, and interactive UI menu expansions.
-* **Persisted in Database (Supabase Cloud)**: Active financial twins, custom milestones, historical running simulations, user feedback ratings, global assumptions database, dynamic settings parameters, security audit logs.
-
-### Database Sync & Cache Invalidation
-1. **Pessimistic Writes**: To avoid race-conditions with compound projections, updates to the active `financial_twins` object are validated on save, requiring database confirmation before updating the global application context state.
-2. **Cascading Updates**: Editing income tables automatically updates the Twin’s calculated aggregate annual surplus, resetting matching calculations cache indices.
-3. **Optimistic UI Transition**: On simple non-critical operations (such as goals toggling or updating localization values), the client assumes immediate success, rolling back only if a persistence error is caught.
+1. **Transient Client Views**: Managed via reactive component variables within the React SPA context. Unsubmitted form entries and temporary slider adjustments do not persist to database storage.
+2. **Durable Database Persistence**: Operations are confirmed through verified, structured transactions on Supabase.
+   * Modifying dynamic assets triggers recalculations on the primary profile before updating the dashboard view.
+   * Audit log events are recorded directly to durable database storage, preserving historical context.
 
 ---
 
-## 5. Financial Calculation Engine Architecture
+## 5. Financial Calculation Engine Architecture (Objective 3)
 
-To ensure strict audibility, absolute consistency, and safety, the computational core is implemented entirely in TypeScript. **All math must run deterministically; raw AI models are completely forbidden from executing numerical calculations.**
+Calculations are handled entirely by verified TypeScript modules. **All financial projections run deterministically; AI model pipelines are completely forbidden from performing numerical math.**
 
 ```
-                                  [ Input Params ]
-                                         │
-                                         ▼
-                             ┌──────────────────────┐
-                             │ Calculation Gateway  │
-                             └──────────┬───────────┘
-                                         │
-                 ┌───────────────────────┼───────────────────────┐
-                 ▼                       ▼                       ▼
-      ┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐
-      │  netWorthEngine     │ │   retirementEngine  │ │   Other Engines     │
-      └──────────┬──────────┘ └──────────┬──────────┘ └──────────┬──────────┘
-                 │                       │                       │
-                 └───────────────────────┼───────────────────────┘
-                                         │
-                                         ▼
-                              [ Unified Result Object ]
+                     [ Input Client Seeding Parameters ]
+                                     │
+                                     ▼
+                    ┌─────────────────────────────────┐
+                    │  TypeScript Projection Engine   │
+                    └────────────────┬────────────────┘
+                                     │
+         ┌───────────────────────────┼───────────────────────────┐
+         ▼                           ▼                           ▼
+┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
+│   netWorthEngine │        │ homePurchaseEng  │        │ debtFreedomEng   │
+└──────────────────┘        └──────────────────┘        └──────────────────┘
 ```
 
-### Module Specifications
+* **Absolute Reproducibility**: Projection runs are entirely deterministic. Given duplicate starting conditions, the modules return identical projection curves. This allows calculation trails to be fully audited.
 
-#### 5.1 Module: `netWorthEngine`
-* **Inputs**:
-  ```typescript
-  interface NetWorthInput {
-    currentNetWorth: number;
-    annualSurplus: number;
-    averageGrowthRate: number;
-    years: number;
-  }
-  ```
-* **Outputs**: `Array<number>` consisting of annually compounding coordinates representing net worth.
-* **Mathematical Formula**:
-  $$\text{NetWorth}_n = \left(\text{NetWorth}_{n-1} + \text{AnnualSurplus}\right) \times (1 + R)$$
-* **Validation Rules**: `averageGrowthRate` must be capped at $15\%$ ($\le 0.15$). Prohibits compound rates over practical benchmarks without triggering hazard warnings.
+---
 
-#### 5.2 Module: `homePurchaseEngine`
-* **Inputs**:
-  ```typescript
-  interface HomePurchaseInput {
-    price: number;
-    downPayment: number;
-    interestRate: number;
-    loanTermYears: number;
-    currentNetWorth: number;
-    annualSurplus: number;
-    averageGrowthRate: number;
-  }
-  ```
-* **Outputs**:
-  ```typescript
-  interface HomePurchaseOutput {
-    monthlyPayment: number;
-    projectedNetWorth30Y: number[];
-    lifetimeWealthImpact: number;
-    decisionHealthScore: number;
-  }
-  ```
-* **Formulas**:
-  * **Amortization Fee**:
-    $$M = P \frac{r(1+r)^N}{(1+r)^N-1}$$
-    *Where:*
-    * $M$ = monthly payment
-    * $P$ = principal loan amount (`price` - `downPayment`)
-    * $r$ = monthly interest rate (`interestRate` / 12)
-    * $N$ = total amortization months (`loanTermYears` * 12)
-  * **Property Appreciation**: $4\%$ flat annual rate compounding property asset value.
-  * **Simulated Net Worth Curve**:
-    $$\text{SimulatedNW}_i = \text{LiquidAssets}_i + \text{PropertyValue}_i - \text{RemainingLoan}_i$$
-* **Validation Guards**: Down payment cannot exceed property price. Monthly amortization cannot absorb more than $45\%$ of active family income pools without triggering extreme credit risk warnings.
+## 5.1 Confidence Engine Specification (Objective 3)
 
-#### 5.3 Module: `debtFreedomEngine`
-* **Inputs**: Individual liabilities arrays with active APR values and minimum monthly payments.
-* **Formulas**:
-  * **Snowball Hierarchy**: Calculates payoff tracks sorting liabilities from smallest balance to largest.
-  * **Avalanche Hierarchy**: Pays down debts starting with the highest APR first (mathematically optimal model).
-  * **Interest Saved Calculation**:
-    $$\text{InterestSaved} = \text{TotalCompoundedInterest}_{\text{Snowball}} - \text{TotalCompoundedInterest}_{\text{Avalanche}}$$
+The calculated Confidence Score is a **completely deterministic, fully auditable mathematical scoring index**. It measures the quality, completeness, and recency of user profile details, ensuring calculation accuracy.
 
-#### 5.4 Module: `confidenceEngine`
-* **Inputs**: Profile completeness index ($0$ to $100$), cumulative tracking duration, and active volatility rates.
-* **Formula**:
-  $$\text{ConfidenceScore} = \text{CompletenessPercent} \times 0.8 + 12 + \text{ComplexityMod}$$
-  *Where:*
-  * `CompletenessPercent` = fraction representing inputs provided ($7$ core elements).
-  * `ComplexityMod` = $2 \times (\text{Incomes} + \text{Assets} + \text{Liabilities})$, capped at $+15$.
-  * If `CompletenessPercent < 50`, deduct $15\%$ from the confidence score.
+### Scoring Structure & Weights
+The Confidence Score is calculated using a weighted combination of four vectors:
 
-#### 5.5 Calculation Engine Logic Safemode Check
-To guarantee calculation reproducibility, every output is structured for automated testing:
+$$\text{Confidence Score} = (0.40 \times W_{\text{completeness}}) + (0.30 \times W_{\text{freshness}}) + (0.20 \times W_{\text{complexity}}) + (0.10 \times W_{\text{assumptions}})$$
+
+```
+┌───────────────────────────────── Confidence Score (100%) ─────────────────────────────────┐
+│                                                                                           │
+│   ┌──────────────────────┐  ┌──────────────────────┐  ┌───────────────┐  ┌────────────┐   │
+│   │ 40% Profile          │  │ 30% Data             │  │ 20% Scenario  │  │ 10% Custom │   │
+│   │     Completeness     │  │     Freshness        │  │   Complexity  │  │ Assumptions│   │
+│   └──────────────────────┘  └──────────────────────┘  └───────────────┘  └────────────┘   │
+│                                                                                           │
+└───────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 1. Profile Completeness ($W_{\text{completeness}}$ / Scale: 0 to 100)
+Measures the completeness of inputs across seven standard category fields:
+* `Assets` set: (Value $\ge 1$) = $+15\%$
+* `Liabilities` set: (Value $\ge 0$) = $+15\%$
+* `Incomes` set: (Value $\ge 1$) = $+15\%$
+* `Expenses` set: (Value $\ge 1$) = $+15\%$
+* `Age & Life Expectancy` set = $+15\%$
+* `Current Active Location State` set = $+15\%$
+* `Retirement Target Inputs` set = $+10\%$
+
+#### 2. Data Freshness ($W_{\text{freshness}}$ / Scale: 0 to 100)
+Evaluates data recency, tracking the time elapsed since the profile was last updated:
+* $\le 30$ days: $100$
+* $31 - 90$ days: $85$
+* $91 - 180$ days: $60$
+* $181 - 365$ days: $30$
+* $> 365$ days: $0$
+
+#### 3. Scenario Complexity ($W_{\text{complexity}}$ / Scale: 0 to 100)
+Assesses the complexity of the scenario parameters:
+* **High Volatility Elements**: A subtraction penalty is applied if high-interest revolving charge card debts (APR $\ge 18\%$) or volatile secondary variable commission incomes ($> 40\%$ of base payload) are active in calculations:
+  * $\text{No Volatile Parameters} = 100$
+  * $\text{One Volatile Parameter} = 80$
+  * $\text{Multiple Volatile Parameters} = 50$
+
+#### 4. Custom Assumption Count ($W_{\text{assumptions}}$ / Scale: 0 to 100)
+Evaluates the use of custom assumptions versus default fallbacks:
+* More user-customized variables (such as custom annual savings growth rates or property maintenance assumptions) yield more relevant projections compared with standardized state averages:
+  * All customized inputs = $100$
+  * Mix of custom and regional averages = $80$
+  * Entirely default fallbacks (representing zero localized alignment updates) = $50$
+
+### Confidence Categories
+* **90 – 100**: **High** (Calculations use complete, up-to-date user details)
+* **70 – 89**: **Moderate** (Projections use balanced profile parameters)
+* **50 – 69**: **Low** (Calculations use standard averages. Additional inputs recommended)
+* **Below 50**: **Insufficient Data** (Certain critical fields are missing. Calculations are disabled)
+
+### Worked Examples
+
+#### Example A: "Complete & Fresh User" (Jane Doe, CA)
+* **Completeness**: 7 inputs complete ($W_{\text{completeness}} = 100$)
+* **Freshness**: Profile updated 2 days ago ($W_{\text{freshness}} = 100$)
+* **Complexity**: Standard stable W2, zero high-interest liabilities ($W_{\text{complexity}} = 100$)
+* **Custom Assumptions**: Fully user-defined parameters ($W_{\text{assumptions}} = 100$)
+* **Formula Performance**:
+  $$\text{Score} = (0.40 \times 100) + (0.30 \times 100) + (0.20 \times 100) + (0.10 \times 100) = 40 + 30 + 20 + 10 = 100$$
+* **Classification**: **High**
+
+#### Example B: "Stale & Incomplete User" (John Fox, TX)
+* **Completeness**: Profile lacks asset detail and location fields ($W_{\text{completeness}} = 70$)
+* **Freshness**: Last update occurred 120 days ago ($W_{\text{freshness}} = 60$)
+* **Complexity**: Multiple high-interest credit card debts ($W_{\text{complexity}} = 50$)
+* **Custom Assumptions**: Default Texas averages applied ($W_{\text{assumptions}} = 50$)
+* **Formula Performance**:
+  $$\text{Score} = (0.40 \times 70) + (0.30 \times 60) + (0.20 \times 50) + (0.10 \times 50) = 28 + 18 + 10 + 5 = 61$$
+* **Classification**: **Low**
+
+---
+
+## 6. AI Advisory Layer Integration (Objective 4)
+
+To prevent platform lock-in and ensure long-term stability, Aura uses an adapter-based abstraction layer. This separates the primary calculations from specific AI providers.
+
+```
+                    ┌─────────────────────────┐
+                    │      Business Logic     │
+                    │   (Edge Function Runs)  │
+                    └────────────┬────────────┘
+                                 │
+                                 ▼
+                    ┌─────────────────────────┐
+                    │      AIProvider         │
+                    │     (Interface)         │
+                    └────────────┬────────────┘
+                                 │
+           ┌─────────────────────┼─────────────────────┐
+           ▼                     ▼                     ▼
+┌────────────────────┐ ┌────────────────────┐ ┌────────────────────┐
+│   GeminiAdapter    │ │    OpenAIAdapter   │ │    ClaudeAdapter   │
+│ (Primary Engine)  │ │ (Failover Backup)  │ │    (Backup API)    │
+└────────────────────┘ └────────────────────┘ └────────────────────┘
+```
+
+### Static Type Contracts
+
 ```typescript
-describe("homePurchaseEngine", () => {
-  it("should output exactly $415,090 lifetime wealth impact under standard parameters", () => {
-    const input = {
-      price: 500000,
-      downPayment: 100000,
-      interestRate: 0.065,
-      loanTermYears: 30,
-      currentNetWorth: 250000,
-      annualSurplus: 36000,
-      averageGrowthRate: 0.07,
-    };
-    const result = runHomePurchaseSimulation(input);
-    expect(result.lifetimeWealthImpact).toBeCloseTo(415090, -1);
-  });
-});
-```
+export interface AIMessageContext {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
 
----
+export interface SimulationSummaryInput {
+  currentAge: number;
+  baselineWealth30Y: number;
+  simulatedWealth30Y: number;
+  lifetimeWealthImpact: number;
+  confidenceScore: number;
+}
 
-## 6. AI Advisory Layer
+export interface FutureStoryCard {
+  title: string;
+  storySegment: string;
+  timestampMarker: string;
+  warningAlert?: string;
+}
 
-The AI Advisory Layer provides accessible summaries of deterministic calculations, ensuring safe and standardized output formatting.
+export interface AIProvider {
+  /** Translates numerical models into an objective plain-English summary. */
+  generateNarrative(inputs: SimulationSummaryInput): Promise<string>;
 
-```
-┌───────────────────────────────── Safe Prompting Orchestration ──┐
-│                                                                 │
-│   ┌─────────────────────┐               ┌─────────────────────┐ │
-│   │ Input Parameters    │──────────────►│ Grounding Template  │ │
-│   │ (From Engine Only)  │               │ (Must provide math) │ │
-│   └─────────────────────┘               └─────────┬───────────┘ │
-│                                                   │             │
-│                                                   ▼             │
-│   ┌─────────────────────┐               ┌─────────────────────┐ │
-│   │ Strict JSON Schema  │◄─────────────►│   Gemini-2.5-Flash   │ │
-│   │ (System Policy)     │               └─────────────────────┘ │
-│   └─────────────────────┘                                       │
-└─────────────────────────────────────────────────────────────────┘
-```
+  /** Generates narrative story scenarios mapped across chronological milestones. */
+  generateFutureStories(inputs: SimulationSummaryInput): Promise<FutureStoryCard[]>;
 
-### Standard Grounding Template Structure
-Every system call to Gemini is dynamically grounded. Prompt templates are structured as follows:
+  /** Explains why the deterministic recommendation matches the calculated profiles. */
+  generateRecommendationExplanation(
+    calcDetails: Record<string, any>,
+    rulesEngineSource: string
+  ): Promise<string>;
 
-```
-[SYSTEM PROMPT]
-You are Aura, an elite, highly risk-averse AI Financial Decision Coach. You translate raw, deterministic financial calculations into human narratives.
-
-[STRICT DISCLAIMERS]
-1. Never produce financial, legal, investment, or tax advice.
-2. Never comment on specific private equities, single stocks, or crypto assets.
-3. Keep all text objective, direct, and conversational. Refer to the mathematical model coordinates provided.
-
-[DETERMINISTIC INPUTS]
-- Current Age: {{twin.currentAge}}
-- Baseline 30Y Projected Net Worth: {{result.baselineNW30Y}}
-- Simulated 30Y Projected Net Worth: {{result.simulatedNW30Y}}
-- Proportional Wealth Impact: {{result.lifetimeWealthImpact}}
-- AI Performance Score: {{result.decisionHealthScore}}
-- Confidence Rating Index: {{result.confidenceScore}}
-
-[RESPONSE SCHEMA]
-You must respond with raw JSON matching the following schema structure:
-{
-  "narrativeSummary": "A direct, 2-sentence explanation of downstream balance implications.",
-  "psychologicalProfile": "Summary of behavioral factors, linking downpayments with current liquidity ratios.",
-  "coachingActions": [
-    "Actionable, non-investment steps to increase confidence score metrics (e.g. declare retirement values)."
-  ]
+  /** Compiles a summary briefing analyzing multi-goal balance trends. */
+  generateWeeklyBriefing(profileData: Record<string, any>): Promise<string>;
 }
 ```
 
-### Prompt Guardrails & Safety Auditing
-1. **Validation Checks**: If the model output contains financial terminology like `"buy stock"`, `"mutual fund"`, or `"equity allocation guidance"`, the system rejects the payload and falls back to a pre-defined static calculation summary.
-2. **Error Safeguards**: If the model outputs invalid JSON or triggers a safety filter, the system dynamically displays standard calculation parameters:
-   * `"Calculation completed. Under standard location variables, this scenario yields a 30-year net-worth delta of [Impact]. Clear your remaining liabilities to increase overall calculation confidence."`
+### Failover & Fallback Mechanism
+1. **Primary Route**: Calls are directed through the primary adapter (e.g., `GeminiAdapter` using **Gemini-2.5-Flash**).
+2. **Transient Network Timeout (Failover Tier 1)**: If the call fails or times out (after $\ge 5000\text{ms}$), our service automatically retries the operation with the secondary backup adapter (`OpenAIAdapter` using **GPT-4o-mini**).
+3. **Severe Outage (Failover Tier 2 - Static Fallback)**: If both adapters are unavailable, the system uses a localized, static rules engine:
+   ```typescript
+   export class StaticFallbackAdapter implements AIProvider {
+     async generateNarrative(inputs: SimulationSummaryInput): Promise<string> {
+       return `Calculations indicate that this projection yields a 30-year lifetime wealth impact of $${inputs.lifetimeWealthImpact.toLocaleString()}. Establish stable assets as soon as possible to improve your confidence score.`;
+     }
+     // ... other fallback methods return standard structured template responses.
+   }
+   ```
 
 ---
 
-## 7. Recommendation Engine
+## 7. Recommendation Engine Layout
 
-Aura utilizes a standardized scoring engine to construct recommendations from deterministic simulation curves, calculating values before passing them to the translation layer.
-
-```
-                           [ Core Engine Run ]
-                                    │
-                                    ▼
-                        [ Evaluate Decision Metrics ]
-                                    │
-                  ┌─────────────────┼─────────────────┐
-                  ▼                 ▼                 ▼
-          [ Surplus % ]      [ Reserves Mo. ]     [ Debt Ratio ]
-                  │                 │                 │
-                  └─────────────────┼─────────────────┘
-                                    │
-                                    ▼
-                         [ Output Score & Logic ]
-                                    │
-                                    ▼
-                         [ Human Narrative Layer ]
-```
-
-### Evaluated Decision Parameters
-The recommendation score is generated along three primary vectors:
-1. **Reserves Coverage**: Calculates checking/saving accounts against absolute monthly expenses:
-   $$\text{CoverageMonths} = \frac{\text{CashAssets}}{\text{MonthlyOutflows}}$$
-   * If coverage is below 3 months, decision health drops below 50.
-2. **Debt Service Capacity**: Total liability payments against active monthly income sources:
-   $$\text{DebtRatio} = \frac{\text{TotalMonthlyLiabilityCharges}}{\text{AggregateIncomes}}$$
-   * Ratios exceeding $43\%$ trigger an emergency priority payout suggestion.
-3. **Surplus Saving Rate**: Excess monthly capital compared with baseline household income:
-   $$\text{SurplusRatio} = \frac{\text{MonthlySurplus}}{\text{MonthlyIncome}}$$
-
-### Structured Response Contract
-The backend API returns standard recommendation payloads to ensure UI consistency:
-```json
-{
-  "recommendationId": "rec_snowball_boost",
-  "priority": "high",
-  "title": "Establish Checking Safety Valve",
-  "outcomeSummary": "Allocate monthly surpluses directly to immediate savings until basic expenses are secured.",
-  "whyAuraRecommendsThis": [
-    "Your current cash runway covers less than 3 months of essential fixed liabilities.",
-    "Bypassing potential market volatility avoids forced asset liquidation penalties."
-  ],
-  "confidenceScore": 85,
-  "riskScore": 15,
-  "alternativeScenarios": [
-    {
-      "title": "Partial Snowball Paydown",
-      "description": "Dedicate 35% of monthly surpluses to checking balances and 65% to high-rate credit cards."
-    }
-  ]
-}
-```
+Each generated recommendation provides structured information with unified properties:
+* **Unique ID Parameter**: Map trace identifiers.
+* **Outcome Summary Context**: Plain-English description of the results.
+* **Aura Core Reasons**: Grounded facts retrieved from calculations.
+* **Deterministic Scores**: High-fidelity Confidence and Risk rating calculations.
 
 ---
 
-## 8. API / Edge Function Design
+## 7.1 Educational Guidance Compliance Boundary (Objective 5)
 
-All backend endpoints are implemented as decoupled JSON RPC services or REST parameters via Supabase Edge Deno runtimes.
+Aura is designed strictly as a lifestyle planning and scenario simulation tool. It **does not provide, nor is it configured to deliver, licensed financial, tax, or legal advice**.
 
-```
-Client Auth JWT ──►  [ Supabase Edge gateway ] ──► [ Role Validation Check ]
-                                                           │
-                                                           ▼
-                                                [ Execute Process Logic ]
-                                                           │
-                                                ┌──────────┴──────────┐
-                                                ▼                     ▼
-                                         [ Database Write ]    [ Audit Logging ]
-```
+* **UI Disclosures**: Every analysis page contains a persistent, conspicuous footer:
+  > *Disclaimer: Aura is an educational web simulator. Calculations are based on generalized state and regional averages. This service does not provide registered financial planning, investment allocation strategy, tax optimization, or legal advice.*
+* **AI Output Rules**: Systems prompt instructions automatically append our educational notice to generated narrative explanations.
 
-### Key API Contracts
+### Prohibited vs. Allowed Reference Patterns
 
-#### 8.1 Endpoint: `POST /functions/v1/runSimulation`
-* **Authorization**: Bearer JWT (Authenticated Customer)
-* **Request Payload**:
+#### Prohibited Recommendations
+* ❌ `"Our model suggests purchasing NVDA stock or investing in Vanguard S&P 500 index funds."`
+* ❌ `"Allocate 15% of surplus capital to Bitcoin to mitigate inflation risks."`
+* ❌ `"To minimize state tax penalties, transfer your taxable brokerage accounts to a municipal bond trust."`
+
+#### Allowed Recommendations
+* ✔ `"Increasing monthly retirement contributions can improve your retirement readiness and net worth over 30 years."`
+* ✔ `"Choosing a vehicle with lower upfront costs preserves cash reserves, which can be compounded at standard rate projections."`
+* ✔ `"Based on our snowball model of your liabilities, prioritizing your high-interest auto loan can save $2,300 in total interest costs."`
+
+---
+
+## 8. API & Edge Function Specifications
+
+API endpoints run as isolated Edge Functions to process inputs and ensure secure verification.
+
+### Core Contracts
+
+#### `POST /functions/v1/runSimulation`
+* **Request Contract**:
   ```json
   {
     "simulationType": "home_purchase",
     "params": {
-      "price": 500000,
-      "downPayment": 100000,
-      "interestRate": 0.065,
+      "price": 600000,
+      "downPayment": 120000,
+      "interestRate": 0.0650,
       "loanTermYears": 30
     }
   }
   ```
-* **Response Payload**:
+* **Response Contract**:
   ```json
   {
-    "status": "success",
-    "data": {
-      "id": "sim_34021aa",
-      "lifetimeWealthImpact": 415090,
-      "projectedNetWorth30Y": [250000, 264000, 279500,...],
-      "decisionHealthScore": 78,
-      "confidenceScore": 92,
-      "hazardFlagsDetected": false
-    }
+    "id": "result_idx_934901",
+    "lifetimeWealthImpact": 491030.00,
+    "projectedNetWorth30Y": [250000.00, 269000.00, 285400.00],
+    "decisionHealthScore": 82,
+    "confidenceScore": 95,
+    "narrativeText": "This purchase preserves stable long-term liquid cash reserves, supporting multi-decade asset compounding."
   }
   ```
-* **Failure Modes**: Missing parameters return `HTTP 400 Bad Request`. System limits cap simulation years at 30 to prevent calculation drift.
 
-#### 8.2 Endpoint: `POST /functions/v1/logGovernanceEvent`
-* **Authorization**: Bearer JWT (Requires Admin or System Auditor Roles)
+#### `POST /functions/v1/saveFinancialProfile`
 * **Request Payload**:
   ```json
   {
-    "eventType": "GLOBAL_ASSUMPTION_OVERRIDE",
-    "severity": "high",
-    "details": {
-      "parameterModified": "averageGrowthRate",
-      "oldValue": 0.07,
-      "newValue": 0.09
-    }
+    "currentAge": 35,
+    "targetRetirementAge": 65,
+    "lifeExpectancy": 90,
+    "activeStateCode": "CA",
+    "riskAppetite": "moderate"
   }
   ```
-* **Response Payload**: `{"status": "logged", "eventId": "gov_uuid"}`
-* **Audit Logging**: Inserts a record into the `public.audit_logs` table with the execution context IP.
+* **Response Payload**: `{"status": "persisted", "twinId": "twin_61183aa"}`
 
 ---
 
 ## 9. Governance & Audit Logging
 
-Aura uses structured logs to maintain an audit trail for system events and changes.
-
-```
-[ Security Event ] ──► [ Severity Evaluation ] ──► [ DB Write (audit_logs) ]
-                                                           │
-                                                           ▼
-                                                 [ Escalation Trigger ]
-                                                           │
-                                                   (If level >= High)
-                                                           ▼
-                                                [ System Admin Alert ]
-```
-
-### Event Logging Spec
-The system logs events across four severity tiers:
-
-* **Level 1: Info (Non-Critical)**:
-  * *Events*: `USER_LOGIN`, `SIMULATION_EXECUTED`, `FEEDBACK_SUBMITTED`.
-  * *Audit Details*: Log UUID and timestamp. Used for standard behavior analysis.
-* **Level 2: Warning (Attention Required)**:
-  * *Events*: `UNREASONABLE_ASSUMPTIONS_INPUT`, `LOW_CONFIDENCE_RUN`.
-  * *Audit Details*: Flags inputs that exceed system guidelines (e.g. location inflation parameters $> 10\%$).
-* **Level 3: High (Immediate Action)**:
-  * *Events*: `ACCESS_DENIED_ATTEMPT`, `UNKNOWN_ENDPOINT_PAYLOAD`, `MULTIPLE_CALCULATION_FAILURES`.
-  * *Audit Details*: Logs source coordinates, client environment details, and active JWT structures.
-* **Level 4: Critical (System Security Alert)**:
-  * *Events*: `SQL_INJECTION_ATTEMPT`, `ROLE_PROMOTION_UNAUTHORIZED`, `GLOBAL_VARIABLES_CORRUPTION`.
-  * *Audit Details*: Triggers safe-mode database lockdowns for affected schemas.
-
-### Admin Dashboard Compliance
-Admin views operate with access controls that enforce data privacy:
-* All raw identifiable user parameters are de-identified when loaded by auditors.
-* Tables display transaction histories without showing full customer profile addresses.
+Audits record events to a secure database to provide a structured timeline of changes and operations:
+* `Role Modification Attempts`: High priority flag. Saves context details, actor identities, and associated client IPs.
+* `Unreasonable Compound Assumptions`: Warning flags for custom growth parameter values exceeding realistic metrics (e.g., rate $>15\%$).
+* `Database Configuration Adjustments`: Records revisions to state references or global tax parameters.
 
 ---
 
 ## 10. Feedback & Learning Loop
 
-Aura tracks user feedback to identify areas for model improvements and monitor calculation accuracy.
-
-```
-                  [ User Views Suggestion ]
-                              │
-                              ▼
-                  [ Selects Helpfulness Rating ]
-                              │
-                  ┌───────────┴───────────┐
-                  ▼                       ▼
-            [ Helpful ]             [ Not Helpful ]
-                  │                       │
-      (Add positive count)        (Assign reason code)
-                  │                       │
-                  └───────────┬───────────┘
-                              │
-                              ▼
-                  [ Log Context Metadata ]
-                              │
-                              ▼
-                  [ Store Feedback Payload ]
-```
-
-### Logged Context Metadata
-* **Interactive Parameters**: Records variables (downpayment ratios, vehicle loan types) used to generate the recommendation.
-* **Calculated Values**: Saves computed metrics (confidence indices, simulated asset values) along with the rating.
-* **Qualitative Data**: Stores free-text comments with language filters applied to sanitize fields.
-
-### Processing Pipeline
-1. Feedback entries are queued and processed to identify recommendations with low helpfulness ratings.
-2. Items that consistently receive low scores are flagged for human review or parameter recalibration.
-3. This feedback loop supports the requirements of the V3 core governance guidelines, helping to ensure recommendations remain balanced and relevant.
+User feedback is recorded to help identify and resolve display anomalies or logic limitations:
+1. Ratings are logged to the transaction feedback tables.
+2. If distinct state parameters yield low helpfulness scores, the variables are flagged for administrator audit review.
+3. High feedback concentrations for specific modules help guide ongoing calibration updates.
 
 ---
 
-## 11. Bias, Transparency & Model Card Support
+## 11. Bias, Transparency & Model Card Setup
 
-Aura is designed with safety safeguards that acknowledge mathematical limitations, providing transparency regarding the variables used in its calculations.
-
-```
-   [ Input Profile ] ──► [ Bias & Constraint Check ] ──────────┐
-                                                               │
-                                                               ▼
-   [ Model Card Variables Documented ] ──────────────► [ Output Card ]
-                                                               │
-                                                               ▼
-                                                    [ Dynamic Warnings ]
-```
-
-### Model Card Validation Rules
-Aura operates within defined parameter limits:
-* **Age Limits**: Projections cap life expectancy at $90$ years to prevent compound asset curves from outputting unrealistic numbers in extreme projection lines.
-* **State Variation**: Property values apply a standard $4\%$ appreciation rate, with warnings that real-world local markets are subject to real estate cycles.
-* **Emergency Reserve Minimums**: Financial plans require a 3-month savings reserve, with guidance that individual needs vary based on location-specific factors.
-
-### Low-Confidence Flags
-The UI displays low-confidence warnings if:
-1. Necessary details (like active asset holdings or retirement plans) are missing from the user's profile.
-2. The user inputs growth assumptions that are significantly higher than historical index trends.
+Modeling variables and performance assumptions are documented to provide transparency regarding calculation limits:
+* **Parameter Boundaries**: Age projections are capped to maintain calculation accuracy and prevent compounding skew over extremely long projection horizons.
+* **Performance Limitations**: Income changes utilize historic averages and omit qualitative, non-economic parameters.
+* **Variance Indicator Rules**: Low-confidence alerts are displayed for scenarios with high variance to remind users that projections are educational averages.
 
 ---
 
-## 12. Globalization & Localization Architecture
+## 12. State Reference Global Assumptions Library
 
-Phase 1 provides national coverage for all 50 U.S. states. The system structure is planned to support international tax models and systems in future releases.
-
-```
-                        [ Input Location ]
-                                │
-                                ▼
-                    ┌────────────────────────┐
-                    │  Localization Adapter  │
-                    └───────────┬────────────┘
-                                │
-                 ┌──────────────┴──────────────┐
-                 ▼                             ▼
-       [ US State Profiles ]         [ Base Global Models ]
-       - Local Tax Rate              - Currency Configuration
-       - Real Estate Levy            - Language Translation
-```
-
-### National Variables File Map
-The database references state-specific calculations using localized parameters:
-```json
-{
-  "locale": "en-US",
-  "states": {
-    "CA": {
-      "stateTaxMultiplier": 0.08,
-      "averagePropertyTax": 0.0075,
-      "relativeCostOfLivingIndex": 1.35
-    },
-    "TX": {
-      "stateTaxMultiplier": 0.00,
-      "averagePropertyTax": 0.016,
-      "relativeCostOfLivingIndex": 0.94
-    }
-  }
-}
-```
-
-### Future International Implementation Plan
-To scale the platform globally:
-1. Multi-currency formatters will adjust outputs using local exchange rates.
-2. Asset calculators will adjust compound equations for country-specific account types (e.g. ISA, Superannuation, RRSP).
+`state_assumptions` reference tables store standard values for cost-of-living, appreciation averages, and base state tax levels across all 50 U.S. states.
+* Moving assumptions to the database keeps application math clean and easily maintainable.
+* Scalability profiles are structured to support future expansion into international markets by mapping matching country codes (e.g., `'GB-ENG'`, `'CA-ON'`).
 
 ---
 
-## 13. Testing Strategy
+## 13. System Verification & Testing Plan
 
-Aura's testing environment uses Jest and dynamic mock frameworks to verify system functionality.
+Tests use mocking frameworks and assertions to verify calculations and enforce security policies.
 
-```
-       [ Client Tests ]         [ Calculation Tests ]         [ Edge API Tests ]
-              │                           │                           │
-              ▼                           ▼                           ▼
-┌────────────────────────── Automated Test Suites ──────────────────────────┐
-│                                                                           │
-│  - Form Flow Checks      - Formula Accuracy        - JWT Authentication   │
-│  - Components Rendering - Compound Calculations   - RLS Policy Boundary  │
-│                                                                           │
-└─────────────────────────────────────┬─────────────────────────────────────┘
-                                      │
-                                      ▼
-                           [ Verified Build Ready ]
-```
+### Test Cases
 
-### Sample Executable Boundary Checks
-
+#### Database Security Integrity
 ```typescript
-describe("Aura Security Boundary Tests", () => {
-  it("should block non-admin users from reading governance logs", async () => {
-    const mockClient = createMockSupabaseClient({ 
-      role: "customer", 
-      userId: "user_123" 
-    });
-    const { data, error } = await mockClient
-      .from("audit_logs")
-      .select("*");
-    
-    expect(error).toBeDefined();
-    expect(error?.message).toContain("permission denied");
-    expect(data).toBeNull();
+describe("Aura Security and RLS Tests", () => {
+  it("should enforce RLS to block third-party access to profiles table", async () => {
+    const maliciousClient = createClientWithContext({ uid: "user_attacker" });
+    const { data, error } = await maliciousClient
+        .from("profiles")
+        .select("*")
+        .eq("profile_id", "user_victim");
+    expect(data?.length).toBe(0);
   });
+});
+```
 
-  it("should log access attempts to the security log table", async () => {
-    const mockClient = createMockSupabaseClient({ 
-      role: "unauthorized_role" 
-    });
-    const response = await mockClient.functions.invoke("logGovernanceEvent", {
-      body: { eventType: "UNAUTHORIZED_ADMIN_ROUTE_ATTEMPT" }
-    });
-    expect(response.status).toBe(200);
+#### Deterministic Confidence Evaluation
+```typescript
+describe("Deterministic Confidence Calculation", () => {
+  it("should calculate a Confidence Score of 100 for completed, up-to-date, low-complexity profiles", () => {
+    const freshProfile = {
+      completeness: 100,
+      freshnessDays: 5,
+      hasVolatileParams: false,
+      isDefaultLibrary: false
+    };
+    const calculated = getEngineConfidenceValue(freshProfile);
+    expect(calculated).toBe(100);
   });
 });
 ```
 
 ---
 
-## 14. Deployment Plan
+## 14. Systems Deployment & Release Structure
 
-Deployments use isolated container workflows and automated database migrations.
-
-```
-┌──────────────────────────────── Deployment Steps ──────────────────┐
-│                                                                    │
-│  Step 1: Apply SQL Migrations ──► Verify Local Postgres Installs  │
-│                                                                    │
-│  Step 2: Sync Schema Keys ──────► Deploy Supabase Deno Edge APIs    │
-│                                                                    │
-│  Step 3: Dockerize Applet Container ──► Release UI Content to CDN │
-│                                                                    │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### Release Checklist
-1. Export SQL database migrations using schema files and test queries.
-2. Initialize environment variables for Vertex AI endpoints and Google API keys.
-3. Run the linter and compiler checks locally before promoting builds.
-4. Deploy Edge functions to Supabase, validating token configuration paths.
-5. Deploy UI components to the Content Delivery Network (CDN) once calculation and linter checks pass.
+* **Database Schema Migration**: Schema updates are managed via migrations, which are validated in a local PostgreSQL sandbox environment before being pushed to active storage.
+* **Edge Functions Deployment**: Edge code modules are managed as deployment units in Deno environments.
+* **Environment Variable Configuration**: Credentials (such as Vertex AI keys) are stored as secrets in the Google Cloud ecosystem, keeping them safe and inaccessible to browser-tier code packages.
 
 ---
 
-## 15. Implementation Roadmap
+## 15. Realization Plan
 
-```
-Phase 2A (Auth & DB Schema) ──► Phase 2B (Persistence Layer) ──► Phase 2C (Engines)
-                                                                       │
-                                                                       ▼
-Phase 2G (Release Run) ◄────── Phase 2F (Governance API) ◄─── Phase 2D/2E (Advisory)
-```
-
-### Roadmap Details
-
-#### Phase 2A: Database Schema & Authentication Setup
-* **Goal**: Build PostgreSQL schemas and configure secure user authentication on Supabase.
-* **Component Modifications**: Deploy DDL tables for profile, feedback, and financial twin metrics. Create Row-Level Security policies.
-* **Criteria**: Block queries from unauthorized tokens and confirm user session profiles load correctly.
-
-#### Phase 2B: Local-Cloud Persistence Integration
-* **Goal**: Establish synchronization between client browser context and the backend database.
-* **Component Modifications**: Coordinate data pipelines for assets, liabilities, and scenario structures.
-* **Criteria**: Confirm user profile changes persist across browser refreshes.
-
-#### Phase 2C: Deterministic Calculation Engines
-* **Goal**: Move financial calculation logic to verified, standalone code modules.
-* **Component Modifications**: Standardize net worth, home buying, and debt payoff calculations.
-* **Criteria**: Verify outputs align with historical mathematical averages.
-
-#### Phase 2D: Recommendations & Advisory Translation
-* **Goal**: Integrate text translation summaries of deterministic output calculations.
-* **Component Modifications**: Build structured API prompt templates for the grounded translation layer.
-* **Criteria**: Format response narrative text without altering raw calculation numbers.
-
-#### Phase 2E: Systems Governance & Feedback Panels
-* **Goal**: Enable feedback mechanisms and administrative governance dashboards.
-* **Component Modifications**: Implement tables for user feedback, safety warnings, and event audit trails.
-* **Criteria**: Ensure administrator logs update when system warnings trigger.
+* **A: Schema Deployments & Auth Initialization**: Create SQL tables, build matching metadata properties, and verify RLS policies.
+* **B: Persistence Integration**: Connect client browser forms to dynamic state repositories inside our database.
+* **C: Calculations Translation**: Migrate calculations to standalone TypeScript engines and verify formula accuracy.
+* **D: AI Interface Grounding**: Configure grounding prompt parameters for AI translation adapters.
+* **E: Feedback & Audit Tools**: Connect transaction rating tables and administrator status views.
 
 ---
 
-## 16. Technical Risk Register
+## 16. Technical Risk Matrix
 
-The Risk Register identifies technical risks, impact levels, and mitigation strategies for Phase 2:
-
-| Event Risk Description | Likelihood | Impact | Proposed Mitigation Strategy | Responsible Owner |
-|---|---|---|---|---|
-| **Exposing Keys in Browser Packages** | Low | Critical | Use server-side proxy routes for all API queries. Do not include raw security credentials in compiled frontend files. | Security Lead |
-| **Simulations Generating Outlier Calculations** | Medium | High | Apply bounds to compounding calculations and show warnings for scenarios with high variance. | Mathematics Lead |
-| **Row-Level Security Leaks** | Low | High | Prevent default table access and execute automated test suites on relational tables. | Database Administrator |
-| **Incomplete User Profile Inputs** | High | Medium | Implement completeness indicators and adjust calculation confidence scores appropriately. | Product Owner |
-| **API Boundary Key Changes** | Low | Medium | Standardize JSON API contracts and verify integrations before deployment. | Integration Engineer |
+* **Risk**: Exposing sensitive credentials or API keys.
+  * *Reduction Plan*: Route Vertex AI calls through secure Edge Functions, keeping keys entirely backend-isolated.
+* **Risk**: Excessive AI processing latency.
+  * *Reduction Plan*: Maintain a cached library of common pre-defined coaching recommendations, reducing processing delays.
+* **Risk**: High compound calculations variance.
+  * *Reduction Plan*: Apply validation boundaries to variable growth selections (capped at $15\%$).
 
 ---
 
-## Calculations Clarification & Worked Example
+## 17. Calculations Verification & Sample Run
 
-### 1. Mathematical Breakdown of Home Purchase Simulation
-* **Baseline Horizon Tracking Target (Doing Nothing)**:
-  * Current starting cash positions are compounded over the selected timeline using base parameters.
-* **Simulated Horizon tracking Target (Purchasing the Home)**:
-  * Simulated assets compound of liquid capital and net property values, offset by remaining mortgage liabilities.
-* **Wealth Impact Formula**:
-  $$\text{Lifetime Wealth Impact} = \text{SimulatedNW}_{30} - \text{BaselineNW}_{30}$$
+### Home Buying Scenario Parameters
+* Starting Checking Capital: $\$250,000$ (with $\$36,000$ in annual surpluses).
+* Blended Growth Rate Allocation: $7.00\%$.
+* Real Estate Acquisition Price: $\$500,000$.
+* Outlay Downpayment Target: $\$100,000$.
+* Mortgaged Loan Investment: $\$400,000$ ($6.50\%$ mortgage rate over 30-years).
 
-### 2. Standard Worked Example Mapped Under Profile Defaults
-* **Starting Portfolio Parameters**:
-  * Baseline checking balances: $\$250,000$ (with $\$36,000$ in annual surpluses).
-  * Long-term average compounding rate: $7\%$.
-* **Target Real Estate Details**:
-  * Acquisition Value: $\$500,000$.
-  * Downpayment Outlay: $\$100,000$.
-  * Financed Principal: $\$400,000$ (at $6.5\%$ interest over $30$-years).
-* **30-Year Projections**:
-  * **Baseline Output**: Checking capital compounds to **$\$3,755,750$**.
-  * **Simulated Output**: Total liquid capital plus property asset valuation (\$1,621,700) compounds to **$\$4,170,840$**.
-  * **Net Proportional Delta (Wealth Impact)**: **$\$415,090$** ($+\$415,090$).
+### 30-Year Performance Result
+* **No Action (Baseline)**: Checking balances compound to **$\$3,755,750$**.
+* **Purchase Home (Simulation)**: Liquid assets + appreciation value composite compounds to **$\$4,170,840$**.
+* **Calculated Delta (Lifetime Impact)**: **$\$415,090$** ($+\$415,090$).
