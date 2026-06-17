@@ -808,6 +808,10 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       alternativeScenarios = [];
     }
 
+    const finalSimulatedNW = simulatedNW[simulatedNW.length - 1] || 0;
+    const finalBaselineNW = baselineNW[baselineNW.length - 1] || 0;
+    const lifetimeWealthImpactVal = finalSimulatedNW - finalBaselineNW;
+
     const calculatedResult: SimulationResult = {
       id: Math.random().toString(36).substring(2, 9),
       type: selectedType,
@@ -815,6 +819,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       params: { ...params },
       projectedNetWorth30Y: simulatedNW,
       projectedCashFlowDelta,
+      lifetimeWealthImpact: lifetimeWealthImpactVal,
       retirementReadinessShift,
       decisionHealthScore,
       riskScore,
@@ -1290,6 +1295,33 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       <div className="lg:col-span-7 space-y-6">
         {simulationResult && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col justify-between h-full">
+            {/* HERO COMPASS: LIFESTYLE WEALTH IMPACT */}
+            {(() => {
+              const wealthImpactVal = simulationResult.lifetimeWealthImpact ?? 0;
+              const isPositive = wealthImpactVal >= 0;
+              const formattedWealthImpact = (isPositive ? "+" : "-") + "$" + Math.abs(Math.round(wealthImpactVal)).toLocaleString();
+              
+              return (
+                <div className="mx-6 mt-6 bg-gradient-to-r from-zinc-950 via-zinc-950 to-emerald-950/10 border border-zinc-800 rounded-2xl p-5 relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
+                  <div className={`absolute -right-12 -bottom-12 w-32 h-32 rounded-full blur-2xl pointer-events-none ${isPositive ? "bg-emerald-500/10" : "bg-rose-500/5"}`} />
+                  <div className="space-y-1 z-10">
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-widest block leading-none">Lifetime Decision Horizon</span>
+                    <h3 className="text-sm font-bold text-zinc-100 tracking-tight mt-1.5">Projected Lifetime Wealth Impact</h3>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed max-w-sm">
+                      The total difference in your projected net worth calculated at the end of the 30-year multi-decade simulation.
+                    </p>
+                  </div>
+                  <div className="z-10 text-left sm:text-right select-none shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-zinc-800 w-full sm:w-auto">
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest block font-bold leading-none">LIFETIME IMPACT</span>
+                    <div className={`text-2xl sm:text-3xl font-black tracking-tight mt-1.5 font-mono ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                      {formattedWealthImpact}
+                    </div>
+                    <span className="text-[9px] text-zinc-550 block mt-1 uppercase font-mono">calculated 30-year delta</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Header statistics block */}
             <div className="p-6 border-b border-zinc-800 bg-zinc-900/60 font-sans">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

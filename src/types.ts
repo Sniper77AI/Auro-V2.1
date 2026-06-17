@@ -99,6 +99,7 @@ export interface SimulationResult {
   params: SimulationParams;
   projectedNetWorth30Y: number[]; // 30 annual coordinates
   projectedCashFlowDelta: number; // monthly cash flow impact (+ or -)
+  lifetimeWealthImpact?: number; // cumulative net worth difference at 30Y
   retirementReadinessShift: number; // change in retirement track in years (e.g. -3 means delays retirement by 3 years, +2 means ready 2 years earlier)
   decisionHealthScore: number; // 0 to 100 representing suitability
   riskScore: number; // 0 to 100

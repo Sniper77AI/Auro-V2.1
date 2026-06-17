@@ -215,11 +215,81 @@ export default function GoalsMatrix({ twin }: GoalsMatrixProps) {
         <button
           onClick={handleCreateGoal}
           disabled={!newGoal.name}
-          className="bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-40"
+          className="bg-emerald-600 hover:bg-emerald-500 text-zinc-900 font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-40"
         >
           <Plus className="w-3.5 h-3.5" /> Add Milestone
         </button>
       </div>
+
+      {/* LIFE PROGRESS OVERVIEW */}
+      {(() => {
+        const totalGoalsCount = goals.length;
+        const goalsOnTrackCount = goals.filter(g => {
+          const percent = Math.min(100, Math.round((g.currentSavings / g.targetAmount) * 100));
+          return percent >= 10 || g.category === "education" || g.category === "property";
+        }).length;
+        const goalsAtRiskCount = Math.max(0, totalGoalsCount - goalsOnTrackCount);
+
+        const overallCompletionPercent = totalGoalsCount > 0 
+          ? Math.round(goals.reduce((acc, curr) => acc + Math.min(100, (curr.currentSavings / curr.targetAmount) * 100), 0) / totalGoalsCount)
+          : 0;
+
+        const filledBlocksCount = Math.min(16, Math.round(overallCompletionPercent / 6.25));
+        const emptyBlocksCount = 16 - filledBlocksCount;
+        const blockProgressBar = "█".repeat(filledBlocksCount) + "░".repeat(emptyBlocksCount);
+
+        return (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 font-sans relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-500/5 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+              <div className="space-y-2">
+                <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest block font-bold leading-none">Life Progress Overview</span>
+                <h3 className="text-lg font-bold text-zinc-100 tracking-tight">Your Cumulative Plan Health</h3>
+                <p className="text-xs text-zinc-400 leading-relaxed max-w-lg">
+                  A unified timeline projection coordinating your major lifetime milestones. The status of all essential and optional family milestones are combined here.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-6 w-full lg:w-auto items-stretch sm:items-center font-sans">
+                {/* Main Completion Stat */}
+                <div className="bg-zinc-950/60 border border-zinc-800 p-4 rounded-xl flex flex-col justify-center min-w-[200px]">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase font-bold tracking-wider">Life Progress</span>
+                    <span className="text-emerald-400 font-mono text-xs font-bold leading-none">{overallCompletionPercent}%</span>
+                  </div>
+                  <div className="font-mono text-xs text-emerald-400 tracking-normal select-none leading-none mb-2 font-bold">
+                    {blockProgressBar}
+                  </div>
+                  {/* Beautiful continuous bar */}
+                  <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
+                      style={{ width: `${overallCompletionPercent}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Metrics Grid */}
+                <div className="grid grid-cols-3 gap-3 flex-1 lg:flex-initial">
+                  <div className="bg-zinc-950/40 border border-zinc-850/60 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center">
+                    <span className="text-zinc-500 text-[9px] font-mono uppercase font-bold block leading-none">Total</span>
+                    <span className="text-zinc-200 font-mono text-lg font-bold mt-1 block leading-none">{totalGoalsCount}</span>
+                  </div>
+                  <div className="bg-emerald-950/10 border border-emerald-950/20 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center">
+                    <span className="text-emerald-400 text-[9px] font-mono uppercase font-bold block leading-none">On Track</span>
+                    <span className="text-emerald-400 font-mono text-lg font-bold mt-1 block leading-none">{goalsOnTrackCount}</span>
+                  </div>
+                  <div className="bg-rose-955/10 border border-rose-950/20 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center">
+                    <span className="text-rose-400 text-[9px] font-mono uppercase font-bold block leading-none">At Risk</span>
+                    <span className="text-rose-450 font-mono text-lg font-bold mt-1 block leading-none">{goalsAtRiskCount}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* GOALS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

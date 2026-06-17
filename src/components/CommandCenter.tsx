@@ -89,31 +89,31 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   // Opportunities and Risks cards
   const opportunities = [
     {
-      title: "Self-Structured Roth IRA Setup",
+      title: "Increase Retirement Savings",
       value: "Expected Yield: +$45,000",
-      desc: "Tax-free compound growth offsets local income taxes completely based on your current retirement planning thresholds."
+      desc: "By setting up tax-advantaged accounts like a Roth IRA, your money can grow completely tax-free. Under your current plan, this could yield up to $45,000 more when you reach retirement."
     },
     {
-      title: "State Income Arbitrage Check",
+      title: "Could Moving Save You Taxes?",
       value: "State Offset: Max 13%",
-      desc: `You reside in ${twin.taxState}. Simulating relocation to Texas or Florida models an average state tax savings of up to $5,400 per year.`
+      desc: `You reside in ${twin.taxState}. Moving to a state with zero income tax (like Texas or Florida) could automatically keep up to $5,400 per year in your pocket, significantly speeding up your financial milestones.`
     }
   ];
 
   const risks = [
     {
-      title: "Liquidity Drag",
-      impact: "High Vulnerability",
+      title: "Too Much Cash Sitting Idle",
+      impact: "Caution Check",
       desc: expensesRatio < 4 
-        ? "Sudden market downturns or income offsets could force unhedged debt conversions due to low defensive savings."
-        : "Holding excessive liquid capital drag under current inflation values slowly degrades raw purchasing power index."
+        ? "Your emergency savings cushion is currently thin. A sudden job change or unexpected expense could force you onto high-interest loans unless you save a larger buffer."
+        : "You have built up an excellent cash reserve! However, keeping too much money in low-interest savings accounts actually loses value over time due to inflation. Moving a portion to secure investments will put your money to work."
     },
     {
-      title: "Single Point Income Failure",
-      impact: "Moderate Overhead",
+      title: "Depending on a Single Income",
+      impact: "Safety Risk",
       desc: twin.incomes.length <= 1 
-        ? "Entire financial profile is dependent on 1 source of active income. Building side venture streams reduces volatility index."
-        : "Satisfactory wage diversity established. Continue tracking marginal bracket tax shifting limits."
+        ? "Relying on a single salary can be vulnerable if unexpected events arise. Developing side projects or alternative consulting income would protect you from total income loss."
+        : "Great! You have multiple stable sources of income, which greatly insulates your household from financial risk."
     }
   ];
 
@@ -139,7 +139,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
           </div>
           <div className="flex gap-2">
             <span className="bg-emerald-950/40 text-emerald-400 text-[10px] font-mono px-2.5 py-1 rounded border border-emerald-900/40 font-semibold uppercase">
-              CFO Engine: Active
+              Financial Outlook: Stable
             </span>
           </div>
         </div>

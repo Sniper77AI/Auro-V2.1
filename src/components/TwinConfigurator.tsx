@@ -173,6 +173,45 @@ export default function TwinConfigurator({ twin, onChange }: TwinConfiguratorPro
         </div>
       </div>
 
+      {/* Onboarding Progress Tracking */}
+      {(() => {
+        const stepNum = activeTab === "income" ? 1 
+                      : activeTab === "savings" ? 2 
+                      : activeTab === "debts" ? 3 
+                      : activeTab === "family" ? 4 
+                      : activeTab === "retirement" ? 5 
+                      : 6;
+        const completionPercent = Math.round((stepNum / 6) * 100);
+        const filled = Math.round((stepNum / 6) * 15);
+        const empty = 15 - filled;
+        const pBar = "█".repeat(filled) + "░".repeat(empty);
+
+        return (
+          <div className="bg-zinc-950/60 px-6 py-3.5 border-b border-zinc-800/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex items-center gap-3">
+              <span className="bg-emerald-950/80 text-emerald-400 border border-emerald-900/40 text-[10px] font-mono rounded px-2.5 py-1 font-bold">
+                Step {stepNum} of 6
+              </span>
+              <span className="text-xs text-zinc-350 select-none">
+                Profile Completion: <strong className="text-zinc-150 font-bold">{completionPercent}%</strong>
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-3 self-stretch sm:self-auto">
+              <span className="text-emerald-400 font-mono text-[11px] select-none tracking-normal leading-none font-bold">
+                {pBar}
+              </span>
+              <div className="w-24 h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800 shrink-0">
+                <div 
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                  style={{ width: `${completionPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Tabs styled as progressive coaching questions */}
       <div className="flex flex-wrap gap-1 border-b border-zinc-800 bg-zinc-900/60 text-xs px-4 pt-2 font-sans">
         <button
