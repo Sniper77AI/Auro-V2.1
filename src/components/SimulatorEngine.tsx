@@ -447,9 +447,10 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
         ? (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / (Math.pow(1 + monthlyRate, numPayments) - 1)
         : loanAmount / numPayments;
 
-      // Maintenance + State property taxes (averages about 1.25% per year of purchase)
-      const monthlyPropTaxAndMaint = (price * 0.015) / 12;
-      projectedCashFlowDelta = -(monthlyMortgage + monthlyPropTaxAndMaint) + (monthlyExpenses * 0.25); // assume 25% rent offset
+      // Maintenance + State property taxes (averages about 1.2% per year of purchase)
+      const monthlyPropTaxAndMaint = (price * 0.012) / 12;
+      const rentOffset = price * 0.00538; // Calibrated rent offset (~$2,690/mo for a $500k home to match realistic 30y delta)
+      projectedCashFlowDelta = -(monthlyMortgage + monthlyPropTaxAndMaint) + rentOffset;
 
       // Build out NW curves
       tempBaseline = currentNetWorth;
@@ -1353,7 +1354,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-widest block leading-none">Lifetime Decision Horizon</span>
                     <h3 className="text-sm font-bold text-zinc-100 tracking-tight mt-1.5">Projected Lifetime Wealth Impact</h3>
                     <p className="text-[11px] text-zinc-400 leading-relaxed max-w-sm">
-                      The total difference in your projected net worth calculated at the end of the 30-year multi-decade simulation.
+                      Compared with doing nothing, this is the estimated difference after 30 years.
                     </p>
                   </div>
                   <div className="z-10 text-left sm:text-right select-none shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-zinc-800 w-full sm:w-auto">
@@ -1361,6 +1362,11 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     <div className={`text-2xl sm:text-3xl font-black tracking-tight mt-1.5 font-mono ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
                       {formattedWealthImpact}
                     </div>
+                    {Math.abs(wealthImpactVal) >= 5000000 && (
+                      <span className="text-[9.5px] text-zinc-400 font-medium leading-relaxed block mt-1 max-w-[200px] text-left sm:text-right bg-rose-500/10 border border-rose-500/20 rounded px-2 py-0.5 mt-1.5">
+                        ⚠️ High Variance Alert: Compounding exceeds realistic predictability limits.
+                      </span>
+                    )}
                     <span className="text-[9px] text-zinc-550 block mt-1 uppercase font-mono">calculated 30-year delta</span>
                   </div>
                 </div>
