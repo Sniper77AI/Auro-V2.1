@@ -263,11 +263,11 @@ export default function App() {
             {/* Logo segment */}
             <div className="space-y-1 pb-1">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-zinc-950 font-mono shadow-md">
-                  A
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-zinc-950 font-mono shadow-md text-xs">
+                  AR
                 </div>
                 <div>
-                  <h1 className="text-lg font-black tracking-tight text-white font-sans leading-none">Aura</h1>
+                  <h1 className="text-lg font-black tracking-tight text-white font-sans leading-none">AuraRipple</h1>
                   <span className="text-[9px] font-mono font-semibold tracking-wider text-emerald-400 uppercase leading-none mt-1.5 block">Financial Decision Coach</span>
                 </div>
               </div>
