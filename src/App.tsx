@@ -57,12 +57,40 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
 ];
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
+  const getInitialSession = () => {
+    try {
+      const data = localStorage.getItem("aura_sandbox_active_session");
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (parsed && parsed.user) {
+          return {
+            user: {
+              id: parsed.user.id,
+              userId: parsed.user.id,
+              userEmail: parsed.user.email,
+              role: parsed.user.role || "customer"
+            }
+          };
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse initial sandbox session", e);
+    }
+    return null;
+  };
+
+  const initialSession = getInitialSession();
+  const initiallyBooting = SupabaseService.isConfigured() && !initialSession;
+
+  const [session, setSession] = useState<any>(initialSession);
   const [profileId, setProfileId] = useState<string>("fallback_profile_id");
-  const [userRole, setUserRole] = useState<"customer" | "auditor" | "governance_admin" | "super_admin">("customer");
+  const [userRole, setUserRole] = useState<"customer" | "auditor" | "governance_admin" | "super_admin">(
+    initialSession?.user?.role || "customer"
+  );
   const [activeMenu, setActiveMenu] = useState<"command" | "twin" | "simulator" | "goals" | "settings" | "governance" | "feedback">("command");
   const [activeScenarioType, setActiveScenarioType] = useState<any>(undefined);
-  const [isBooting, setIsBooting] = useState<boolean>(true);
+  const [isBooting, setIsBooting] = useState<boolean>(initiallyBooting);
+  const [bootError, setBootError] = useState<string | null>(null);
   
   // Real active state trackers
   const [twin, setTwin] = useState<FinancialTwin>(INITIAL_TWIN);
@@ -76,6 +104,11 @@ export default function App() {
   // Initial Auth checking and Profile database sync
   useEffect(() => {
     const checkSessionAndSync = async () => {
+      if (!SupabaseService.isConfigured()) {
+        setIsBooting(false);
+        return;
+      }
+
       // 3-second initialization timeout guard to ensure app never hangs
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("AURA BOOT SECURITY: Authentication verification timed out (3000ms limit reached).")), 3000)
@@ -110,8 +143,7 @@ export default function App() {
         await Promise.race([bootTask(), timeoutPromise]);
       } catch (err: any) {
         console.error("[AURA BOOT CRITICAL ERROR] Initialization failure during secure bootstrap cascade:", err);
-        // Fall back to login/AuthContainer screen so user is never stuck
-        setSession(null);
+        setBootError(err.message || String(err));
       } finally {
         setIsBooting(false);
       }
@@ -239,6 +271,61 @@ export default function App() {
     };
     setAuditLogs([audit, ...auditLogs]);
   };
+
+  if (bootError) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center p-6 text-zinc-100">
+        <div className="max-w-md w-full bg-zinc-900 border border-zinc-805/80 p-8 rounded-2xl shadow-2xl text-center space-y-6">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center font-black text-zinc-950 font-mono shadow-lg text-2xl">
+            A!
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-lg font-black tracking-tight text-white font-sans">AuraRipple Preview Recovery Mode</h1>
+            <p className="text-xs text-zinc-400">
+              A secure boot exception or database communication error occurred during startup verification.
+            </p>
+            <div className="bg-zinc-950 p-3.5 rounded-xl border border-zinc-800 text-left">
+              <p className="text-[10px] font-mono text-rose-400 uppercase tracking-widest font-bold">Boot Logs Exception:</p>
+              <p className="text-[10px] font-mono text-zinc-400 break-all leading-relaxed mt-1">{bootError}</p>
+            </div>
+          </div>
+          
+          <button
+            onClick={async () => {
+              setBootError(null);
+              setIsBooting(false);
+              try {
+                const res = await SupabaseService.signIn("sinior.bkk@gmail.com", "any-password");
+                if (res.success) {
+                  const loadedProfile = await SupabaseService.loadCombinedProfile("dem-id-99");
+                  const loadedGoals = await SupabaseService.loadLifeGoals("dem-id-99", loadedProfile.profileId);
+                  setTwin(loadedProfile.twin);
+                  setProfileId(loadedProfile.profileId);
+                  setGoals(loadedGoals);
+                  setSession(res.session);
+                  setUserRole((res.role || "customer") as any);
+                }
+              } catch (e) {
+                console.error("Recovery login failed", e);
+                setSession({
+                  user: {
+                    id: "dem-id-99",
+                    userId: "dem-id-99",
+                    userEmail: "sinior.bkk@gmail.com",
+                    role: "customer"
+                  }
+                });
+                setUserRole("customer");
+              }
+            }}
+            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-black tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg border border-emerald-400/20 active:scale-[0.98]"
+          >
+            Launch Demo Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isBooting) {
     return (

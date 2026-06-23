@@ -3,29 +3,37 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Retrieve variables prefixed with VITE_ for Vite clients
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://your-placeholder-supabase-url.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy-anon-key";
+let cachedClient: SupabaseClient<any, "public", any> | null = null;
 
-// Warn developer if setup is missing
-if (
-  !import.meta.env.VITE_SUPABASE_URL ||
-  import.meta.env.VITE_SUPABASE_URL === "" ||
-  !import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  import.meta.env.VITE_SUPABASE_ANON_KEY === ""
-) {
-  console.warn(
-    "AURA ARCHITECTURE WARNING: Supabase API environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) are not set. The Supabase client is initialized using secure sandbox fallbacks."
-  );
+/**
+ * Lazily retrieves the Supabase client if configured with valid environment credentials.
+ * If credentials are missing, placeholder, or invalid, returns null to trigger sandbox fallbacks.
+ */
+export function getSupabaseClient(): SupabaseClient<any, "public", any> | null {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (
+    !url ||
+    !key ||
+    !url.startsWith("https://") ||
+    !url.includes(".supabase.co") ||
+    url.includes("your-placeholder") ||
+    key.includes("dummy")
+  ) {
+    return null;
+  }
+
+  if (!cachedClient) {
+    cachedClient = createClient(url, key, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+  }
+  return cachedClient;
 }
-
-// Create and export the secure, typed Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});

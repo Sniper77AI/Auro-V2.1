@@ -3,8 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { supabase } from "./supabaseClient";
+import { getSupabaseClient } from "./supabaseClient";
 import { FinancialTwin, AssetItem, LiabilityItem, IncomeSource } from "./types";
+import { SupabaseClient } from "@supabase/supabase-js";
+
+// Dynamic Proxy to prevent immediate initialization crashes and ensure secure sandbox fallback
+const supabase = new Proxy({} as any, {
+  get(target, prop) {
+    const client = getSupabaseClient();
+    if (!client) {
+      throw new Error("AURA SERVICE: Supabase is not configured. Direct Supabase operations are disabled.");
+    }
+    return (client as any)[prop];
+  }
+}) as Exclude<ReturnType<typeof getSupabaseClient>, null>;
 
 // Simple client-side data protection: PII obfuscation at client/service boundaries
 function obfuscatePII(text: string): string {
@@ -66,15 +78,7 @@ const setSandboxValue = (key: string, val: any) => {
 
 export class SupabaseService {
   public static isConfigured(): boolean {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    return !!(
-      url &&
-      key &&
-      url.startsWith("https://") &&
-      !url.includes("your-placeholder") &&
-      !key.includes("dummy")
-    );
+    return getSupabaseClient() !== null;
   }
 
   // Auth: CREATE ACCOUNT / SIGN UP
@@ -311,6 +315,11 @@ export class SupabaseService {
   // Core Database Seeding and Profile Integrity Audit Helper
   static async ensureDatabaseBootstrap(authUserId: string, email: string): Promise<{ profileId: string; userRole: string }> {
     if (!authUserId) throw new Error("AURA BOOTSTRAP: Missing authUserId coordinates.");
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      return { profileId: "dem-id-99", userRole: "customer" };
+    }
 
     console.log(`[AURA BOOTSTRAP] Running profile integrity audit for authenticated key: ${authUserId}`);
 
