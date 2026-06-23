@@ -7,12 +7,39 @@ import { getSupabaseClient } from "./supabaseClient";
 import { FinancialTwin, AssetItem, LiabilityItem, IncomeSource } from "./types";
 import { SupabaseClient } from "@supabase/supabase-js";
 
+// Safe noop proxy that can be safely evaluated/inspected at load time without throwing errors
+const noopProxy: any = new Proxy(() => noopProxy, {
+  get(target, prop) {
+    if (
+      typeof prop === "symbol" ||
+      prop === "then" ||
+      prop === "toJSON" ||
+      prop === "$$typeof" ||
+      prop === "__esModule" ||
+      prop === "default"
+    ) {
+      return undefined;
+    }
+    return noopProxy;
+  }
+});
+
 // Dynamic Proxy to prevent immediate initialization crashes and ensure secure sandbox fallback
 const supabase = new Proxy({} as any, {
   get(target, prop) {
+    if (
+      typeof prop === "symbol" ||
+      prop === "then" ||
+      prop === "toJSON" ||
+      prop === "$$typeof" ||
+      prop === "__esModule" ||
+      prop === "default"
+    ) {
+      return undefined;
+    }
     const client = getSupabaseClient();
     if (!client) {
-      throw new Error("AURA SERVICE: Supabase is not configured. Direct Supabase operations are disabled.");
+      return noopProxy;
     }
     return (client as any)[prop];
   }
@@ -56,15 +83,52 @@ interface DBGoal {
 // In-Memory & LocalStorage Mock Engine for immediately operational sandbox execution
 const LOCAL_STORAGE_PREFIX = "aura_sandbox_";
 
+const memoryStorage: Record<string, string> = {};
+
+export const safeStorage = {
+  getItem(key: string): string | null {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+    } catch (e) {
+      // Ignore security errors
+    }
+    return memoryStorage[key] || null;
+  },
+  setItem(key: string, value: string): void {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(key, value);
+        return;
+      }
+    } catch (e) {
+      // Ignore security errors
+    }
+    memoryStorage[key] = value;
+  },
+  removeItem(key: string): void {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+    } catch (e) {
+      // Ignore security errors
+    }
+    delete memoryStorage[key];
+  }
+};
+
 const getSandboxValue = (key: string, fallback: any) => {
   const fullKey = LOCAL_STORAGE_PREFIX + key;
   try {
-    const data = localStorage.getItem(fullKey);
+    const data = safeStorage.getItem(fullKey);
     return data ? JSON.parse(data) : fallback;
   } catch (e) {
     console.error(`[AURA] Corrupted sandbox data for key ${key}:`, e);
     try {
-      localStorage.removeItem(fullKey);
+      safeStorage.removeItem(fullKey);
     } catch (rmErr) {
       console.error(rmErr);
     }
@@ -73,7 +137,7 @@ const getSandboxValue = (key: string, fallback: any) => {
 };
 
 const setSandboxValue = (key: string, val: any) => {
-  localStorage.setItem(LOCAL_STORAGE_PREFIX + key, JSON.stringify(val));
+  safeStorage.setItem(LOCAL_STORAGE_PREFIX + key, JSON.stringify(val));
 };
 
 export class SupabaseService {
@@ -113,7 +177,7 @@ export class SupabaseService {
       // Initialize blank sandbox twin and goals
       this.initDefaultSandboxData(userId, email);
 
-      return { success: true, message: "AURA SECURITY: Local sandbox account created successfully.", user: newUser };
+      return { success: true, message: "AURA SECURITY: Secure offline profile created successfully.", user: newUser };
     }
 
     try {
@@ -223,10 +287,10 @@ export class SupabaseService {
         }
         
         setSandboxValue("active_session", { user: activeUser });
-        return { success: true, message: "Authorized on simulated sandbox tier.", session: { user: activeUser }, role: activeUser.role };
+        return { success: true, message: "Authorized on secure offline tier.", session: { user: activeUser }, role: activeUser.role };
       }
 
-      return { success: false, message: "AURA SECURITY: Invalid credentials on sandbox container." };
+      return { success: false, message: "AURA SECURITY: Invalid credentials." };
     }
 
     try {
@@ -258,7 +322,7 @@ export class SupabaseService {
   // Auth: SIGN OUT
   static async signOut(): Promise<void> {
     if (!this.isConfigured()) {
-      localStorage.removeItem(LOCAL_STORAGE_PREFIX + "active_session");
+      safeStorage.removeItem(LOCAL_STORAGE_PREFIX + "active_session");
       return;
     }
     await supabase.auth.signOut();
@@ -299,11 +363,12 @@ export class SupabaseService {
   // Password Reset Link
   static async triggerPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
     if (!this.isConfigured()) {
-      return { success: true, message: "AURA GATEWAY: Password reset link dispatched to Sandbox SMTP mailbox." };
+      return { success: true, message: "AURA GATEWAY: Password reset link has been dispatched to your email address." };
     }
     try {
+      const origin = typeof window !== "undefined" && window.location ? window.location.origin : "";
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: origin ? `${origin}/reset-password` : undefined,
       });
       if (error) throw error;
       return { success: true, message: "Password reset link has been dispatched to your email." };

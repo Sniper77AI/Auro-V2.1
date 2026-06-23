@@ -287,7 +287,7 @@ export default function UnifiedSettings({ twin, onChangeTwin }: UnifiedSettingsP
               <ShieldCheck className="text-emerald-400 w-5 h-5 shrink-0" />
               <div>
                 <h3 className="text-sm font-bold text-zinc-200">Compliance & RLS Auditing Suite</h3>
-                <p className="text-[10px] text-zinc-500">Live verification engine for Phase 2A requirements</p>
+                <p className="text-[10px] text-zinc-500">Live verification engine for security and isolation requirements</p>
               </div>
             </div>
             <button
@@ -296,7 +296,7 @@ export default function UnifiedSettings({ twin, onChangeTwin }: UnifiedSettingsP
               disabled={runningTests}
               className="bg-zinc-950 border border-emerald-900/60 hover:bg-zinc-900 hover:border-emerald-500 text-emerald-400 text-xs font-bold tracking-tight px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-40 cursor-pointer"
             >
-              <Play className="w-3.5 h-3.5" /> {runningTests ? "Auditing Sandbox..." : "Run Phase 2A Tests"}
+              <Play className="w-3.5 h-3.5" /> {runningTests ? "Auditing Database..." : "Run Security & Isolation Tests"}
             </button>
           </div>
 

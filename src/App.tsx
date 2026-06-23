@@ -13,7 +13,10 @@ import FeedbackHub from "./components/FeedbackHub";
 import GoalsMatrix from "./components/GoalsMatrix";
 import UnifiedSettings from "./components/UnifiedSettings";
 import AuthContainer from "./components/AuthContainer";
-import { SupabaseService } from "./supabaseService";
+import LandingPage from "./components/LandingPage";
+import AboutPage from "./components/AboutPage";
+import UnauthNavbar from "./components/UnauthNavbar";
+import { SupabaseService, safeStorage } from "./supabaseService";
 import { 
   LayoutDashboard, Wallet, Sparkles, Scale, 
   MessageSquare, ChevronRight, Coins, 
@@ -59,7 +62,7 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
 export default function App() {
   const getInitialSession = () => {
     try {
-      const data = localStorage.getItem("aura_sandbox_active_session");
+      const data = safeStorage.getItem("aura_sandbox_active_session");
       if (data) {
         const parsed = JSON.parse(data);
         if (parsed && parsed.user) {
@@ -83,6 +86,8 @@ export default function App() {
   const initiallyBooting = SupabaseService.isConfigured() && !initialSession;
 
   const [session, setSession] = useState<any>(initialSession);
+  const [unauthPage, setUnauthPage] = useState<"landing" | "about" | "login">("landing");
+  const [unauthSignUpDefault, setUnauthSignUpDefault] = useState<boolean>(false);
   const [profileId, setProfileId] = useState<string>("fallback_profile_id");
   const [userRole, setUserRole] = useState<"customer" | "auditor" | "governance_admin" | "super_admin">(
     initialSession?.user?.role || "customer"
@@ -140,7 +145,13 @@ export default function App() {
           }
         };
 
-        await Promise.race([bootTask(), timeoutPromise]);
+        const taskPromise = bootTask();
+        // Prevent unhandled promise rejection if background bootTask rejects after timeout
+        taskPromise.catch((err) => {
+          console.error("[AURA BOOT BACKGROUND ERROR] Handled background bootTask error:", err);
+        });
+
+        await Promise.race([taskPromise, timeoutPromise]);
       } catch (err: any) {
         console.error("[AURA BOOT CRITICAL ERROR] Initialization failure during secure bootstrap cascade:", err);
         setBootError(err.message || String(err));
@@ -347,48 +358,94 @@ export default function App() {
   }
 
   if (!session) {
-    return (
-      <AuthContainer 
-        onSuccess={async (sess, sRole) => {
-          try {
-            const uId = sess.user?.id || sess.user?.userId;
-            const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
-            const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
-            
-            setTwin(loadedProfile.twin);
-            setProfileId(loadedProfile.profileId);
-            setGoals(loadedGoals);
+    if (unauthPage === "login") {
+      return (
+        <AuthContainer 
+          initialSignUp={unauthSignUpDefault}
+          onBackToLanding={() => {
+            setUnauthPage("landing");
+            setUnauthSignUpDefault(false);
+          }}
+          onSuccess={async (sess, sRole) => {
+            try {
+              const uId = sess.user?.id || sess.user?.userId;
+              const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
+              const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
+              
+              setTwin(loadedProfile.twin);
+              setProfileId(loadedProfile.profileId);
+              setGoals(loadedGoals);
 
-            const normalizedSession = {
-              ...sess,
-              user: {
-                ...sess.user,
-                id: sess.user?.id,
-                userId: sess.user?.id || sess.user?.userId,
-                userEmail: sess.user?.email || "sandbox@aura.org",
-                role: sRole
-              }
-            };
-            setSession(normalizedSession);
-            setUserRole(sRole as any);
-          } catch (onSuccessErr: any) {
-            console.error("[AURA BOOT CRITICAL ERROR] OnSuccess transition failure:", onSuccessErr);
-            // Graceful fallback to initial local storage / mock values so application remains accessible
-            const normalizedSession = {
-              ...sess,
-              user: {
-                ...sess?.user,
-                id: sess?.user?.id || "dem-id-99",
-                userId: sess?.user?.id || sess?.user?.userId || "dem-id-99",
-                userEmail: sess?.user?.email || "sinior.bkk@gmail.com",
-                role: sRole
-              }
-            };
-            setSession(normalizedSession);
-            setUserRole(sRole as any);
-          }
-        }} 
-      />
+              const normalizedSession = {
+                ...sess,
+                user: {
+                  ...sess.user,
+                  id: sess.user?.id,
+                  userId: sess.user?.id || sess.user?.userId,
+                  userEmail: sess.user?.email || "sandbox@aura.org",
+                  role: sRole
+                }
+              };
+              setSession(normalizedSession);
+              setUserRole(sRole as any);
+            } catch (onSuccessErr: any) {
+              console.error("[AURA BOOT CRITICAL ERROR] OnSuccess transition failure:", onSuccessErr);
+              // Graceful fallback to initial local storage / mock values so application remains accessible
+              const normalizedSession = {
+                ...sess,
+                user: {
+                  ...sess?.user,
+                  id: sess?.user?.id || "dem-id-99",
+                  userId: sess?.user?.id || sess?.user?.userId || "dem-id-99",
+                  userEmail: sess?.user?.email || "sinior.bkk@gmail.com",
+                  role: sRole
+                }
+              };
+              setSession(normalizedSession);
+              setUserRole(sRole as any);
+            }
+          }} 
+        />
+      );
+    }
+
+    return (
+      <div className="bg-slate-50 min-h-screen text-slate-800 flex flex-col justify-between">
+        <UnauthNavbar 
+          currentPage={unauthPage} 
+          onNavigate={(page, signUpDefault) => {
+            setUnauthPage(page);
+            if (signUpDefault !== undefined) {
+              setUnauthSignUpDefault(signUpDefault);
+            } else {
+              setUnauthSignUpDefault(false);
+            }
+          }} 
+        />
+        
+        <div className="flex-1">
+          {unauthPage === "landing" && (
+            <LandingPage 
+              onNavigate={(page, signUpDefault) => {
+                setUnauthPage(page);
+                if (signUpDefault !== undefined) {
+                  setUnauthSignUpDefault(signUpDefault);
+                } else {
+                  setUnauthSignUpDefault(false);
+                }
+              }} 
+            />
+          )}
+          {unauthPage === "about" && (
+            <AboutPage 
+              onNavigate={(page) => {
+                setUnauthPage(page);
+                setUnauthSignUpDefault(false);
+              }} 
+            />
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -421,7 +478,7 @@ export default function App() {
                 Financial Twin Experience
               </span>
 
-              <button
+               <button
                 onClick={() => setActiveMenu("command")}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                   activeMenu === "command"
@@ -430,7 +487,7 @@ export default function App() {
                 }`}
               >
                 <LayoutDashboard className="w-4 h-4 text-teal-400 shrink-0" />
-                <span>Wealth Command Center</span>
+                <span>Financial Twin Command Center</span>
               </button>
 
               <button
@@ -442,7 +499,7 @@ export default function App() {
                 }`}
               >
                 <Wallet className="w-4 h-4 text-emerald-450 shrink-0" />
-                <span>My Financial Profile</span>
+                <span>Financial Profile Builder</span>
               </button>
 
               <button
@@ -471,7 +528,7 @@ export default function App() {
                 }`}
               >
                 <Target className="w-4 h-4 text-teal-400 shrink-0" />
-                <span>Life Outcomes</span>
+                <span>Life Outcomes & Goals</span>
               </button>
 
               <button

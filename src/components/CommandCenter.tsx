@@ -410,13 +410,13 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
           </div>
         </div>
 
-        {/* Dynamic CPO Command Center Hero Card */}
-        <div id="aura-suggested-recommendation" className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between font-sans">
+        {/* Financial Insight & Recommendation Engine */}
+        <div id="financial-insight-recommendation-engine" className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between font-sans">
           <div className="space-y-4">
             <div className="flex justify-between items-center flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-mono text-zinc-450 uppercase tracking-wider font-bold">Aura's Suggested Next Step</span>
+                <span className="text-[10px] font-mono text-zinc-450 uppercase tracking-wider font-bold">Financial Insight & Recommendation Engine</span>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                 <span className="text-[10px] text-zinc-500 font-mono tracking-tight mr-1 select-none">
@@ -434,9 +434,9 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
                 {primaryActionDesc}
               </p>
 
-              {/* WHY AURA RECOMMENDS THIS */}
+              {/* WHY THE ENGINE RECOMMENDS THIS */}
               <div className="bg-zinc-950/40 border border-zinc-850/65 rounded-xl p-4 mt-3 space-y-2.5">
-                <h4 className="text-[10px] uppercase tracking-wider font-mono font-bold text-emerald-400 select-none">Why Aura Recommends This:</h4>
+                <h4 className="text-[10px] uppercase tracking-wider font-mono font-bold text-emerald-400 select-none">Why the Decision Intelligence Engine Suggests This:</h4>
                 <ul className="space-y-1.5 text-[11px] text-zinc-350 leading-relaxed font-sans list-none pl-0">
                   {reasons.map((re, rIdx) => (
                     <li key={rIdx} className="flex items-start gap-2">

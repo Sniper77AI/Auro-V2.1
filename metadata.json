@@ -1,6 +1,6 @@
 {
-  "name": "Aura",
-  "description": "Financial Decision Intelligence Platform representing simulated futures of financial actions.",
+  "name": "Aura Ripple",
+  "description": "See your future before you spend your money. AI-powered Financial Decision Intelligence Platform.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

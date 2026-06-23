@@ -9,10 +9,12 @@ import { KeyRound, Mail, UserPlus, LogIn, User, Phone, CheckCircle2, ShieldAlert
 
 interface AuthContainerProps {
   onSuccess: (session: any, role: string) => void;
+  initialSignUp?: boolean;
+  onBackToLanding?: () => void;
 }
 
-export default function AuthContainer({ onSuccess }: AuthContainerProps) {
-  const [isSignUp, setIsSignUp] = useState(false);
+export default function AuthContainer({ onSuccess, initialSignUp = false, onBackToLanding }: AuthContainerProps) {
+  const [isSignUp, setIsSignUp] = useState(initialSignUp);
   const [isReset, setIsReset] = useState(false);
   
   const [email, setEmail] = useState("");
@@ -23,26 +25,6 @@ export default function AuthContainer({ onSuccess }: AuthContainerProps) {
   
   const [status, setStatus] = useState<{ type: "success" | "error" | "info" | ""; message: string }>({ type: "", message: "" });
   const [loading, setLoading] = useState(false);
-
-  const handleLaunchDemo = async () => {
-    setStatus({ type: "info", message: "Launching secure simulated sandbox session..." });
-    setLoading(true);
-    try {
-      const demoEmail = "sinior.bkk@gmail.com";
-      const demoPassword = "any-password";
-      const res = await SupabaseService.signIn(demoEmail, demoPassword);
-      if (res.success) {
-        setStatus({ type: "success", message: "Successfully authenticated." });
-        onSuccess(res.session, res.role || "customer");
-      } else {
-        setStatus({ type: "error", message: res.message });
-      }
-    } catch (err: any) {
-      setStatus({ type: "error", message: err.message || "An authentication error occurred." });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,24 +124,6 @@ export default function AuthContainer({ onSuccess }: AuthContainerProps) {
                 <ShieldAlert className="w-4 h-4 text-rose-450 shrink-0 mt-0.5" />
               )}
               <span className="font-medium leading-relaxed">{status.message}</span>
-            </div>
-          )}
-
-          {!isReset && !isSignUp && (
-            <div className="space-y-3 pt-1 pb-1">
-              <button
-                type="button"
-                onClick={handleLaunchDemo}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-black tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-40 shadow-lg shadow-emerald-950/25 border border-emerald-400/20 active:scale-[0.98]"
-              >
-                <LogIn className="w-4 h-4 shrink-0" /> Launch Demo Dashboard (Direct Access)
-              </button>
-              <div className="flex items-center">
-                <div className="flex-1 border-t border-zinc-850"></div>
-                <span className="px-3 text-[9px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Or authenticate manually</span>
-                <div className="flex-1 border-t border-zinc-850"></div>
-              </div>
             </div>
           )}
 
@@ -275,7 +239,7 @@ export default function AuthContainer({ onSuccess }: AuthContainerProps) {
                 </>
               ) : isSignUp ? (
                 <>
-                  <UserPlus className="w-4 h-4" /> Create Sandbox Account
+                  <UserPlus className="w-4 h-4" /> Create Account
                 </>
               ) : (
                 <>
@@ -316,23 +280,14 @@ export default function AuthContainer({ onSuccess }: AuthContainerProps) {
           </div>
         </div>
 
-        {/* Interactive fast-entry credentials for reviewers */}
-        {(!SupabaseService.isConfigured() || import.meta.env.DEV) && (
-          <div className="bg-zinc-900/40 border border-zinc-850/60 p-4 rounded-xl text-center space-y-2">
-            <p className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider font-bold">
-              Assessor Fast-Onboarding Account
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center text-[10px] select-all">
-              <span className="bg-zinc-950 px-2 py-1 rounded border border-zinc-805/80 text-zinc-350">
-                Email: <strong className="text-zinc-200">sinior.bkk@gmail.com</strong>
-              </span>
-              <span className="bg-zinc-950 px-2 py-1 rounded border border-zinc-805/80 text-zinc-350">
-                Password: <strong className="text-zinc-200">any-password</strong>
-              </span>
-            </div>
-            <p className="text-[9px] text-zinc-550 leading-normal max-w-xs mx-auto">
-              Clicking "Sign In to Command Center" with these credentials boots the full sandbox mode immediately without waiting for API keys configuration.
-            </p>
+        {onBackToLanding && (
+          <div className="text-center pt-2">
+            <button
+              onClick={onBackToLanding}
+              className="text-[11px] font-mono font-bold text-zinc-500 hover:text-emerald-450 uppercase tracking-widest cursor-pointer transition-colors"
+            >
+              ← Back to Landing Page
+            </button>
           </div>
         )}
 

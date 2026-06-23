@@ -397,10 +397,10 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
       <div className="bg-gradient-to-r from-emerald-950/30 via-zinc-900 to-zinc-900 p-6 border-b border-zinc-800">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Guided Coaching Onboarding</span>
-            <h2 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">Onboard Your Financial Decision Coach</h2>
+            <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Financial Profile Builder</span>
+            <h2 className="text-xl font-bold text-zinc-100 tracking-tight mt-1">Build Your Financial Twin</h2>
             <p className="text-xs text-zinc-400 mt-1 font-sans">
-              To give you precise outcomes on high-impact lifestyle moves, please complete this friendly life-oriented questionnaire with Aura.
+              Provide your details to construct your personalized digital twin. Understand the long-term consequences of major decisions before committing capital.
             </p>
             {syncingState && (
               <div className="mt-2.5 flex items-center gap-1.5 text-xs">
@@ -538,21 +538,21 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
           className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "income" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
           <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "income" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>1</span>
-          <span>How much do you earn?</span>
+          <span>Income Sources</span>
         </button>
         <button
           onClick={() => setActiveTab("savings")}
           className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "savings" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
           <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "savings" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>2</span>
-          <span>Do you own assets?</span>
+          <span>Assets</span>
         </button>
         <button
           onClick={() => setActiveTab("debts")}
           className={`px-4 py-3 font-semibold border-b-2 rounded-t-md transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === "debts" ? "border-emerald-500 text-emerald-400 bg-zinc-950/40" : "border-transparent text-zinc-400 hover:text-zinc-200"}`}
         >
           <span className={`w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-mono shrink-0 ${activeTab === "debts" ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"}`}>3</span>
-          <span>Do you carry any debt?</span>
+          <span>Liabilities</span>
         </button>
         <button
           onClick={() => setActiveTab("family")}
