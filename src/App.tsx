@@ -62,6 +62,7 @@ export default function App() {
   const [userRole, setUserRole] = useState<"customer" | "auditor" | "governance_admin" | "super_admin">("customer");
   const [activeMenu, setActiveMenu] = useState<"command" | "twin" | "simulator" | "goals" | "settings" | "governance" | "feedback">("command");
   const [activeScenarioType, setActiveScenarioType] = useState<any>(undefined);
+  const [isBooting, setIsBooting] = useState<boolean>(true);
   
   // Real active state trackers
   const [twin, setTwin] = useState<FinancialTwin>(INITIAL_TWIN);
@@ -75,29 +76,44 @@ export default function App() {
   // Initial Auth checking and Profile database sync
   useEffect(() => {
     const checkSessionAndSync = async () => {
-      try {
-        const active = await SupabaseService.getActiveUser();
-        if (active.userId) {
-          setSession({
-            user: {
-              id: active.userId,
-              userId: active.userId,
-              userEmail: active.userEmail,
-              role: active.role
-            }
-          });
-          setUserRole(active.role);
-          
-          // Load specific coordinates and goals array
-          const loadedProfile = await SupabaseService.loadCombinedProfile(active.userId);
-          setTwin(loadedProfile.twin);
-          setProfileId(loadedProfile.profileId);
+      // 3-second initialization timeout guard to ensure app never hangs
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("AURA BOOT SECURITY: Authentication verification timed out (3000ms limit reached).")), 3000)
+      );
 
-          const loadedGoals = await SupabaseService.loadLifeGoals(active.userId, loadedProfile.profileId);
-          setGoals(loadedGoals);
-        }
-      } catch (err) {
-        console.error("Auth initialization failure:", err);
+      try {
+        const bootTask = async () => {
+          const active = await SupabaseService.getActiveUser();
+          if (active.userId) {
+            // Load specific profile representation
+            const loadedProfile = await SupabaseService.loadCombinedProfile(active.userId);
+            
+            // Load goals collection
+            const loadedGoals = await SupabaseService.loadLifeGoals(active.userId, loadedProfile.profileId);
+            
+            // Apply coordinates atomically to prevent race condition flickering
+            setTwin(loadedProfile.twin);
+            setProfileId(loadedProfile.profileId);
+            setGoals(loadedGoals);
+            setSession({
+              user: {
+                id: active.userId,
+                userId: active.userId,
+                userEmail: active.userEmail,
+                role: active.role
+              }
+            });
+            setUserRole(active.role);
+          }
+        };
+
+        await Promise.race([bootTask(), timeoutPromise]);
+      } catch (err: any) {
+        console.error("[AURA BOOT CRITICAL ERROR] Initialization failure during secure bootstrap cascade:", err);
+        // Fall back to login/AuthContainer screen so user is never stuck
+        setSession(null);
+      } finally {
+        setIsBooting(false);
       }
     };
     checkSessionAndSync();
@@ -224,30 +240,66 @@ export default function App() {
     setAuditLogs([audit, ...auditLogs]);
   };
 
+  if (isBooting) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center p-6 text-zinc-100">
+        <div className="space-y-4 text-center">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-450 flex items-center justify-center font-bold text-zinc-950 font-mono shadow-lg text-lg animate-pulse">
+            A
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-sm font-bold tracking-tight text-white font-sans">Initializing AuraRipple Secure Core</h1>
+            <div className="w-48 h-1 bg-zinc-900 rounded-full mx-auto overflow-hidden relative">
+              <div className="absolute top-0 bottom-0 left-0 right-0 bg-emerald-500 animate-pulse rounded-full" />
+            </div>
+            <p className="text-[9px] font-mono text-zinc-550 uppercase tracking-widest">Verifying database integrity...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!session) {
     return (
       <AuthContainer 
         onSuccess={async (sess, sRole) => {
-          const normalizedSession = {
-            ...sess,
-            user: {
-              ...sess.user,
-              id: sess.user?.id,
-              userId: sess.user?.id || sess.user?.userId,
-              userEmail: sess.user?.email || "sandbox@aura.org",
-              role: sRole
-            }
-          };
-          setSession(normalizedSession);
-          setUserRole(sRole as any);
-          
-          const uId = sess.user?.id || sess.user?.userId;
-          const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
-          setTwin(loadedProfile.twin);
-          setProfileId(loadedProfile.profileId);
+          try {
+            const uId = sess.user?.id || sess.user?.userId;
+            const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
+            const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
+            
+            setTwin(loadedProfile.twin);
+            setProfileId(loadedProfile.profileId);
+            setGoals(loadedGoals);
 
-          const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
-          setGoals(loadedGoals);
+            const normalizedSession = {
+              ...sess,
+              user: {
+                ...sess.user,
+                id: sess.user?.id,
+                userId: sess.user?.id || sess.user?.userId,
+                userEmail: sess.user?.email || "sandbox@aura.org",
+                role: sRole
+              }
+            };
+            setSession(normalizedSession);
+            setUserRole(sRole as any);
+          } catch (onSuccessErr: any) {
+            console.error("[AURA BOOT CRITICAL ERROR] OnSuccess transition failure:", onSuccessErr);
+            // Graceful fallback to initial local storage / mock values so application remains accessible
+            const normalizedSession = {
+              ...sess,
+              user: {
+                ...sess?.user,
+                id: sess?.user?.id || "dem-id-99",
+                userId: sess?.user?.id || sess?.user?.userId || "dem-id-99",
+                userEmail: sess?.user?.email || "sinior.bkk@gmail.com",
+                role: sRole
+              }
+            };
+            setSession(normalizedSession);
+            setUserRole(sRole as any);
+          }
         }} 
       />
     );

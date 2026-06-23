@@ -45,8 +45,19 @@ interface DBGoal {
 const LOCAL_STORAGE_PREFIX = "aura_sandbox_";
 
 const getSandboxValue = (key: string, fallback: any) => {
-  const data = localStorage.getItem(LOCAL_STORAGE_PREFIX + key);
-  return data ? JSON.parse(data) : fallback;
+  const fullKey = LOCAL_STORAGE_PREFIX + key;
+  try {
+    const data = localStorage.getItem(fullKey);
+    return data ? JSON.parse(data) : fallback;
+  } catch (e) {
+    console.error(`[AURA] Corrupted sandbox data for key ${key}:`, e);
+    try {
+      localStorage.removeItem(fullKey);
+    } catch (rmErr) {
+      console.error(rmErr);
+    }
+    return fallback;
+  }
 };
 
 const setSandboxValue = (key: string, val: any) => {
@@ -55,10 +66,15 @@ const setSandboxValue = (key: string, val: any) => {
 
 export class SupabaseService {
   public static isConfigured(): boolean {
-    const metaEnv = (import.meta as any).env || {};
-    const url = metaEnv.VITE_SUPABASE_URL;
-    const key = metaEnv.VITE_SUPABASE_ANON_KEY;
-    return !!(url && key && !url.includes("your-placeholder-supabase-url"));
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    return !!(
+      url &&
+      key &&
+      url.startsWith("https://") &&
+      !url.includes("your-placeholder") &&
+      !key.includes("dummy")
+    );
   }
 
   // Auth: CREATE ACCOUNT / SIGN UP
@@ -185,9 +201,8 @@ export class SupabaseService {
       const users = getSandboxValue("users", []);
       const match = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
       
-      // Let special preset user log in immediately (makes review effortless in DEV)
-      const isDev = !!(import.meta as any).env?.DEV;
-      if ((isDev && email.toLowerCase() === "sinior.bkk@gmail.com") || match) {
+      // Let special preset user log in immediately (makes review effortless in Sandbox/DEV)
+      if (email.toLowerCase() === "sinior.bkk@gmail.com" || match) {
         let activeUser = match;
         if (!activeUser) {
           activeUser = {

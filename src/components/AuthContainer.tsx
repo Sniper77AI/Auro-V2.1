@@ -21,8 +21,28 @@ export default function AuthContainer({ onSuccess }: AuthContainerProps) {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   
-  const [status, setStatus] = useState<{ type: "success" | "error" | ""; message: string }>({ type: "", message: "" });
+  const [status, setStatus] = useState<{ type: "success" | "error" | "info" | ""; message: string }>({ type: "", message: "" });
   const [loading, setLoading] = useState(false);
+
+  const handleLaunchDemo = async () => {
+    setStatus({ type: "info", message: "Launching secure simulated sandbox session..." });
+    setLoading(true);
+    try {
+      const demoEmail = "sinior.bkk@gmail.com";
+      const demoPassword = "any-password";
+      const res = await SupabaseService.signIn(demoEmail, demoPassword);
+      if (res.success) {
+        setStatus({ type: "success", message: "Successfully authenticated." });
+        onSuccess(res.session, res.role || "customer");
+      } else {
+        setStatus({ type: "error", message: res.message });
+      }
+    } catch (err: any) {
+      setStatus({ type: "error", message: err.message || "An authentication error occurred." });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,14 +130,36 @@ export default function AuthContainer({ onSuccess }: AuthContainerProps) {
             <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
               status.type === "success" 
                 ? "bg-emerald-950/20 border-emerald-900/40 text-emerald-300" 
-                : "bg-rose-950/20 border-rose-900/40 text-rose-300"
+                : status.type === "info"
+                  ? "bg-teal-950/20 border-teal-900/40 text-teal-350 animate-pulse"
+                  : "bg-rose-950/20 border-rose-900/40 text-rose-300"
             }`}>
               {status.type === "success" ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              ) : status.type === "info" ? (
+                <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
               ) : (
                 <ShieldAlert className="w-4 h-4 text-rose-450 shrink-0 mt-0.5" />
               )}
               <span className="font-medium leading-relaxed">{status.message}</span>
+            </div>
+          )}
+
+          {!isReset && !isSignUp && (
+            <div className="space-y-3 pt-1 pb-1">
+              <button
+                type="button"
+                onClick={handleLaunchDemo}
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-black tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-40 shadow-lg shadow-emerald-950/25 border border-emerald-400/20 active:scale-[0.98]"
+              >
+                <LogIn className="w-4 h-4 shrink-0" /> Launch Demo Dashboard (Direct Access)
+              </button>
+              <div className="flex items-center">
+                <div className="flex-1 border-t border-zinc-850"></div>
+                <span className="px-3 text-[9px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Or authenticate manually</span>
+                <div className="flex-1 border-t border-zinc-850"></div>
+              </div>
             </div>
           )}
 
@@ -275,7 +317,7 @@ export default function AuthContainer({ onSuccess }: AuthContainerProps) {
         </div>
 
         {/* Interactive fast-entry credentials for reviewers */}
-        {!!(import.meta as any).env?.DEV && (
+        {(!SupabaseService.isConfigured() || import.meta.env.DEV) && (
           <div className="bg-zinc-900/40 border border-zinc-850/60 p-4 rounded-xl text-center space-y-2">
             <p className="text-[10px] font-mono uppercase text-zinc-500 tracking-wider font-bold">
               Assessor Fast-Onboarding Account
