@@ -54,7 +54,7 @@ const INITIAL_GOVERNANCE_EVENTS: GovernanceEvent[] = [
 ];
 
 const INITIAL_AUDIT_LOGS: AuditLog[] = [
-  { id: "aud-1", timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userEmail: "sinior.bkk@gmail.com", action: "AUTH_INIT", source: "client_gateway", status: "success", description: "Authorization session initialized on development container." },
+  { id: "aud-1", timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userEmail: "sinior.bkk@gmail.com", action: "AUTH_INIT", source: "client_gateway", status: "success", description: "Authorization session initialized." },
   { id: "aud-2", timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), userEmail: "sinior.bkk@gmail.com", action: "COGNITIVE_KEY", source: "pii_vault", status: "success", description: "Standard secure PII data serialization isolation active." },
   { id: "aud-3", timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userEmail: "sinior.bkk@gmail.com", action: "REGIONAL_MAP", source: "state_tax_db", status: "success", description: "Progressive California tax codes loaded into client compilation cache." }
 ];
@@ -82,20 +82,16 @@ export default function App() {
     return null;
   };
 
-  const initialSession = getInitialSession();
-  const initiallyBooting = SupabaseService.isConfigured() && !initialSession;
-
-  const [session, setSession] = useState<any>(initialSession);
+  const [session, setSession] = useState<any>(null);
   const [unauthPage, setUnauthPage] = useState<"landing" | "about" | "login">("landing");
   const [unauthSignUpDefault, setUnauthSignUpDefault] = useState<boolean>(false);
   const [profileId, setProfileId] = useState<string>("fallback_profile_id");
-  const [userRole, setUserRole] = useState<"customer" | "auditor" | "governance_admin" | "super_admin">(
-    initialSession?.user?.role || "customer"
-  );
+  const [userRole, setUserRole] = useState<"customer" | "auditor" | "governance_admin" | "super_admin">("customer");
   const [activeMenu, setActiveMenu] = useState<"command" | "twin" | "simulator" | "goals" | "settings" | "governance" | "feedback">("command");
   const [activeScenarioType, setActiveScenarioType] = useState<any>(undefined);
-  const [isBooting, setIsBooting] = useState<boolean>(initiallyBooting);
+  const [isBooting, setIsBooting] = useState<boolean>(false);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [sessionVerifyFailed, setSessionVerifyFailed] = useState<boolean>(false);
   
   // Real active state trackers
   const [twin, setTwin] = useState<FinancialTwin>(INITIAL_TWIN);
@@ -111,6 +107,25 @@ export default function App() {
     const checkSessionAndSync = async () => {
       if (!SupabaseService.isConfigured()) {
         setIsBooting(false);
+        const initialSess = getInitialSession();
+        if (initialSess) {
+          setIsBooting(true);
+          try {
+            const uId = initialSess.user.id || initialSess.user.userId;
+            const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
+            const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
+            
+            setTwin(loadedProfile.twin);
+            setProfileId(loadedProfile.profileId);
+            setGoals(loadedGoals);
+            setSession(initialSess);
+            setUserRole(initialSess.user.role as any);
+          } catch (e) {
+            console.error("Failed to restore sandbox session on load", e);
+          } finally {
+            setIsBooting(false);
+          }
+        }
         return;
       }
 
@@ -121,27 +136,33 @@ export default function App() {
 
       try {
         const bootTask = async () => {
-          const active = await SupabaseService.getActiveUser();
-          if (active.userId) {
-            // Load specific profile representation
-            const loadedProfile = await SupabaseService.loadCombinedProfile(active.userId);
-            
-            // Load goals collection
-            const loadedGoals = await SupabaseService.loadLifeGoals(active.userId, loadedProfile.profileId);
-            
-            // Apply coordinates atomically to prevent race condition flickering
-            setTwin(loadedProfile.twin);
-            setProfileId(loadedProfile.profileId);
-            setGoals(loadedGoals);
-            setSession({
-              user: {
-                id: active.userId,
-                userId: active.userId,
-                userEmail: active.userEmail,
-                role: active.role
-              }
-            });
-            setUserRole(active.role);
+          try {
+            const active = await SupabaseService.getActiveUser();
+            if (active.userId) {
+              setIsBooting(true);
+              // Load specific profile representation
+              const loadedProfile = await SupabaseService.loadCombinedProfile(active.userId);
+              
+              // Load goals collection
+              const loadedGoals = await SupabaseService.loadLifeGoals(active.userId, loadedProfile.profileId);
+              
+              // Apply coordinates atomically to prevent race condition flickering
+              setTwin(loadedProfile.twin);
+              setProfileId(loadedProfile.profileId);
+              setGoals(loadedGoals);
+              setSession({
+                user: {
+                  id: active.userId,
+                  userId: active.userId,
+                  userEmail: active.userEmail,
+                  role: active.role
+                }
+              });
+              setUserRole(active.role);
+            }
+          } catch (innerErr) {
+            setSessionVerifyFailed(true);
+            throw innerErr;
           }
         };
 
@@ -283,56 +304,46 @@ export default function App() {
     setAuditLogs([audit, ...auditLogs]);
   };
 
-  if (bootError) {
+  if (bootError && sessionVerifyFailed) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center p-6 text-zinc-100">
-        <div className="max-w-md w-full bg-zinc-900 border border-zinc-805/80 p-8 rounded-2xl shadow-2xl text-center space-y-6">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center font-black text-zinc-950 font-mono shadow-lg text-2xl">
-            A!
+      <div className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center p-6 text-zinc-100 selection:bg-emerald-500/20">
+        <div className="max-w-md w-full bg-zinc-900 border border-zinc-805/80 p-8 rounded-2xl shadow-2xl text-center space-y-6 relative z-10 font-sans">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-rose-500 to-red-500 flex items-center justify-center font-black text-zinc-950 font-mono shadow-lg text-2xl">
+            !
           </div>
           <div className="space-y-2">
-            <h1 className="text-lg font-black tracking-tight text-white font-sans">AuraRipple Preview Recovery Mode</h1>
-            <p className="text-xs text-zinc-400">
-              A secure boot exception or database communication error occurred during startup verification.
+            <h1 className="text-lg font-black tracking-tight text-white font-sans">Unable to connect</h1>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              We could not verify your session. Please return to the sign-in page and try again.
             </p>
-            <div className="bg-zinc-950 p-3.5 rounded-xl border border-zinc-800 text-left">
-              <p className="text-[10px] font-mono text-rose-400 uppercase tracking-widest font-bold">Boot Logs Exception:</p>
-              <p className="text-[10px] font-mono text-zinc-400 break-all leading-relaxed mt-1">{bootError}</p>
-            </div>
           </div>
           
-          <button
-            onClick={async () => {
-              setBootError(null);
-              setIsBooting(false);
-              try {
-                const res = await SupabaseService.signIn("sinior.bkk@gmail.com", "any-password");
-                if (res.success) {
-                  const loadedProfile = await SupabaseService.loadCombinedProfile("dem-id-99");
-                  const loadedGoals = await SupabaseService.loadLifeGoals("dem-id-99", loadedProfile.profileId);
-                  setTwin(loadedProfile.twin);
-                  setProfileId(loadedProfile.profileId);
-                  setGoals(loadedGoals);
-                  setSession(res.session);
-                  setUserRole((res.role || "customer") as any);
-                }
-              } catch (e) {
-                console.error("Recovery login failed", e);
-                setSession({
-                  user: {
-                    id: "dem-id-99",
-                    userId: "dem-id-99",
-                    userEmail: "sinior.bkk@gmail.com",
-                    role: "customer"
-                  }
-                });
-                setUserRole("customer");
-              }
-            }}
-            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-zinc-950 font-black tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg border border-emerald-400/20 active:scale-[0.98]"
-          >
-            Launch Demo Dashboard
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                setBootError(null);
+                setSessionVerifyFailed(false);
+                setIsBooting(false);
+                setSession(null);
+                setUnauthPage("landing");
+              }}
+              className="bg-zinc-800 hover:bg-zinc-750 text-zinc-200 font-bold tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
+            >
+              Return to Home
+            </button>
+            <button
+              onClick={() => {
+                setBootError(null);
+                setSessionVerifyFailed(false);
+                setIsBooting(false);
+                setSession(null);
+                setUnauthPage("login");
+              }}
+              className="bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-black tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
+            >
+              Sign In
+            </button>
+          </div>
         </div>
       </div>
     );
