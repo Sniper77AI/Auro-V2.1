@@ -101,6 +101,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [syncingState, setSyncingState] = useState<"synced" | "syncing" | "error">("synced");
+  const [sandboxNotice, setSandboxNotice] = useState<string | null>(null);
 
   // Initial Auth checking and Profile database sync
   useEffect(() => {
@@ -161,8 +162,23 @@ export default function App() {
               setUserRole(active.role);
             }
           } catch (innerErr) {
-            setSessionVerifyFailed(true);
-            throw innerErr;
+            console.warn("[AURA BOOT ERROR] Supabase fetch error, continuing in local sandbox:", innerErr);
+            // Non-blocking fallback to local session / sandbox profile
+            const initialSess = getInitialSession();
+            if (initialSess) {
+              const uId = initialSess.user.id || initialSess.user.userId;
+              const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
+              const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
+              
+              setTwin(loadedProfile.twin);
+              setProfileId(loadedProfile.profileId);
+              setGoals(loadedGoals);
+              setSession(initialSess);
+              setUserRole(initialSess.user.role as any);
+              setSandboxNotice("Aura connection is offline. Using local sandbox session.");
+            } else {
+              setSandboxNotice("Aura database is currently offline. Operating in guest sandbox mode.");
+            }
           }
         };
 
@@ -174,8 +190,26 @@ export default function App() {
 
         await Promise.race([taskPromise, timeoutPromise]);
       } catch (err: any) {
-        console.error("[AURA BOOT CRITICAL ERROR] Initialization failure during secure bootstrap cascade:", err);
-        setBootError(err.message || String(err));
+        console.warn("[AURA BOOT TIMEOUT/CRITICAL ERROR] Boot verification timeout, falling back to offline sandbox:", err);
+        // Recover from timeouts elegantly: load local storage if available, otherwise notify sandbox mode
+        const initialSess = getInitialSession();
+        if (initialSess) {
+          const uId = initialSess.user.id || initialSess.user.userId;
+          try {
+            const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
+            const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
+            setTwin(loadedProfile.twin);
+            setProfileId(loadedProfile.profileId);
+            setGoals(loadedGoals);
+          } catch (loadErr) {
+            console.error("Local sandbox load failed", loadErr);
+          }
+          setSession(initialSess);
+          setUserRole(initialSess.user.role as any);
+          setSandboxNotice("Aura connection timed out. Operating in offline sandbox mode.");
+        } else {
+          setSandboxNotice("Aura connection timed out. Operating in guest sandbox mode.");
+        }
       } finally {
         setIsBooting(false);
       }
@@ -193,6 +227,14 @@ export default function App() {
   // Combined saving orchestrations
   const handleSaveTwin = async (updatedTwin: FinancialTwin, skipDbSave = false) => {
     setTwin(updatedTwin);
+    const hasSupabase = SupabaseService.isConfigured();
+    // Always save to sandbox storage immediately if we are offline/sandbox mode (ignores skipDbSave)
+    if (!hasSupabase) {
+      const uId = session?.user?.userId || session?.user?.id || "fallback_sandbox_uid";
+      await SupabaseService.saveCombinedProfile(uId, profileId, updatedTwin);
+      setSyncingState("synced");
+      return;
+    }
     if (skipDbSave) return;
     setSyncingState("syncing");
     
@@ -207,6 +249,14 @@ export default function App() {
 
   const handleSaveGoals = async (updatedGoals: any[], skipDbSave = false) => {
     setGoals(updatedGoals);
+    const hasSupabase = SupabaseService.isConfigured();
+    // Always save to sandbox storage immediately if we are offline/sandbox mode (ignores skipDbSave)
+    if (!hasSupabase) {
+      const uId = session?.user?.userId || session?.user?.id || "fallback_sandbox_uid";
+      await SupabaseService.saveLifeGoals(uId, profileId, updatedGoals);
+      setSyncingState("synced");
+      return;
+    }
     if (skipDbSave) return;
     setSyncingState("syncing");
     
@@ -671,6 +721,21 @@ export default function App() {
 
         {/* WORKSPACE AREA CONTAINER */}
         <div className="flex-1 overflow-y-auto p-8 bg-slate-50 font-sans">
+          
+          {sandboxNotice && (
+            <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-2.5 text-xs">
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <span className="font-semibold">{sandboxNotice}</span>
+              </div>
+              <button 
+                onClick={() => setSandboxNotice(null)} 
+                className="text-xs text-amber-500 hover:text-amber-700 font-bold px-2 py-1 rounded hover:bg-amber-100 transition-all cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           
           {/* Main dynamic dispatcher */}
           {activeMenu === "command" && (

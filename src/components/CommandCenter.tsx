@@ -21,19 +21,19 @@ interface CommandCenterProps {
 
 export default function CommandCenter({ twin, savedSimulations, onOpenSimulator, onOpenTwin }: CommandCenterProps) {
   // Aggregate stats
-  const totalAnnualIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
-  const totalAssetsValue = twin.assets.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalLiabilitiesValue = twin.liabilities.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalAnnualIncome = (twin.incomes || []).reduce((acc, curr) => acc + (curr.frequency === "annual" ? (Number(curr.amount) || 0) : (Number(curr.amount) || 0) * 12), 0);
+  const totalAssetsValue = (twin.assets || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const totalLiabilitiesValue = (twin.liabilities || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const netWorth = totalAssetsValue - totalLiabilitiesValue;
 
-  const cashAssets = twin.assets.filter(a => a.type === "cash").reduce((acc, c) => acc + c.amount, 0);
-  const highInterestLiabilities = twin.liabilities.filter(l => l.interestRate > 0.05).reduce((acc, c) => acc + c.amount, 0);
-  const totalMonthlyDebtPayments = twin.liabilities.reduce((acc, curr) => acc + curr.monthlyPayment, 0);
+  const cashAssets = (twin.assets || []).filter(a => a.type === "cash").reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+  const highInterestLiabilities = (twin.liabilities || []).filter(l => (Number(l.interestRate) || 0) > 0.05).reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+  const totalMonthlyDebtPayments = (twin.liabilities || []).reduce((acc, curr) => acc + (Number(curr.monthlyPayment) || 0), 0);
   const monthlyGrossIncome = totalAnnualIncome / 12;
   const debtToIncomeRatio = monthlyGrossIncome > 0 ? (totalMonthlyDebtPayments / monthlyGrossIncome) * 100 : 0;
   
-  const averageGrowthRate = twin.assets.length > 0 
-    ? twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length 
+  const averageGrowthRate = (twin.assets && twin.assets.length > 0) 
+    ? (twin.assets.reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / twin.assets.length) 
     : 0.06;
 
   // Analytical Health score math formulation
@@ -42,7 +42,8 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   // Weight 2: DTI ratio (max 30 pts): 0% DTI = 30 pts, 50% DTI = 0 pts
   const dtiScore = Math.max(0, Math.min(30, 30 - (debtToIncomeRatio * 0.6)));
   // Weight 3: Liquidity buffer (max 20 pts): 6 months = 20 pts
-  const expensesRatio = twin.monthlyExpenses > 0 ? cashAssets / twin.monthlyExpenses : 12;
+  const monthlyExpensesSafe = Number(twin.monthlyExpenses) || 0;
+  const expensesRatio = monthlyExpensesSafe > 0 ? cashAssets / monthlyExpensesSafe : 12;
   const liquidityScore = Math.min(20, Math.max(0, expensesRatio * 3));
   // Weight 4: Diversified inflow segments (max 20 pts)
   const incomeDiversityScore = Math.min(20, twin.incomes.length * 10);

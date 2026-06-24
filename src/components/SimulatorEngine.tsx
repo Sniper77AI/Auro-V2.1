@@ -381,12 +381,12 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
 
   // Core Math computations
-  const totalAnnualIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
-  const totalAssetsValue = twin.assets.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalLiabilitiesValue = twin.liabilities.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalAnnualIncome = (twin.incomes || []).reduce((acc, curr) => acc + (curr.frequency === "annual" ? (Number(curr.amount) || 0) : (Number(curr.amount) || 0) * 12), 0);
+  const totalAssetsValue = (twin.assets || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const totalLiabilitiesValue = (twin.liabilities || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const currentNetWorth = totalAssetsValue - totalLiabilitiesValue;
-  const averageGrowthRate = twin.assets.length > 0 
-    ? twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length 
+  const averageGrowthRate = (twin.assets && twin.assets.length > 0) 
+    ? (twin.assets.reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / twin.assets.length) 
     : 0.06;
 
   // Re-run simulation when params or basic twin attributes alter
@@ -403,9 +403,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
     let tempSimulated = currentNetWorth;
 
     // Standard annual surplus cash flow before choice:
-    const monthlyExpenses = twin.monthlyExpenses;
+    const monthlyExpenses = Number(twin.monthlyExpenses) || 0;
     const monthlyIncome = totalAnnualIncome / 12;
-    const monthlyDebtPayments = twin.liabilities.reduce((acc, curr) => acc + curr.monthlyPayment, 0);
+    const monthlyDebtPayments = (twin.liabilities || []).reduce((acc, curr) => acc + (Number(curr.monthlyPayment) || 0), 0);
     const baseMonthlySurplus = Math.max(0, monthlyIncome - monthlyExpenses - monthlyDebtPayments);
     const annualSurplus = baseMonthlySurplus * 12;
 
@@ -420,8 +420,8 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
 
     // State tax multiplier
     const stateTaxMap: Record<string, number> = { CA: 0.08, NY: 0.06, FL: 0.0, TX: 0.0, IL: 0.0495, WA: 0.0 };
-    const taxPenaltyMultiplier = 1 - (stateTaxMap[twin.taxState] || 0.04);
-    const liquidCash = twin.assets.filter(a => a.type === "cash" || a.type === "brokerage").reduce((acc, c) => acc + c.amount, 0);
+    const taxPenaltyMultiplier = 1 - (stateTaxMap[twin.taxState || "CA"] || 0.04);
+    const liquidCash = (twin.assets || []).filter(a => a.type === "cash" || a.type === "brokerage").reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
 
     // Module math logic
     if (selectedType === "home_purchase") {

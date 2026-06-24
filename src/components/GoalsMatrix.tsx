@@ -104,7 +104,7 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
           targetAmount: Number(dbResult.target_amount),
           targetYear: parseInt(dbResult.target_date) || 2035,
           currentSavings: Number(dbResult.current_progress),
-          priority: "important"
+          priority: newGoal.priority
         };
       } else {
         newItem = {
@@ -136,9 +136,10 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
   };
 
   // Conflict detection algorithms:
-  const totalAnnualIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
-  const liquidCash = twin.assets.filter(a => a.type === "cash" || a.type === "brokerage").reduce((acc, c) => acc + c.amount, 0);
-  const monthlyPremiumSurplus = Math.max(0, (totalAnnualIncome / 12) - twin.monthlyExpenses);
+  const totalAnnualIncome = (twin.incomes || []).reduce((acc, curr) => acc + (curr.frequency === "annual" ? (Number(curr.amount) || 0) : (Number(curr.amount) || 0) * 12), 0);
+  const liquidCash = (twin.assets || []).filter(a => a.type === "cash" || a.type === "brokerage").reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+  const monthlyExpensesSafe = Number(twin.monthlyExpenses) || 0;
+  const monthlyPremiumSurplus = Math.max(0, (totalAnnualIncome / 12) - monthlyExpensesSafe);
 
   const conflicts: string[] = [];
 
@@ -146,7 +147,11 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
   // 1. If total raw target goals scheduled across the next 10 years exceeds liquid reserves plus cumulative monthly surplus * 10 years, detect conflict
   const tenYearsTargetTotal = goals
     .filter(g => g.targetYear <= 2036)
-    .reduce((acc, curr) => acc + (curr.targetAmount - curr.currentSavings), 0);
+    .reduce((acc, curr) => {
+      const target = Number(curr.targetAmount) || 0;
+      const savings = Number(curr.currentSavings) || 0;
+      return acc + Math.max(0, target - savings);
+    }, 0);
 
   const expectedTenYearsSavings = liquidCash + (monthlyPremiumSurplus * 12 * 10);
 
@@ -167,7 +172,7 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
 
   // 3. High DTI or debt vs property
   const hasPropertyGoal = goals.some(g => g.category === "property");
-  const totalLiabilities = twin.liabilities.reduce((acc, c) => acc + c.amount, 0);
+  const totalLiabilities = (twin.liabilities || []).reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
   if (hasPropertyGoal && totalLiabilities > 25000) {
     conflicts.push(
       `Leverage Burden warning: Carrying $${totalLiabilities.toLocaleString()} of active liabilities while funding property down payments creates structural liquidity friction. Consider focusing on accelerated debt payoff first to reclaim monthly cash flow.`
@@ -298,7 +303,12 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
         const goalsAtRiskCount = Math.max(0, totalGoalsCount - goalsOnTrackCount);
 
         const overallCompletionPercent = totalGoalsCount > 0 
-          ? Math.round(goals.reduce((acc, curr) => acc + Math.min(100, (curr.currentSavings / curr.targetAmount) * 100), 0) / totalGoalsCount)
+          ? Math.round(goals.reduce((acc, curr) => {
+              const target = Number(curr.targetAmount) || 0;
+              const savings = Number(curr.currentSavings) || 0;
+              const percent = target > 0 ? (savings / target) * 100 : 0;
+              return acc + Math.min(100, percent);
+            }, 0) / totalGoalsCount)
           : 0;
 
         const filledBlocksCount = Math.min(16, Math.round(overallCompletionPercent / 6.25));
