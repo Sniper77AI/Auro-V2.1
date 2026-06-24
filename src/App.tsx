@@ -21,7 +21,7 @@ import { getSupabaseClient } from "./supabaseClient";
 import { 
   LayoutDashboard, Wallet, Sparkles, Scale, 
   MessageSquare, ChevronRight, Coins, 
-  Activity, MapPin, User, ShieldAlert, Target, Settings, Eye, EyeOff, LogOut, Database, ShieldCheck
+  Activity, MapPin, User, ShieldAlert, Target, Settings, Eye, EyeOff, LogOut, Database, ShieldCheck, ChevronUp, HelpCircle
 } from "lucide-react";
 
 // Pre-populated default financial twin representation
@@ -71,6 +71,11 @@ export default function App() {
   const [isBooting, setIsBooting] = useState<boolean>(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const [sessionVerifyFailed, setSessionVerifyFailed] = useState<boolean>(false);
+  
+  // Account dropdown & Modal UI states
+  const [showAccountDropdown, setShowAccountDropdown] = useState<boolean>(false);
+  const [activeModal, setActiveModal] = useState<"profile" | "privacy" | "help" | "about_aura" | null>(null);
+  const [activeSimulationParams, setActiveSimulationParams] = useState<any>(null);
   
   // Real active state trackers
   const [twin, setTwin] = useState<FinancialTwin>(INITIAL_TWIN);
@@ -149,9 +154,39 @@ export default function App() {
       8000
     );
 
-    setTwin(loadedProfile.twin);
+    const loadedTwin = loadedProfile.twin || INITIAL_TWIN;
+    setTwin(loadedTwin);
     setProfileId(loadedProfile.profileId);
-    setGoals(loadedGoals);
+    
+    // Merge extra metadata from localStorage if available
+    const cachedMetadataStr = localStorage.getItem(`approved_goals_metadata_${uId}`);
+    let mergedGoals = loadedGoals;
+    if (cachedMetadataStr) {
+      try {
+        const cachedMetadata = JSON.parse(cachedMetadataStr);
+        mergedGoals = loadedGoals.map((g: any) => {
+          const matchingCached = cachedMetadata.find((c: any) => c.name === g.name);
+          if (matchingCached) {
+            return {
+              ...g,
+              ...matchingCached,
+              id: g.id // Keep the real DB ID
+            };
+          }
+          return g;
+        });
+      } catch (err) {
+        console.warn("Failed to parse cached goals metadata:", err);
+      }
+    }
+    setGoals(mergedGoals);
+
+    const isIncomplete = !loadedTwin || !loadedTwin.incomes || loadedTwin.incomes.length === 0 || loadedTwin.monthlyExpenses <= 0;
+    if (isIncomplete) {
+      setActiveMenu("twin");
+    } else {
+      setActiveMenu("command");
+    }
     
     setSession({
       ...currentSession,
@@ -336,6 +371,86 @@ export default function App() {
       setSyncingState(success ? "synced" : "error");
     } else {
       setSyncingState("synced");
+    }
+  };
+
+  const handleApproveLifeGoal = async (goalData: any) => {
+    // Check if goal category and name already exists to avoid duplication
+    const exists = goals.some(g => g.category === goalData.category && g.name === goalData.name);
+    if (exists) {
+      alert(`A Life Goal for "${goalData.name}" has already been approved and registered.`);
+      setActiveMenu("goals");
+      return;
+    }
+
+    const newGoalId = "goal-" + Math.random().toString(36).substring(2, 9);
+    const newGoal = {
+      id: newGoalId,
+      name: goalData.name,
+      category: goalData.category,
+      targetAmount: Number(goalData.targetAmount) || 0,
+      targetYear: Number(goalData.targetYear) || new Date().getFullYear() + 10,
+      currentSavings: Number(goalData.currentSavings) || 0,
+      priority: goalData.priority || "important",
+      status: goalData.status || "Approved",
+      monthlyContribution: Number(goalData.monthlyContribution) || 0,
+      approvedScenarioType: goalData.approvedScenarioType,
+      approvedScenarioName: goalData.approvedScenarioName,
+      approvedAssumptions: goalData.approvedAssumptions || [],
+      projectedImpact: Number(goalData.projectedImpact) || 0,
+      approvedDate: new Date().toLocaleDateString(),
+      nextAction: goalData.nextAction
+    };
+
+    const updatedGoals = [...goals, newGoal];
+    await handleSaveGoals(updatedGoals);
+
+    // Also cache extra simulation metadata in localStorage mapped by user ID and goal name
+    const uId = session?.user?.userId || session?.user?.id;
+    if (uId) {
+      try {
+        const cachedMetadataStr = localStorage.getItem(`approved_goals_metadata_${uId}`);
+        const cachedMetadata = cachedMetadataStr ? JSON.parse(cachedMetadataStr) : [];
+        cachedMetadata.push({
+          name: goalData.name,
+          status: newGoal.status,
+          monthlyContribution: newGoal.monthlyContribution,
+          approvedScenarioType: newGoal.approvedScenarioType,
+          approvedScenarioName: newGoal.approvedScenarioName,
+          approvedAssumptions: newGoal.approvedAssumptions,
+          projectedImpact: newGoal.projectedImpact,
+          approvedDate: newGoal.approvedDate,
+          nextAction: newGoal.nextAction
+        });
+        localStorage.setItem(`approved_goals_metadata_${uId}`, JSON.stringify(cachedMetadata));
+      } catch (err) {
+        console.warn("Failed to cache metadata locally:", err);
+      }
+    }
+
+    // Direct redirection to the Life Goals view
+    setActiveMenu("goals");
+  };
+
+  const handleReviewGoal = (goal: any) => {
+    if (goal.approvedScenarioType) {
+      setActiveScenarioType(goal.approvedScenarioType);
+      
+      // Determine target variables
+      const initialParams = {
+        scenarioType: goal.approvedScenarioType,
+        targetAmount: goal.targetAmount,
+        targetYear: goal.targetYear,
+        monthlyContribution: goal.monthlyContribution,
+        approvedScenarioName: goal.approvedScenarioName,
+        approvedAssumptions: goal.approvedAssumptions,
+        projectedImpact: goal.projectedImpact,
+        interestRate: 0.08,
+        downPayment: goal.targetAmount * 0.2
+      };
+      
+      setActiveSimulationParams(initialParams);
+      setActiveMenu("command");
     }
   };
 
@@ -643,18 +758,6 @@ export default function App() {
               </span>
 
                <button
-                onClick={() => setActiveMenu("command")}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                  activeMenu === "command"
-                    ? "bg-teal-50/70 border border-teal-100 text-teal-800 font-bold shadow-sm"
-                    : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
-                }`}
-              >
-                <LayoutDashboard className="w-4 h-4 text-teal-600 shrink-0" />
-                <span>Financial Twin Command Center</span>
-              </button>
-
-              <button
                 onClick={() => setActiveMenu("twin")}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                   activeMenu === "twin"
@@ -663,24 +766,22 @@ export default function App() {
                 }`}
               >
                 <Wallet className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Financial Profile Builder</span>
+                <span>Financial Profile</span>
               </button>
 
               <button
-                onClick={() => setActiveMenu("simulator")}
+                onClick={() => {
+                  setActiveMenu("command");
+                  setActiveScenarioType(undefined);
+                }}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                  activeMenu === "simulator"
+                  activeMenu === "command"
                     ? "bg-teal-50/70 border border-teal-100 text-teal-800 font-bold shadow-sm"
                     : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                 }`}
               >
-                <Sparkles className="w-4 h-4 text-teal-500 shrink-0" />
-                <span>Life Simulator</span>
-                {savedSimulations.length > 0 && (
-                  <span className="text-[9px] text-teal-700 font-bold ml-auto bg-teal-100 px-1.5 py-0.5 rounded font-mono">
-                    {savedSimulations.length}
-                  </span>
-                )}
+                <LayoutDashboard className="w-4 h-4 text-teal-600 shrink-0" />
+                <span>Financial Intelligence</span>
               </button>
 
               <button
@@ -692,7 +793,7 @@ export default function App() {
                 }`}
               >
                 <Target className="w-4 h-4 text-teal-600 shrink-0" />
-                <span>Life Outcomes & Goals</span>
+                <span>Life Goals</span>
               </button>
 
               <button
@@ -744,28 +845,99 @@ export default function App() {
 
         </div>
 
-        {/* User Identity bottom tag */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50 text-xs shrink-0 font-sans flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-1.5 rounded-full bg-slate-200 text-slate-500 shrink-0">
-              <User className="w-3.5 h-3.5" />
+        {/* User Identity bottom tag with compact Account Control */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50 text-xs shrink-0 font-sans relative">
+          {showAccountDropdown && (
+            <div 
+              className="absolute bottom-16 left-4 right-4 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans"
+              role="menu"
+              aria-label="Account Menu"
+            >
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setActiveModal("profile");
+                  setShowAccountDropdown(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs text-slate-700 font-bold flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <User className="w-3.5 h-3.5 text-slate-400 animate-pulse" /> Account Profile
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setActiveMenu("settings");
+                  setShowAccountDropdown(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs text-slate-700 font-bold flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5 text-slate-400" /> Settings
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setActiveModal("privacy");
+                  setShowAccountDropdown(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs text-slate-700 font-bold flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-slate-400" /> Security & Privacy
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setActiveModal("help");
+                  setShowAccountDropdown(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs text-slate-700 font-bold flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-slate-400" /> Help & Support
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setActiveModal("about_aura");
+                  setShowAccountDropdown(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs text-slate-700 font-bold flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-slate-400" /> About Aura Ripple
+              </button>
+              <div className="border-t border-slate-100 my-1"></div>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setShowAccountDropdown(false);
+                  handleSignOut();
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-rose-50 text-xs text-rose-700 font-bold flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" /> Sign Out
+              </button>
             </div>
-            <div className="min-w-0">
-              <span className="font-semibold block text-slate-800 truncate font-sans text-xs">
-                {session?.user?.userEmail || "guest@domain.com"}
-              </span>
-              <span className="text-[9px] font-mono text-teal-600 uppercase font-bold leading-none block mt-1">
-                ROLE: {userRole.replace("_", " ")}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={handleSignOut}
-            title="Terminate secure session key"
-            className="p-2 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-rose-600 transition-all cursor-pointer shrink-0"
+          )}
+
+          <div 
+            onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+            className="flex items-center justify-between p-1 rounded-xl hover:bg-slate-100 transition-all cursor-pointer select-none"
+            aria-haspopup="true"
+            aria-expanded={showAccountDropdown}
           >
-            <LogOut className="w-4 h-4" />
-          </button>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-1.5 rounded-full bg-slate-200 text-slate-500 shrink-0">
+                <User className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <span className="font-semibold block text-slate-800 truncate font-sans text-xs">
+                  {session?.user?.userEmail || "guest@domain.com"}
+                </span>
+                <span className="text-[9px] font-mono text-teal-600 uppercase font-bold leading-none block mt-1">
+                  ROLE: {userRole.replace("_", " ")}
+                </span>
+              </div>
+            </div>
+            <ChevronUp className="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" style={{ transform: showAccountDropdown ? "rotate(180deg)" : "none" }} />
+          </div>
         </div>
       </aside>
 
@@ -838,8 +1010,8 @@ export default function App() {
             </div>
           )}
           
-          {/* Main dynamic dispatcher */}
-          {activeMenu === "command" && (
+           {/* Main dynamic dispatcher */}
+          {activeMenu === "command" && activeScenarioType === undefined && (
             <CommandCenter 
               twin={twin} 
               savedSimulations={savedSimulations} 
@@ -849,9 +1021,25 @@ export default function App() {
                 } else {
                   setActiveScenarioType(undefined);
                 }
-                setActiveMenu("simulator");
+                // Remain in "command" view to highlight Financial Intelligence!
               }}
               onOpenTwin={() => setActiveMenu("twin")}
+            />
+          )}
+
+          {activeMenu === "command" && activeScenarioType !== undefined && (
+            <SimulatorEngine 
+              twin={twin} 
+              initialType={activeScenarioType}
+              initialParams={activeSimulationParams}
+              onSaveSimulation={handleSaveSimulation}
+              onLogGovernanceEvent={handleLogGovernanceEvent}
+              onLogFeedback={handleAddFeedback}
+              onApproveLifeGoal={handleApproveLifeGoal}
+              onBack={() => {
+                setActiveScenarioType(undefined);
+                setActiveSimulationParams(null);
+              }}
             />
           )}
 
@@ -878,16 +1066,6 @@ export default function App() {
             />
           )}
 
-          {activeMenu === "simulator" && (
-            <SimulatorEngine 
-              twin={twin} 
-              initialType={activeScenarioType}
-              onSaveSimulation={handleSaveSimulation}
-              onLogGovernanceEvent={handleLogGovernanceEvent}
-              onLogFeedback={handleAddFeedback}
-            />
-          )}
-
           {activeMenu === "goals" && (
             <GoalsMatrix 
               twin={twin} 
@@ -896,6 +1074,7 @@ export default function App() {
               syncingState={syncingState}
               setSyncingState={setSyncingState}
               onSaveGoals={(updated, skipDbSave) => handleSaveGoals(updated, skipDbSave)} 
+              onReviewGoal={handleReviewGoal}
             />
           )}
 
@@ -935,6 +1114,109 @@ export default function App() {
 
         </div>
       </main>
+
+      {/* Account Modals overlays */}
+      {activeModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative animate-in fade-in zoom-in duration-150 animate-duration-150">
+            <button
+              onClick={() => setActiveModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer"
+            >
+              &times;
+            </button>
+            
+            {activeModal === "profile" && (
+              <div className="space-y-3">
+                <h3 className="text-base font-bold text-slate-900">Account Profile</h3>
+                <div className="space-y-2 text-xs">
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-150">
+                    <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Registered Email Address</span>
+                    <p className="text-slate-800 font-mono mt-0.5">{session?.user?.userEmail || "guest@domain.com"}</p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-150">
+                    <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Assigned Profile ID</span>
+                    <p className="text-slate-800 font-mono mt-0.5">{profileId}</p>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-150">
+                    <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Assigned Role</span>
+                    <p className="text-slate-800 font-mono mt-0.5 capitalize">{userRole.replace("_", " ")}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeModal === "privacy" && (
+              <div className="space-y-3">
+                <h3 className="text-base font-bold text-slate-900">Security & Privacy</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Aura Ripple secures your data using advanced AES-256 state encryption and strict Row-Level Security (RLS) guards inside Supabase.
+                </p>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-150 space-y-2 text-[11px] text-slate-700">
+                  <div className="flex justify-between">
+                    <span>Database Integrity</span>
+                    <span className="text-emerald-600 font-bold font-mono">Verified SecurID</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Anonymization Layer</span>
+                    <span className="text-emerald-600 font-bold font-mono">Active Shield</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Audit Trail Compliance</span>
+                    <span className="text-emerald-600 font-bold font-mono">SOC2 Audited</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeModal === "help" && (
+              <div className="space-y-3">
+                <h3 className="text-base font-bold text-slate-900">Help & Support</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Have questions about your Financial Twin calculations or active Life Goals monitoring?
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-150">
+                    <h4 className="font-bold text-slate-800 text-[11px]">How do simulations affect my profile?</h4>
+                    <p className="text-slate-500 mt-0.5 leading-relaxed text-[10.5px]">
+                      Simulations test hypothetical outcomes and do not modify your underlying profile data until approved as a Life Goal.
+                    </p>
+                  </div>
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-150">
+                    <h4 className="font-bold text-slate-800 text-[11px]">Contact Core Support</h4>
+                    <p className="text-slate-500 mt-0.5 leading-relaxed text-[10.5px]">
+                      Open a request or read complete user guides directly inside settings.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeModal === "about_aura" && (
+              <div className="space-y-3 text-center">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center font-bold text-white shadow-md text-sm mx-auto">
+                  AR
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mt-2">About Aura Ripple</h3>
+                <span className="text-[10px] font-mono text-teal-600 font-bold uppercase tracking-wider block">Version 2.4.0 Secure Stable</span>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Aura Ripple is an advanced cognitive financial decision helper designed to model and simulate structural lifecycle outcomes, ensuring long-term family nest egg security.
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  Licensed under Apache-2.0. Copyright &copy; 2026 AuraRipple Core Devs. All rights reserved.
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={() => setActiveModal(null)}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl transition-all cursor-pointer shadow-sm"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { FinancialTwin } from "../types";
-import { Award, AlertTriangle, CheckCircle, Scale, Plus, Trash2, Calendar, Target, HelpCircle } from "lucide-react";
+import { Award, AlertTriangle, CheckCircle, Scale, Plus, Trash2, Calendar, Target, HelpCircle, Sparkles } from "lucide-react";
 import { SupabaseService } from "../supabaseService";
 
 interface GoalItem {
@@ -16,6 +16,14 @@ interface GoalItem {
   targetYear: number;
   currentSavings: number;
   priority: "essential" | "important" | "flexible";
+  status?: string;
+  monthlyContribution?: number;
+  approvedScenarioType?: string;
+  approvedScenarioName?: string;
+  approvedAssumptions?: string[];
+  projectedImpact?: number;
+  approvedDate?: string;
+  nextAction?: string;
 }
 
 const GOAL_EMOJIS: Record<string, string> = {
@@ -41,9 +49,10 @@ interface GoalsMatrixProps {
   syncingState?: "synced" | "syncing" | "error";
   setSyncingState?: (state: "synced" | "syncing" | "error") => void;
   onSaveGoals: (updated: GoalItem[], skipDbSave?: boolean) => void;
+  onReviewGoal?: (goal: GoalItem) => void;
 }
 
-export default function GoalsMatrix({ twin, goals, profileId, syncingState, setSyncingState, onSaveGoals }: GoalsMatrixProps) {
+export default function GoalsMatrix({ twin, goals, profileId, syncingState, setSyncingState, onSaveGoals, onReviewGoal }: GoalsMatrixProps) {
   const [newGoal, setNewGoal] = useState<Omit<GoalItem, "id">>({
     name: "",
     category: "property",
@@ -183,8 +192,8 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
     <div id="goals-matrix-page" className="space-y-6 font-sans">
       {/* Page Header */}
       <div className="bg-gradient-to-r from-teal-50/70 via-emerald-50/40 to-slate-50 border border-slate-100 p-6 rounded-2xl">
-        <span className="text-teal-600 font-mono text-xs tracking-wider uppercase font-bold">Life Outcomes & Progress</span>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight mt-1">My Life Outcomes</h2>
+        <span className="text-teal-600 font-mono text-xs tracking-wider uppercase font-bold">Life Goals & Progress</span>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight mt-1">Life Goals</h2>
         <p className="text-xs text-slate-500 mt-1">
           Coordinate your personal life milestones. Aura maps out your trajectory to help secure your future.
         </p>
@@ -406,29 +415,32 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
 
           // Dynamic emotional decision impact statements
           let decisionImpact = "";
-          let statusLabel = "On Track";
+          let statusLabel = g.status || "On Track";
           let statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
 
           if (g.category === "retirement") {
             decisionImpact = "Taking on a major extra luxury outlay now would delay your early retirement milestones by 14 months.";
-            statusLabel = "Needs Growth";
-            statusColor = "text-amber-700 bg-amber-50 border-amber-200";
+            if (!g.status) statusLabel = "Needs Growth";
           } else if (g.category === "property") {
             decisionImpact = "Simulating a high-price auto purchase on leverage may delay your property down payment by 8 months.";
-            statusLabel = "Active Scenario";
-            statusColor = "text-teal-700 bg-teal-50 border-teal-200";
+            if (!g.status) statusLabel = "Active Scenario";
           } else if (g.category === "education") {
             decisionImpact = "Increasing savings by $100/month covers premium university tuition projections years ahead.";
-            statusLabel = "On Track";
-            statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
+            if (!g.status) statusLabel = "On Track";
           } else if (g.category === "debt_free") {
             decisionImpact = "Paying down revolving credit card debt first shifts your complete debt-free target 10 months closer.";
-            statusLabel = "Prioritized";
-            statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
+            if (!g.status) statusLabel = "Prioritized";
           } else {
             decisionImpact = "Maintaining an emergency buffer keeps your dependents safe and independent of market drops.";
-            statusLabel = "Fully Protected";
-            statusColor = "text-teal-705 bg-teal-50 border-teal-200";
+            if (!g.status) statusLabel = "Fully Protected";
+          }
+
+          if (statusLabel === "Needs Attention" || statusLabel === "Needs Growth") {
+            statusColor = "text-amber-700 bg-amber-50 border-amber-200";
+          } else if (statusLabel === "Off Track") {
+            statusColor = "text-rose-700 bg-rose-50 border-rose-200";
+          } else if (statusLabel === "Active Scenario" || statusLabel === "Approved" || statusLabel === "On Track") {
+            statusColor = "text-teal-750 bg-teal-50 border-teal-200";
           }
 
           return (
@@ -528,6 +540,56 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
                     &ldquo;{decisionImpact}&rdquo;
                   </p>
                 </div>
+
+                {g.approvedScenarioType && (
+                  <div className="bg-teal-50/40 border border-teal-100 rounded-xl p-3.5 space-y-2 text-xs font-sans">
+                    <div className="flex justify-between items-center text-[10px] uppercase font-mono tracking-wider font-bold text-teal-700">
+                      <span>Approved Scenario Detail</span>
+                      <span>{g.approvedScenarioName || "Balanced Scenario"}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] text-slate-600">
+                      <div>
+                        <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Monthly Commitment</span>
+                        <span className="font-bold text-slate-800 font-mono">${(g.monthlyContribution || 0).toLocaleString()}/mo</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Lifetime Impact</span>
+                        <span className="font-bold text-teal-705 font-mono">+${(g.projectedImpact || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {g.approvedAssumptions && g.approvedAssumptions.length > 0 && (
+                      <div>
+                        <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Core Assumption</span>
+                        <p className="text-[10.5px] text-slate-600 truncate animate-pulse" title={g.approvedAssumptions.join(", ")}>
+                          {g.approvedAssumptions[0]}
+                        </p>
+                      </div>
+                    )}
+                    {g.nextAction && (
+                      <div className="bg-white border border-teal-50 rounded-lg p-2 text-[10.5px]">
+                        <span className="text-teal-600 font-bold uppercase font-mono text-[8px] tracking-wider block">RECOMMENDED NEXT ACTION</span>
+                        <p className="text-slate-700 font-bold leading-normal mt-0.5">
+                          {g.nextAction}
+                        </p>
+                      </div>
+                    )}
+                    {g.approvedDate && (
+                      <span className="text-[9px] font-mono text-slate-400 block pt-1 font-bold">
+                        Approved on: {g.approvedDate}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {g.approvedScenarioType && (
+                  <button
+                    type="button"
+                    onClick={() => onReviewGoal && onReviewGoal(g)}
+                    className="w-full mt-2 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer font-sans shadow-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-teal-600" /> Review or Re-Simulate
+                  </button>
+                )}
               </div>
 
               <div className="flex justify-between items-center text-[10px] font-sans border-t border-slate-100 pt-4 mt-5">

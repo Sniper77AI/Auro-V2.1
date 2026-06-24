@@ -557,7 +557,7 @@ export class SupabaseService {
   }
 
   // Load Combined Profile, Twin metrics, assets, liabilities
-  static async loadCombinedProfile(userId: string): Promise<{ twin: FinancialTwin; profileId: string }> {
+  static async loadCombinedProfile(userId: string): Promise<{ twin: FinancialTwin; profileId: string; displayName?: string }> {
     if (!this.isConfigured()) {
       const profile = getSandboxValue(`profile_${userId}`, {
         display_name: "Sinior Developer",
@@ -595,7 +595,7 @@ export class SupabaseService {
         liabilities
       };
 
-      return { twin, profileId: profile.id };
+      return { twin, profileId: profile.id, displayName: profile.display_name };
     }
 
     try {
@@ -705,7 +705,7 @@ export class SupabaseService {
         liabilities: mappedLiabilities
       };
 
-      return { twin, profileId };
+      return { twin, profileId, displayName: profileRow.display_name };
     } catch (e: any) {
       console.error("Critical Profile Database extraction failed:", e);
       // Under configured DB environments, we must throw or warn rather than silent mock overrides

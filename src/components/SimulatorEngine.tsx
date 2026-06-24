@@ -8,15 +8,19 @@ import { FinancialTwin, SimulationType, SimulationParams, SimulationResult, Feed
 import { 
   Home, Car, Briefcase, Calendar, ShieldAlert, Zap, 
   Settings, CheckCircle, Info, RefreshCw, Star, 
-  ArrowRight, ThumbsUp, ThumbsDown, HelpCircle, GraduationCap, Users
+  ArrowRight, ThumbsUp, ThumbsDown, HelpCircle, GraduationCap, Users,
+  ChevronRight, ChevronUp, ChevronDown, ArrowLeft
 } from "lucide-react";
 
 interface SimulatorEngineProps {
   twin: FinancialTwin;
   initialType?: SimulationType;
+  initialParams?: any;
   onSaveSimulation: (result: SimulationResult) => void;
   onLogGovernanceEvent: (event: Omit<GovernanceEvent, "id" | "timestamp">) => void;
   onLogFeedback: (feedback: FeedbackItem) => void;
+  onApproveLifeGoal?: (goalData: any) => void;
+  onBack?: () => void;
 }
 
 const MODULES: Array<{ type: SimulationType; title: string; subtitle: string; icon: any }> = [
@@ -328,8 +332,9 @@ function getLifeOutcomeStatement(type: SimulationType, result: SimulationResult,
   return { outcome, nextStep };
 }
 
-export default function SimulatorEngine({ twin, initialType, onSaveSimulation, onLogGovernanceEvent, onLogFeedback }: SimulatorEngineProps) {
+export default function SimulatorEngine({ twin, initialType, initialParams, onSaveSimulation, onLogGovernanceEvent, onLogFeedback, onApproveLifeGoal, onBack }: SimulatorEngineProps) {
   const [selectedType, setSelectedType] = useState<SimulationType>("home_purchase");
+  const [showApprovalPanel, setShowApprovalPanel] = useState(false);
 
   // Sync with initialType prop
   useEffect(() => {
@@ -337,6 +342,16 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       setSelectedType(initialType);
     }
   }, [initialType]);
+
+  // Sync with initialParams prop
+  useEffect(() => {
+    if (initialParams) {
+      setParams(p => ({
+        ...p,
+        ...initialParams
+      }));
+    }
+  }, [initialParams]);
   
   // Params state
   const [params, setParams] = useState<SimulationParams>({
@@ -878,6 +893,92 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
     setSimulationResult(calculatedResult);
   };
 
+  const getScenarioTitle = (type: string) => {
+    switch (type) {
+      case "home_purchase": return "Home Purchase Plan";
+      case "vehicle_purchase": return "Vehicle Purchase";
+      case "career_change": return "Career & Income Change";
+      case "retirement_planning": return "Retirement Plan";
+      case "debt_optimization": return "Accelerated Debt Freedom";
+      case "college_funding": return "College Fund Plan";
+      case "estate_legacy": return "Family Security & Legacy";
+      default: return "Test a Decision";
+    }
+  };
+
+  const getApprovalDetails = () => {
+    const title = getScenarioTitle(selectedType);
+    let targetAmt = 50000;
+    let targetYr = new Date().getFullYear() + 5;
+    let monthlyCommitment = 0;
+    let category: "retirement" | "property" | "education" | "debt_free" | "other" = "other";
+    let primaryRisk = "Subject to market volatility and inflation rate swings.";
+    let nextAction = "Establish a recurring automated savings deposit matching this plan.";
+
+    if (selectedType === "home_purchase") {
+      targetAmt = params.homePrice || 500000;
+      targetYr = new Date().getFullYear() + 3;
+      monthlyCommitment = Math.round(((params.homePrice || 500000) - (params.downPayment || 100000)) * (params.interestRate || 0.065) / 12 + 250);
+      category = "property";
+      primaryRisk = "Interest rate lock risks and property value depreciation over the short-horizon.";
+      nextAction = "Schedule consultation with local mortgage providers to pre-qualify.";
+    } else if (selectedType === "vehicle_purchase") {
+      targetAmt = params.vehiclePrice || 45000;
+      targetYr = new Date().getFullYear() + 1;
+      monthlyCommitment = Math.round(((params.vehiclePrice || 45000) - (params.autoDownPayment || 10000)) * 0.06 / 12);
+      category = "property";
+      primaryRisk = "Rapid asset depreciation cycles of newer vehicles.";
+      nextAction = "Compare manufacturer special low-APR financing rates vs standard banks.";
+    } else if (selectedType === "career_change") {
+      targetAmt = params.relocationCost || 8000;
+      targetYr = new Date().getFullYear() + 1;
+      monthlyCommitment = params.relocationCost ? Math.round(params.relocationCost / 12) : 200;
+      category = "other";
+      primaryRisk = "Probabilistic startup equity failure risk, and temporary salary gaps.";
+      nextAction = "Build a detailed cash-flow transition plan for the initial 6 months.";
+    } else if (selectedType === "retirement_planning") {
+      targetAmt = params.desiredAnnualSpending ? params.desiredAnnualSpending * 25 : 1500000;
+      targetYr = params.targetRetirementAge ? (new Date().getFullYear() + Math.max(1, params.targetRetirementAge - twin.age)) : 2050;
+      monthlyCommitment = Math.round(twin.monthlyExpenses * 0.15);
+      category = "retirement";
+      primaryRisk = "Longevity risk exceeding standard nest-egg drawdown projections.";
+      nextAction = "Maximize tax-advantaged contributions to employer matching 401(k) plans.";
+    } else if (selectedType === "debt_optimization") {
+      targetAmt = totalLiabilitiesValue;
+      targetYr = new Date().getFullYear() + 4;
+      monthlyCommitment = Math.round(twin.monthlyExpenses * 0.10);
+      category = "debt_free";
+      primaryRisk = "Compounding high-interest balance spikes from secondary lines of credit.";
+      nextAction = "Enable automated auto-pay targeting the highest interest loan first.";
+    } else if (selectedType === "college_funding") {
+      targetAmt = (params.annualCollegeCost || 35000) * 4;
+      targetYr = new Date().getFullYear() + 12;
+      monthlyCommitment = Math.round(targetAmt / 12 / 12);
+      category = "education";
+      primaryRisk = "Inflation of tuition indices exceeding standard historical levels.";
+      nextAction = "Inquire on local state-sponsored tax-deductible 529 savings plans.";
+    } else if (selectedType === "estate_legacy") {
+      targetAmt = params.wealthTransferGoal || 1000000;
+      targetYr = new Date().getFullYear() + 25;
+      monthlyCommitment = 500;
+      category = "other";
+      primaryRisk = "Friction from federal probate tax loops and local estate tax rates.";
+      nextAction = "Retain estate planning counsel to draft standard trust declarations.";
+    }
+
+    return {
+      title,
+      targetAmt,
+      targetYr,
+      monthlyCommitment,
+      category,
+      primaryRisk,
+      nextAction,
+      impact: simulationResult?.lifetimeWealthImpact || 0,
+      assumptions: simulationResult?.keyAssumptions || ["Standard historical return parameters."]
+    };
+  };
+
   const saveSimulationPlan = () => {
     if (!simulationResult) return;
     onSaveSimulation(simulationResult);
@@ -924,8 +1025,45 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
     });
   };
 
+  const currentStep: number = showApprovalPanel ? 4 : (simulationResult ? 3 : 2);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="simulator-engine-section">
+    <div className="space-y-6 w-full font-sans" id="simulator-engine-section">
+      {/* Step Indicator Header */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="mr-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer flex items-center gap-1 transition-all"
+            >
+              ← Back to Decisions
+            </button>
+          )}
+          <span className="text-slate-400">Financial Intelligence</span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+          <span className={`${currentStep === 1 ? "text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded" : "text-slate-600"}`}>
+            1. Select Decision
+          </span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+          <span className={`${currentStep === 2 ? "text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded" : "text-slate-600"}`}>
+            2. Configure Scenario
+          </span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+          <span className={`${currentStep === 3 ? "text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded" : "text-slate-600"}`}>
+            3. Review Ripple Effect
+          </span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
+          <span className={`${currentStep === 4 ? "text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded" : "text-slate-400"}`}>
+            4. Approve &amp; Monitor
+          </span>
+        </div>
+        <div className="text-[11px] text-slate-400 font-mono font-bold uppercase tracking-wider">
+          Decision Lens: {getScenarioTitle(selectedType)}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* LEFT COLUMN: MODULE TOGGLES & INPUT PARAMETERS (5 cols) */}
       <div className="lg:col-span-5 space-y-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
@@ -1327,13 +1465,37 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={saveSimulationPlan}
-            className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold transition-all text-xs rounded-xl py-3 flex items-center justify-center gap-1.5 cursor-pointer shadow-md font-sans"
-          >
-            <CheckCircle className="w-4 h-4" /> Save This Plan
-          </button>
+          <div className="space-y-2.5 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowApprovalPanel(true);
+              }}
+              className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold transition-all text-xs rounded-xl py-3 flex items-center justify-center gap-1.5 cursor-pointer shadow-md font-sans"
+            >
+              <CheckCircle className="w-4 h-4" /> Approve as Life Goal
+            </button>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={saveSimulationPlan}
+                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold transition-all text-xs rounded-xl py-2.5 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-sans"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-slate-500" /> Save for Later
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById("simulator-engine-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold transition-all text-xs rounded-xl py-2.5 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-sans"
+              >
+                <Settings className="w-3.5 h-3.5 text-slate-500" /> Adjust Scenario
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1686,6 +1848,109 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
           </div>
         )}
       </div>
+    </div>
+
+      {showApprovalPanel && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative animate-in fade-in zoom-in duration-205">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono text-teal-600 uppercase tracking-widest block font-bold">Aura Decision Engine</span>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">Approve this plan as a Life Goal?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Approve and map this simulated choice directly onto your active Life Goals timeline to start monitoring progress.
+              </p>
+            </div>
+
+            {(() => {
+              const details = getApprovalDetails();
+              const isPositive = details.impact >= 0;
+              return (
+                <div className="border border-slate-150 rounded-xl overflow-hidden text-xs">
+                  {/* Summary grid */}
+                  <div className="bg-slate-50 p-4 border-b border-slate-150 grid grid-cols-2 gap-x-4 gap-y-3 font-sans">
+                    <div>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Decision Lens</span>
+                      <span className="font-bold text-slate-800">{details.title}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Selected Scenario</span>
+                      <span className="font-bold text-teal-700 capitalize">Balanced Scenario</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Target Amount</span>
+                      <span className="font-bold text-slate-800 font-mono">${Math.round(details.targetAmt).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Target Date / Year</span>
+                      <span className="font-bold text-slate-800 font-mono">Year {details.targetYr}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Monthly Commitment</span>
+                      <span className="font-bold text-slate-800 font-mono">${details.monthlyCommitment.toLocaleString()}/mo</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Projected Impact (30Y)</span>
+                      <span className={`font-bold font-mono ${isPositive ? "text-teal-600" : "text-rose-600"}`}>
+                        {isPositive ? "+" : "-"}${Math.abs(Math.round(details.impact)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Assumptions & Risk */}
+                  <div className="p-4 space-y-3 bg-white font-sans">
+                    <div>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Major Assumption</span>
+                      <p className="text-slate-650 mt-0.5 leading-snug">{details.assumptions[0]}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Primary Risk Factor</span>
+                      <p className="text-rose-700 font-medium mt-0.5 leading-snug">{details.primaryRisk}</p>
+                    </div>
+                    <div className="bg-teal-50/50 border border-teal-100 rounded-lg p-2.5">
+                      <span className="text-teal-600 font-bold uppercase font-mono text-[8.5px] tracking-wider block">RECOMMENDED NEXT ACTION</span>
+                      <p className="text-slate-700 font-bold leading-snug mt-0.5">{details.nextAction}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex justify-end gap-3 font-sans">
+              <button
+                type="button"
+                onClick={() => setShowApprovalPanel(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all cursor-pointer text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const details = getApprovalDetails();
+                  onApproveLifeGoal && onApproveLifeGoal({
+                    name: `Approved: ${details.title}`,
+                    category: details.category,
+                    targetAmount: details.targetAmt,
+                    targetYear: details.targetYr,
+                    currentSavings: 0,
+                    priority: "important",
+                    monthlyContribution: details.monthlyCommitment,
+                    approvedScenarioType: selectedType,
+                    approvedScenarioName: "Balanced Scenario",
+                    approvedAssumptions: details.assumptions,
+                    projectedImpact: details.impact,
+                    nextAction: details.nextAction
+                  });
+                  setShowApprovalPanel(false);
+                }}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer text-xs"
+              >
+                Approve and Start Monitoring
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
