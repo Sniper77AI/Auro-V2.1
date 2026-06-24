@@ -796,18 +796,6 @@ export default function App() {
                 <span>Life Goals</span>
               </button>
 
-              <button
-                onClick={() => setActiveMenu("settings")}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
-                  activeMenu === "settings"
-                    ? "bg-teal-50/70 border border-teal-100 text-teal-800 font-bold shadow-sm"
-                    : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
-                }`}
-              >
-                <Settings className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Settings</span>
-              </button>
-
               {/* SYSTEM ADMINISTRATIVE SECTOR (Visible ONLY under non-customer roles) */}
               {userRole !== "customer" && (
                 <div className="pt-4 space-y-1.5">
