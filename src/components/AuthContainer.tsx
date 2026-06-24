@@ -47,11 +47,49 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
         }
         const res = await SupabaseService.signUp(email, password, firstName, lastName, phone);
         if (res.success) {
-          setStatus({ type: "success", message: `${res.message} You are now authorized to log in.` });
-          setIsSignUp(false);
-          setPassword("");
+          if (res.emailConfirmationRequired) {
+            // 2. confirmation email required
+            setStatus({ 
+              type: "success", 
+              message: "Account created! We've sent a verification link to your email. Please click the link in your inbox to confirm your account and log in." 
+            });
+            setPassword("");
+          } else {
+            // 1. registration completed and signed in
+            setStatus({ 
+              type: "success", 
+              message: "Registration completed! Your account has been created and your financial profile is initialized." 
+            });
+            if (res.session) {
+              onSuccess(res.session, "customer");
+            } else {
+              setIsSignUp(false);
+              setPassword("");
+            }
+          }
         } else {
-          setStatus({ type: "error", message: res.message });
+          const msg = res.message || "";
+          if (msg.includes("Confirmation emails are temporarily limited") || msg.includes("rate limit")) {
+            // 4. temporary email rate limit
+            setStatus({
+              type: "error",
+              message: "Confirmation emails are temporarily limited. Please wait a few minutes and try again."
+            });
+          } else if (msg.includes("already registered") || msg.includes("already exists") || msg.includes("email-already-in-use") || msg.includes("taken")) {
+            // 3. existing account
+            setStatus({
+              type: "error",
+              message: "An account with this email address already exists. Please sign in instead."
+            });
+          } else if (msg.toLowerCase().includes("profile initialization") || msg.toLowerCase().includes("twin allocation")) {
+            // 5. profile initialization failure
+            setStatus({
+              type: "error",
+              message: `Profile initialization failed: ${msg}. Although the account was registered, we could not initialize the dashboard. Please try signing in directly.`
+            });
+          } else {
+            setStatus({ type: "error", message: msg });
+          }
         }
       } else {
         // Sign In / Login
@@ -288,6 +326,57 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
             >
               ← Back to Landing Page
             </button>
+          </div>
+        )}
+
+        {import.meta.env.DEV && (
+          <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 text-center space-y-3 shadow-inner mt-4">
+            <span className="text-[10px] font-mono font-bold text-amber-800 uppercase tracking-widest block">
+              ⚠️ Development Preview
+            </span>
+            <p className="text-[11px] text-amber-700 leading-normal">
+              Database is unconfigured/sandbox mode. Use local mock-preview endpoints to verify compliance interfaces. This is NOT a real financial account.
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => {
+                  const mockSession = {
+                    user: {
+                      id: "mock-dev-id",
+                      userId: "mock-dev-id",
+                      email: "dev-customer@auraripple.local",
+                      userEmail: "dev-customer@auraripple.local",
+                      firstName: "Dev",
+                      lastName: "Customer",
+                      role: "customer"
+                    }
+                  };
+                  onSuccess(mockSession, "customer");
+                }}
+                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold font-mono text-[9.5px] py-2 rounded-xl cursor-pointer transition-colors uppercase tracking-wider"
+              >
+                Demo Customer
+              </button>
+              <button
+                onClick={() => {
+                  const mockSession = {
+                    user: {
+                      id: "mock-dev-auditor-id",
+                      userId: "mock-dev-auditor-id",
+                      email: "dev-auditor@auraripple.local",
+                      userEmail: "dev-auditor@auraripple.local",
+                      firstName: "Dev",
+                      lastName: "Auditor",
+                      role: "auditor"
+                    }
+                  };
+                  onSuccess(mockSession, "auditor");
+                }}
+                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold font-mono text-[9.5px] py-2 rounded-xl cursor-pointer transition-colors uppercase tracking-wider"
+              >
+                Demo Auditor
+              </button>
+            </div>
           </div>
         )}
 

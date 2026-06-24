@@ -17,6 +17,7 @@ import LandingPage from "./components/LandingPage";
 import AboutPage from "./components/AboutPage";
 import UnauthNavbar from "./components/UnauthNavbar";
 import { SupabaseService, safeStorage } from "./supabaseService";
+import { getSupabaseClient } from "./supabaseClient";
 import { 
   LayoutDashboard, Wallet, Sparkles, Scale, 
   MessageSquare, ChevronRight, Coins, 
@@ -54,34 +55,12 @@ const INITIAL_GOVERNANCE_EVENTS: GovernanceEvent[] = [
 ];
 
 const INITIAL_AUDIT_LOGS: AuditLog[] = [
-  { id: "aud-1", timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userEmail: "sinior.bkk@gmail.com", action: "AUTH_INIT", source: "client_gateway", status: "success", description: "Authorization session initialized." },
-  { id: "aud-2", timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), userEmail: "sinior.bkk@gmail.com", action: "COGNITIVE_KEY", source: "pii_vault", status: "success", description: "Standard secure PII data serialization isolation active." },
-  { id: "aud-3", timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userEmail: "sinior.bkk@gmail.com", action: "REGIONAL_MAP", source: "state_tax_db", status: "success", description: "Progressive California tax codes loaded into client compilation cache." }
+  { id: "aud-1", timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userEmail: "unknown-user", action: "AUTH_INIT", source: "client_gateway", status: "success", description: "Authorization session initialized." },
+  { id: "aud-2", timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), userEmail: "unknown-user", action: "COGNITIVE_KEY", source: "pii_vault", status: "success", description: "Standard secure PII data serialization isolation active." },
+  { id: "aud-3", timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userEmail: "unknown-user", action: "REGIONAL_MAP", source: "state_tax_db", status: "success", description: "Progressive California tax codes loaded into client compilation cache." }
 ];
 
 export default function App() {
-  const getInitialSession = () => {
-    try {
-      const data = safeStorage.getItem("aura_sandbox_active_session");
-      if (data) {
-        const parsed = JSON.parse(data);
-        if (parsed && parsed.user) {
-          return {
-            user: {
-              id: parsed.user.id,
-              userId: parsed.user.id,
-              userEmail: parsed.user.email,
-              role: parsed.user.role || "customer"
-            }
-          };
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse initial sandbox session", e);
-    }
-    return null;
-  };
-
   const [session, setSession] = useState<any>(null);
   const [unauthPage, setUnauthPage] = useState<"landing" | "about" | "login">("landing");
   const [unauthSignUpDefault, setUnauthSignUpDefault] = useState<boolean>(false);
@@ -103,118 +82,209 @@ export default function App() {
   const [syncingState, setSyncingState] = useState<"synced" | "syncing" | "error">("synced");
   const [sandboxNotice, setSandboxNotice] = useState<string | null>(null);
 
-  // Initial Auth checking and Profile database sync
+  // Initial Auth checking and Profile database sync on boot
+  const withTimeout = <T,>(
+    promise: Promise<T>,
+    milliseconds: number
+  ): Promise<T> => {
+    let timerId: any;
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timerId = window.setTimeout(
+        () => reject(new Error("Request timed out")),
+        milliseconds
+      );
+    });
+    return Promise.race([
+      promise.then((res) => {
+        window.clearTimeout(timerId);
+        return res;
+      }),
+      timeoutPromise
+    ]);
+  };
+
+  const loadAuthenticatedUserData = async (currentSession: any) => {
+    const uId = currentSession.user?.id || currentSession.user?.userId;
+    if (!uId) {
+      throw new Error("No user ID found in session.");
+    }
+
+    // Set temporary session structure so session?.user is truthy BEFORE running DB queries
+    setSession({
+      ...currentSession,
+      user: {
+        ...currentSession.user,
+        id: uId,
+        userId: uId,
+        userEmail: currentSession.user.email || "unknown-user",
+        role: "customer"
+      }
+    });
+
+    const supabaseClient = getSupabaseClient();
+    if (!supabaseClient) {
+      throw new Error("Supabase is not configured.");
+    }
+
+    const loadProfileAndRole = async () => {
+      const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
+      const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
+      
+      let userRole = "customer";
+      const { data: roleData } = await supabaseClient
+        .from("user_roles")
+        .select("role")
+        .eq("auth_user_id", uId)
+        .maybeSingle();
+      
+      if (roleData) {
+        userRole = roleData.role;
+      }
+
+      return { loadedProfile, loadedGoals, userRole };
+    };
+
+    const { loadedProfile, loadedGoals, userRole } = await withTimeout(
+      loadProfileAndRole(),
+      8000
+    );
+
+    setTwin(loadedProfile.twin);
+    setProfileId(loadedProfile.profileId);
+    setGoals(loadedGoals);
+    
+    setSession({
+      ...currentSession,
+      user: {
+        ...currentSession.user,
+        id: uId,
+        userId: uId,
+        userEmail: currentSession.user.email || "unknown-user",
+        role: userRole
+      }
+    });
+    setUserRole(userRole as any);
+  };
+
   useEffect(() => {
-    const checkSessionAndSync = async () => {
-      if (!SupabaseService.isConfigured()) {
-        setIsBooting(false);
-        const initialSess = getInitialSession();
-        if (initialSess) {
+    let isMounted = true;
+    let initialLoadTriggered = false;
+
+    const initializeAuth = async () => {
+      const supabaseClient = getSupabaseClient();
+      if (!supabaseClient) return;
+      
+      try {
+        const { data, error } = await supabaseClient.auth.getSession();
+
+        if (error) {
+          console.error("Session check failed:", error);
+          return;
+        }
+
+        const validSession = data.session;
+
+        if (!validSession?.user) {
+          if (isMounted) {
+            setSession(null);
+            setIsBooting(false);
+          }
+          return;
+        }
+
+        if (isMounted) {
+          initialLoadTriggered = true;
           setIsBooting(true);
+          setBootError(null);
+        }
+
+        try {
+          await loadAuthenticatedUserData(validSession);
+        } catch (err: any) {
+          console.error("Failed to load authenticated user data on boot:", err);
+          if (isMounted) {
+            setBootError(err.message || "Failed to load financial profile.");
+          }
+        } finally {
+          if (isMounted) {
+            setIsBooting(false);
+          }
+        }
+      } catch (error) {
+        console.error("Authentication initialization failed:", error);
+        if (isMounted) {
+          setSession(null);
+          setIsBooting(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    const supabaseClient = getSupabaseClient();
+    if (!supabaseClient) return;
+
+    const {
+      data: { subscription },
+    } = supabaseClient.auth.onAuthStateChange(async (event, updatedSession) => {
+      console.log(`[AURA AUTH] Event received: ${event}`);
+      if (!isMounted) return;
+
+      if (event === "SIGNED_IN") {
+        if (initialLoadTriggered) {
+          console.log("[AURA AUTH] SIGNED_IN event on boot bypassed, initializeAuth is handling it.");
+          initialLoadTriggered = false;
+          return;
+        }
+
+        if (updatedSession?.user) {
+          setIsBooting(true);
+          setBootError(null);
           try {
-            const uId = initialSess.user.id || initialSess.user.userId;
-            const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
-            const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
-            
-            setTwin(loadedProfile.twin);
-            setProfileId(loadedProfile.profileId);
-            setGoals(loadedGoals);
-            setSession(initialSess);
-            setUserRole(initialSess.user.role as any);
-          } catch (e) {
-            console.error("Failed to restore sandbox session on load", e);
+            await loadAuthenticatedUserData(updatedSession);
+          } catch (err: any) {
+            console.error("Error loading user profile after sign-in:", err);
+            setBootError(err.message || "Failed to load financial profile after sign-in.");
           } finally {
             setIsBooting(false);
           }
         }
-        return;
-      }
-
-      // 3-second initialization timeout guard to ensure app never hangs
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("AURA BOOT SECURITY: Authentication verification timed out (3000ms limit reached).")), 3000)
-      );
-
-      try {
-        const bootTask = async () => {
-          try {
-            const active = await SupabaseService.getActiveUser();
-            if (active.userId) {
-              setIsBooting(true);
-              // Load specific profile representation
-              const loadedProfile = await SupabaseService.loadCombinedProfile(active.userId);
-              
-              // Load goals collection
-              const loadedGoals = await SupabaseService.loadLifeGoals(active.userId, loadedProfile.profileId);
-              
-              // Apply coordinates atomically to prevent race condition flickering
-              setTwin(loadedProfile.twin);
-              setProfileId(loadedProfile.profileId);
-              setGoals(loadedGoals);
-              setSession({
-                user: {
-                  id: active.userId,
-                  userId: active.userId,
-                  userEmail: active.userEmail,
-                  role: active.role
-                }
-              });
-              setUserRole(active.role);
-            }
-          } catch (innerErr) {
-            console.warn("[AURA BOOT ERROR] Supabase fetch error, continuing in local sandbox:", innerErr);
-            // Non-blocking fallback to local session / sandbox profile
-            const initialSess = getInitialSession();
-            if (initialSess) {
-              const uId = initialSess.user.id || initialSess.user.userId;
-              const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
-              const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
-              
-              setTwin(loadedProfile.twin);
-              setProfileId(loadedProfile.profileId);
-              setGoals(loadedGoals);
-              setSession(initialSess);
-              setUserRole(initialSess.user.role as any);
-              setSandboxNotice("Aura connection is offline. Using local sandbox session.");
-            } else {
-              setSandboxNotice("Aura database is currently offline. Operating in guest sandbox mode.");
-            }
-          }
-        };
-
-        const taskPromise = bootTask();
-        // Prevent unhandled promise rejection if background bootTask rejects after timeout
-        taskPromise.catch((err) => {
-          console.error("[AURA BOOT BACKGROUND ERROR] Handled background bootTask error:", err);
-        });
-
-        await Promise.race([taskPromise, timeoutPromise]);
-      } catch (err: any) {
-        console.warn("[AURA BOOT TIMEOUT/CRITICAL ERROR] Boot verification timeout, falling back to offline sandbox:", err);
-        // Recover from timeouts elegantly: load local storage if available, otherwise notify sandbox mode
-        const initialSess = getInitialSession();
-        if (initialSess) {
-          const uId = initialSess.user.id || initialSess.user.userId;
-          try {
-            const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
-            const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
-            setTwin(loadedProfile.twin);
-            setProfileId(loadedProfile.profileId);
-            setGoals(loadedGoals);
-          } catch (loadErr) {
-            console.error("Local sandbox load failed", loadErr);
-          }
-          setSession(initialSess);
-          setUserRole(initialSess.user.role as any);
-          setSandboxNotice("Aura connection timed out. Operating in offline sandbox mode.");
-        } else {
-          setSandboxNotice("Aura connection timed out. Operating in guest sandbox mode.");
-        }
-      } finally {
+      } else if (event === "SIGNED_OUT") {
+        setSession(null);
+        setTwin(INITIAL_TWIN);
+        setGoals([]);
+        setSavedSimulations([]);
+        setFeedbacks([]);
+        setActiveMenu("command");
+        setUnauthPage("landing");
+        setUnauthSignUpDefault(false);
+        setBootError(null);
         setIsBooting(false);
+      } else if (event === "TOKEN_REFRESHED") {
+        if (updatedSession?.user) {
+          setSession((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...updatedSession,
+              user: {
+                ...updatedSession.user,
+                id: updatedSession.user.id,
+                userId: updatedSession.user.id,
+                userEmail: updatedSession.user.email,
+                role: prev.user?.role || "customer"
+              }
+            };
+          });
+        }
+      } else if (event === "PASSWORD_RECOVERY") {
+        setUnauthPage("login");
       }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
     };
-    checkSessionAndSync();
   }, []);
 
   // Enforce access control redirect filters
@@ -271,17 +341,22 @@ export default function App() {
 
   const handleSignOut = async () => {
     await SupabaseService.signOut();
+    // Clear all user-specific React state and cached financial data
     setSession(null);
     setUserRole("customer");
     setTwin(INITIAL_TWIN);
     setGoals([]);
+    setSavedSimulations([]);
+    setFeedbacks([]);
     setActiveMenu("command");
+    setUnauthPage("landing");
+    setUnauthSignUpDefault(false);
   };
 
   // Calculate high level KPI totals for header display
-  const totalAnnualIncome = twin.incomes.reduce((acc, curr) => acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12), 0);
-  const totalAssetsValue = twin.assets.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalLiabilitiesValue = twin.liabilities.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalAnnualIncome = (twin.incomes || []).reduce((acc, curr) => acc + (curr.frequency === "annual" ? (Number(curr.amount) || 0) : (Number(curr.amount) || 0) * 12), 0);
+  const totalAssetsValue = (twin.assets || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const totalLiabilitiesValue = (twin.liabilities || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const netWorth = totalAssetsValue - totalLiabilitiesValue;
 
   // Real-time Event handlers
@@ -292,7 +367,7 @@ export default function App() {
     const log: AuditLog = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
-      userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
+      userEmail: session?.user?.userEmail || session?.user?.email || "unknown-user",
       action: "SIM_PERSIST",
       source: "simulation_engine",
       status: "success",
@@ -318,7 +393,7 @@ export default function App() {
     const log: AuditLog = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
-      userEmail: "sinior.bkk@gmail.com",
+      userEmail: session?.user?.userEmail || session?.user?.email || "unknown-user",
       action: "FDBK_RECAL",
       source: "feedback_mesh",
       status: "success",
@@ -345,7 +420,7 @@ export default function App() {
     const audit: AuditLog = {
       id: Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
-      userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
+      userEmail: session?.user?.userEmail || session?.user?.email || "unknown-user",
       action: "GRV_DISPUTE",
       source: "governance_dashboard",
       status: "violation",
@@ -353,6 +428,59 @@ export default function App() {
     };
     setAuditLogs([audit, ...auditLogs]);
   };
+
+  if (bootError && session?.user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6 text-slate-800 relative overflow-hidden">
+        {/* Background blobs */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-200/40 rounded-full blur-3xl pointer-events-none" />
+        <div className="max-w-md w-full bg-white border border-slate-200 p-8 rounded-2xl shadow-2xl text-center space-y-6 relative z-10 font-sans">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-rose-500 to-red-500 flex items-center justify-center font-bold text-white shadow-lg text-2xl">
+            ⚠️
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 font-sans">Profile Loading Failed</h1>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              We encountered an issue loading your financial profile. This can happen if the database connection is slow or temporarily offline.
+            </p>
+            {bootError && (
+              <p className="text-[11px] font-mono bg-red-50 text-red-600 p-2.5 rounded-lg border border-red-100 max-h-24 overflow-y-auto">
+                {bootError}
+              </p>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={async () => {
+                setBootError(null);
+                setIsBooting(true);
+                try {
+                  await loadAuthenticatedUserData(session);
+                } catch (err: any) {
+                  setBootError(err.message || "Unknown error during retry");
+                } finally {
+                  setIsBooting(false);
+                }
+              }}
+              className="bg-teal-600 hover:bg-teal-500 text-white font-bold tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
+            >
+              Retry
+            </button>
+            <button
+              onClick={async () => {
+                setBootError(null);
+                await handleSignOut();
+              }}
+              className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (bootError && sessionVerifyFailed) {
     return (
@@ -399,7 +527,7 @@ export default function App() {
     );
   }
 
-  if (isBooting) {
+  if (isBooting && session?.user) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6 text-slate-800 relative overflow-hidden">
         {/* Background blobs */}
@@ -430,42 +558,15 @@ export default function App() {
             setUnauthSignUpDefault(false);
           }}
           onSuccess={async (sess, sRole) => {
+            setIsBooting(true);
+            setBootError(null);
             try {
-              const uId = sess.user?.id || sess.user?.userId;
-              const loadedProfile = await SupabaseService.loadCombinedProfile(uId);
-              const loadedGoals = await SupabaseService.loadLifeGoals(uId, loadedProfile.profileId);
-              
-              setTwin(loadedProfile.twin);
-              setProfileId(loadedProfile.profileId);
-              setGoals(loadedGoals);
-
-              const normalizedSession = {
-                ...sess,
-                user: {
-                  ...sess.user,
-                  id: sess.user?.id,
-                  userId: sess.user?.id || sess.user?.userId,
-                  userEmail: sess.user?.email || "sandbox@aura.org",
-                  role: sRole
-                }
-              };
-              setSession(normalizedSession);
-              setUserRole(sRole as any);
+              await loadAuthenticatedUserData(sess);
             } catch (onSuccessErr: any) {
               console.error("[AURA BOOT CRITICAL ERROR] OnSuccess transition failure:", onSuccessErr);
-              // Graceful fallback to initial local storage / mock values so application remains accessible
-              const normalizedSession = {
-                ...sess,
-                user: {
-                  ...sess?.user,
-                  id: sess?.user?.id || "dem-id-99",
-                  userId: sess?.user?.id || sess?.user?.userId || "dem-id-99",
-                  userEmail: sess?.user?.email || "sinior.bkk@gmail.com",
-                  role: sRole
-                }
-              };
-              setSession(normalizedSession);
-              setUserRole(sRole as any);
+              setBootError(onSuccessErr.message || "Failed to load financial profile.");
+            } finally {
+              setIsBooting(false);
             }
           }} 
         />
@@ -682,7 +783,7 @@ export default function App() {
 
             <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-700 font-mono text-[11px] shadow-inner">
               <Coins className="w-3.5 h-3.5 text-teal-600" />
-              <span>Long-Term Growth Assumption: <span className="font-semibold">{(twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span></span>
+              <span>Long-Term Growth Assumption: <span className="font-semibold">{(twin.assets && twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span></span>
             </div>
 
             {session?.user && (
@@ -766,7 +867,7 @@ export default function App() {
                 const audit: AuditLog = {
                   id: Math.random().toString(36).substring(2, 9),
                   timestamp: new Date().toISOString(),
-                  userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
+                  userEmail: session?.user?.userEmail || session?.user?.email || "unknown-user",
                   action: "TWIN_RECAL",
                   source: "twin_configurator",
                   status: "success",
@@ -801,12 +902,13 @@ export default function App() {
           {activeMenu === "settings" && (
             <UnifiedSettings 
               twin={twin} 
+              session={session}
               onChangeTwin={(updated) => {
                 handleSaveTwin(updated);
                 const audit: AuditLog = {
                   id: Math.random().toString(36).substring(2, 9),
                   timestamp: new Date().toISOString(),
-                  userEmail: session?.user?.userEmail || "sinior.bkk@gmail.com",
+                  userEmail: session?.user?.userEmail || session?.user?.email || "unknown-user",
                   action: "SETTING_UPDATE",
                   source: "settings_dashboard",
                   status: "success",

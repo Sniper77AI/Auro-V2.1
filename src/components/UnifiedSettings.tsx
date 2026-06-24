@@ -11,14 +11,15 @@ import { runAuraComplianceSuite, TestResult } from "../tests/complianceTests";
 interface UnifiedSettingsProps {
   twin: FinancialTwin;
   onChangeTwin: (twin: FinancialTwin) => void;
+  session?: any;
 }
 
-export default function UnifiedSettings({ twin, onChangeTwin }: UnifiedSettingsProps) {
+export default function UnifiedSettings({ twin, onChangeTwin, session }: UnifiedSettingsProps) {
   const [profile, setProfile] = useState({
-    firstName: "Sinior",
-    lastName: "User",
-    email: "sinior.bkk@gmail.com",
-    phone: "+1 (555) 019-2834",
+    firstName: session?.user?.firstName || "Aura",
+    lastName: session?.user?.lastName || "User",
+    email: session?.user?.email || session?.user?.userEmail || "unknown-user",
+    phone: session?.user?.phone || "+1 (555) 019-2834",
     currency: "USD ($)"
   });
 

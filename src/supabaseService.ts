@@ -152,145 +152,187 @@ export class SupabaseService {
     firstName: string,
     lastName: string,
     phone?: string
-  ): Promise<{ success: boolean; message: string; user?: any }> {
+  ): Promise<{ success: boolean; message: string; user?: any; session?: any; emailConfirmationRequired?: boolean }> {
     if (!this.isConfigured()) {
-      // Sandbox fallback account mock
-      const users = getSandboxValue("users", []);
-      if (users.some((u: any) => u.email.toLowerCase() === email.toLowerCase())) {
-        return { success: false, message: "AURA SECURITY: Email account already registered." };
-      }
-
-      const userId = Math.random().toString(36).substring(2, 11);
-      const newUser = {
-        id: userId,
-        email: email.toLowerCase(),
-        firstName,
-        lastName,
-        phone,
-        role: "customer"
+      return { 
+        success: false, 
+        message: "Sign-up is temporarily unavailable. Please try again when the connection is restored." 
       };
-
-      users.push(newUser);
-      setSandboxValue("users", users);
-      setSandboxValue("active_session", { user: newUser });
-      
-      // Initialize blank sandbox twin and goals
-      this.initDefaultSandboxData(userId, email);
-
-      return { success: true, message: "AURA SECURITY: Secure offline profile created successfully.", user: newUser };
     }
 
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone || null
+          }
+        }
       });
 
-      if (error) throw error;
-      if (!data.user) throw new Error("Authentication response did not return user coordinates.");
+      if (error) {
+        const errMsg = error.message || "";
+        if (errMsg.toLowerCase().includes("rate limit") || error.status === 429) {
+          throw new Error("Confirmation emails are temporarily limited. Please wait a few minutes and try again.");
+        }
+        if (errMsg.toLowerCase().includes("already registered") || errMsg.toLowerCase().includes("already exists") || errMsg.toLowerCase().includes("taken")) {
+          throw new Error("An account with this email address already exists. Please sign in instead.");
+        }
+        // Never expose raw database policy text to the user
+        throw new Error(errMsg.replace(/new row violates row-level security policy.*/gi, "A secure database constraint was violated."));
+      }
 
-      const authUserId = data.user.id;
+      if (!data.user) {
+        throw new Error("Authentication response did not return user coordinates.");
+      }
 
-      // 1. Write the default role to public.user_roles
-      const { error: roleErr } = await supabase
+      // Check if session exists (email confirmation disabled or already logged in)
+      if (!data.session) {
+        // Email confirmation is required! Do not attempt browser-side inserts.
+        return {
+          success: true,
+          message: "Account created! Please check your inbox for a confirmation link to complete registration.",
+          user: data.user,
+          emailConfirmationRequired: true
+        };
+      }
+
+      const authUserId = data.session.user.id || data.user.id;
+
+      // 1. Write or upsert the default role to public.user_roles
+      const { data: existingRole, error: existingRoleErr } = await supabase
         .from("user_roles")
-        .insert([{ auth_user_id: authUserId, role: "customer" }]);
-      if (roleErr) {
-        console.error("Role writing failure:", roleErr);
-        throw new Error(`Role allocation failed: ${roleErr.message}`);
+        .select("id")
+        .eq("auth_user_id", authUserId)
+        .maybeSingle();
+
+      if (existingRoleErr) {
+        console.warn("Error checking existing user role:", existingRoleErr);
       }
 
-      // 2. Write Obfuscated PII to public.user_identity
-      const { error: piiErr } = await supabase.from("user_identity").insert([
-        {
-          auth_user_id: authUserId,
-          first_name: obfuscatePII(firstName),
-          last_name: obfuscatePII(lastName),
-          email: obfuscatePII(email),
-          phone: phone ? obfuscatePII(phone) : null,
-        },
-      ]);
-      if (piiErr) {
-        console.error("PII isolation writing failure:", piiErr);
-        throw new Error(`PII identity allocation failed: ${piiErr.message}`);
-      }
-
-      // 3. Write default empty profile
-      const { data: profileObj, error: profileErr } = await supabase
-        .from("profiles")
-        .insert([
-          {
-            auth_user_id: authUserId,
-            display_name: `${firstName} ${lastName}`,
-            state: "CA",
-            country: "United States",
-            currency: "USD",
-            risk_preference: "moderate",
-            retirement_target_age: 65,
-          },
-        ])
-        .select()
-        .single();
-
-      if (profileErr) {
-        console.error("Default profile error:", profileErr);
-        throw new Error(`Profile initialization failed: ${profileErr.message}`);
-      }
-
-      // 4. Write default analytical twin
-      if (profileObj) {
-        const { error: twinErr } = await supabase.from("financial_twins").insert([
-          {
-            profile_id: profileObj.id,
-            net_worth: 0,
-            monthly_income: 0,
-            monthly_expenses: 0,
-            financial_readiness_score: 50,
-            plan_health: "stable",
-            profile_completeness: 10,
-          },
-        ]);
-        if (twinErr) {
-          console.error("Default twin calculation error:", twinErr);
-          throw new Error(`Financial twin allocation failed: ${twinErr.message}`);
+      if (!existingRole) {
+        const { error: roleErr } = await supabase
+          .from("user_roles")
+          .insert([{ auth_user_id: authUserId, role: "customer" }]);
+        if (roleErr) {
+          console.error("Role writing failure:", roleErr);
+          throw new Error("Role allocation failed. Please contact support.");
         }
       }
 
-      return { success: true, message: "Account created successfully in Supabase.", user: data.user };
+      // 2. Write or upsert Obfuscated PII to public.user_identity
+      const { data: existingIdentity, error: existingIdentityErr } = await supabase
+        .from("user_identity")
+        .select("id")
+        .eq("auth_user_id", authUserId)
+        .maybeSingle();
+
+      if (existingIdentityErr) {
+        console.warn("Error checking existing identity:", existingIdentityErr);
+      }
+
+      if (!existingIdentity) {
+        const { error: piiErr } = await supabase.from("user_identity").insert([
+          {
+            auth_user_id: authUserId,
+            first_name: obfuscatePII(firstName),
+            last_name: obfuscatePII(lastName),
+            email: obfuscatePII(email),
+            phone: phone ? obfuscatePII(phone) : null,
+          },
+        ]);
+        if (piiErr) {
+          console.error("PII isolation writing failure:", piiErr);
+          throw new Error("PII identity allocation failed. Please contact support.");
+        }
+      }
+
+      // 3. Write or upsert default empty profile
+      let profileId = "";
+      const { data: existingProfile, error: existingProfileErr } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("auth_user_id", authUserId)
+        .maybeSingle();
+
+      if (existingProfileErr) {
+        console.warn("Error checking existing profile:", existingProfileErr);
+      }
+
+      if (!existingProfile) {
+        const { data: profileObj, error: profileErr } = await supabase
+          .from("profiles")
+          .insert([
+            {
+              auth_user_id: authUserId,
+              display_name: `${firstName} ${lastName}`,
+              state: "CA",
+              country: "United States",
+              currency: "USD",
+              risk_preference: "moderate",
+              retirement_target_age: 65,
+            },
+          ])
+          .select()
+          .single();
+
+        if (profileErr || !profileObj) {
+          console.error("Default profile error:", profileErr);
+          throw new Error("Profile initialization failed. Please try logging in.");
+        }
+        profileId = profileObj.id;
+      } else {
+        profileId = existingProfile.id;
+      }
+
+      // 4. Write or upsert default analytical twin
+      if (profileId) {
+        const { data: existingTwin, error: existingTwinErr } = await supabase
+          .from("financial_twins")
+          .select("id")
+          .eq("profile_id", profileId)
+          .maybeSingle();
+
+        if (existingTwinErr) {
+          console.warn("Error checking existing twin:", existingTwinErr);
+        }
+
+        if (!existingTwin) {
+          const { error: twinErr } = await supabase.from("financial_twins").insert([
+            {
+              profile_id: profileId,
+              net_worth: 0,
+              monthly_income: 0,
+              monthly_expenses: 0,
+              financial_readiness_score: 50,
+              plan_health: "stable",
+              profile_completeness: 10,
+            },
+          ]);
+          if (twinErr) {
+            console.error("Default twin calculation error:", twinErr);
+            throw new Error("Financial twin allocation failed. Please try logging in.");
+          }
+        }
+      }
+
+      return { success: true, message: "Account created successfully.", user: data.user, session: data.session, emailConfirmationRequired: false };
     } catch (e: any) {
-      return { success: false, message: e.message || "Sign up failed." };
+      const errMsg = e.message || "Sign up failed.";
+      return { success: false, message: errMsg };
     }
   }
 
   // Auth: SIGN IN / LOGIN
   static async signIn(email: string, password: string): Promise<{ success: boolean; message: string; session?: any; role?: string }> {
     if (!this.isConfigured()) {
-      // Sandbox login
-      const users = getSandboxValue("users", []);
-      const match = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-      
-      // Let special preset user log in immediately (makes review effortless in Sandbox/DEV)
-      if (email.toLowerCase() === "sinior.bkk@gmail.com" || match) {
-        let activeUser = match;
-        if (!activeUser) {
-          activeUser = {
-            id: "dem-id-99",
-            email: "sinior.bkk@gmail.com",
-            firstName: "Sinior",
-            lastName: "User",
-            phone: "+1-555-0199",
-            role: "customer"
-          };
-          users.push(activeUser);
-          setSandboxValue("users", users);
-          this.initDefaultSandboxData("dem-id-99", "sinior.bkk@gmail.com");
-        }
-        
-        setSandboxValue("active_session", { user: activeUser });
-        return { success: true, message: "Authorized on secure offline tier.", session: { user: activeUser }, role: activeUser.role };
-      }
-
-      return { success: false, message: "AURA SECURITY: Invalid credentials." };
+      return { 
+        success: false, 
+        message: "Sign-in is temporarily unavailable. Please try again when the connection is restored." 
+      };
     }
 
     try {
@@ -322,7 +364,6 @@ export class SupabaseService {
   // Auth: SIGN OUT
   static async signOut(): Promise<void> {
     if (!this.isConfigured()) {
-      safeStorage.removeItem(LOCAL_STORAGE_PREFIX + "active_session");
       return;
     }
     await supabase.auth.signOut();
@@ -331,14 +372,6 @@ export class SupabaseService {
   // Get current active authenticated state
   static async getActiveUser(): Promise<{ userEmail: string | null; role: "customer" | "auditor" | "governance_admin" | "super_admin"; userId: string | null }> {
     if (!this.isConfigured()) {
-      const session = getSandboxValue("active_session", null);
-      if (session && session.user) {
-        return {
-          userEmail: session.user.email,
-          role: session.user.role as any,
-          userId: session.user.id
-        };
-      }
       return { userEmail: null, role: "customer", userId: null };
     }
 
@@ -383,7 +416,7 @@ export class SupabaseService {
 
     const supabase = getSupabaseClient();
     if (!supabase) {
-      return { profileId: "dem-id-99", userRole: "customer" };
+      return { profileId: "fallback_profile_id", userRole: "customer" };
     }
 
     console.log(`[AURA BOOTSTRAP] Running profile integrity audit for authenticated key: ${authUserId}`);

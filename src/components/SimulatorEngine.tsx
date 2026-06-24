@@ -385,8 +385,8 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
   const totalAssetsValue = (twin.assets || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const totalLiabilitiesValue = (twin.liabilities || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const currentNetWorth = totalAssetsValue - totalLiabilitiesValue;
-  const averageGrowthRate = (twin.assets && twin.assets.length > 0) 
-    ? (twin.assets.reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / twin.assets.length) 
+  const averageGrowthRate = (twin.assets && (twin.assets || []).length > 0) 
+    ? ((twin.assets || []).reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / (twin.assets || []).length) 
     : 0.06;
 
   // Re-run simulation when params or basic twin attributes alter
@@ -653,7 +653,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       tempSimulated = currentNetWorth;
 
       // Calculate total outstanding high-interest debt
-      const highInterestDebts = twin.liabilities.reduce((acc, c) => acc + c.amount, 0);
+      const highInterestDebts = (twin.liabilities || []).reduce((acc, c) => acc + c.amount, 0);
       const interestSavingsFactor = strategy === "avalanche" ? 0.25 : 0.15;
       const computedInterestSaved = highInterestDebts * (0.06 - refiRate) * interestSavingsFactor * 10; // 10 years payoff window
 
@@ -1504,7 +1504,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     const maxVal = Math.max(...simulationResult.projectedNetWorth30Y) * 1.1;
                     const points = simulationResult.projectedNetWorth30Y.map((_, idx) => {
                       // simple linear scale multiplier for baseline logic
-                      const bMonthlySurplus = Math.max(0, (totalAnnualIncome / 12) - twin.monthlyExpenses - twin.liabilities.reduce((acc, curr) => acc + curr.monthlyPayment, 0));
+                      const bMonthlySurplus = Math.max(0, (totalAnnualIncome / 12) - twin.monthlyExpenses - (twin.liabilities || []).reduce((acc, curr) => acc + curr.monthlyPayment, 0));
                       const bVal = currentNetWorth * Math.pow(1.06, idx) + (bMonthlySurplus * 12 * idx);
                       const x = (idx / 29) * 500;
                       const y = 190 - (bVal / maxVal) * 160;

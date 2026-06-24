@@ -32,8 +32,8 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   const monthlyGrossIncome = totalAnnualIncome / 12;
   const debtToIncomeRatio = monthlyGrossIncome > 0 ? (totalMonthlyDebtPayments / monthlyGrossIncome) * 100 : 0;
   
-  const averageGrowthRate = (twin.assets && twin.assets.length > 0) 
-    ? (twin.assets.reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / twin.assets.length) 
+  const averageGrowthRate = (twin.assets && (twin.assets || []).length > 0) 
+    ? ((twin.assets || []).reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / (twin.assets || []).length) 
     : 0.06;
 
   // Analytical Health score math formulation
@@ -46,7 +46,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   const expensesRatio = monthlyExpensesSafe > 0 ? cashAssets / monthlyExpensesSafe : 12;
   const liquidityScore = Math.min(20, Math.max(0, expensesRatio * 3));
   // Weight 4: Diversified inflow segments (max 20 pts)
-  const incomeDiversityScore = Math.min(20, twin.incomes.length * 10);
+  const incomeDiversityScore = Math.min(20, (twin.incomes || []).length * 10);
 
   const rawHealthScore = Math.round(nwScore + dtiScore + liquidityScore + incomeDiversityScore);
   const healthScore = Math.max(10, Math.min(100, rawHealthScore));
@@ -101,7 +101,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
 
   // Derive model recommendation confidence
   let confidencePct = Math.round(profileCompleteness * 0.8 + 12);
-  const dataComplexityMod = Math.min(15, (twin.incomes.length + twin.assets.length + twin.liabilities.length) * 2);
+  const dataComplexityMod = Math.min(15, ((twin.incomes || []).length + (twin.assets || []).length + (twin.liabilities || []).length) * 2);
   confidencePct = Math.min(99, confidencePct + dataComplexityMod);
   if (profileCompleteness < 50) {
     confidencePct = Math.min(50, confidencePct - 15);
@@ -168,7 +168,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
     {
       title: "Depending on a Single Income",
       impact: "Safety Risk",
-      desc: twin.incomes.length <= 1 
+      desc: (twin.incomes || []).length <= 1 
         ? "Relying on a single salary can be vulnerable if unexpected events arise. Developing side projects or alternative consulting income would protect you from total income loss."
         : "Great! You have multiple stable sources of income, which greatly insulates your household from financial risk."
     }
@@ -215,7 +215,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
             <span className="text-[10px] font-mono text-slate-400 uppercase block font-bold leading-none tracking-wide">Strongest Goal</span>
             <p className="text-[11px] text-slate-600 leading-relaxed font-sans">
               <strong className="text-teal-700 font-bold">
-                {twin.liabilities.length > 0 ? "Accelerated Debt Freedom" : "Dream Home Down Payment"}
+                {(twin.liabilities || []).length > 0 ? "Accelerated Debt Freedom" : "Dream Home Down Payment"}
               </strong> is your most resilient financial milestone. Trajectory parameters remain steady.
             </p>
           </div>

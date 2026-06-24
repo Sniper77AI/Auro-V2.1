@@ -379,15 +379,15 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
   };
 
   // Aggregated summaries
-  const totalAnnualIncome = twin.incomes.reduce((acc, curr) => {
+  const totalAnnualIncome = (twin.incomes || []).reduce((acc, curr) => {
     return acc + (curr.frequency === "annual" ? curr.amount : curr.amount * 12);
   }, 0);
 
-  const totalAssetsValue = twin.assets.reduce((acc, curr) => acc + curr.amount, 0);
-  const totalLiabilitiesValue = twin.liabilities.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalAssetsValue = (twin.assets || []).reduce((acc, curr) => acc + curr.amount, 0);
+  const totalLiabilitiesValue = (twin.liabilities || []).reduce((acc, curr) => acc + curr.amount, 0);
   const netWorth = totalAssetsValue - totalLiabilitiesValue;
 
-  const totalMonthlyDebtPayments = twin.liabilities.reduce((acc, curr) => acc + curr.monthlyPayment, 0);
+  const totalMonthlyDebtPayments = (twin.liabilities || []).reduce((acc, curr) => acc + curr.monthlyPayment, 0);
   const monthlyGrossIncome = totalAnnualIncome / 12;
   const debtToIncomeRatio = monthlyGrossIncome > 0 ? (totalMonthlyDebtPayments / monthlyGrossIncome) * 100 : 0;
 
@@ -836,14 +836,14 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {twin.incomes.length === 0 ? (
+                  {(twin.incomes || []).length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-4 text-center text-slate-400 italic">
                         No financial inflows mapped to the twin. Add one above.
                       </td>
                     </tr>
                   ) : (
-                    twin.incomes.map((inc) => (
+                    (twin.incomes || []).map((inc) => (
                       <tr key={inc.id} className="hover:bg-slate-50/50 transition-all">
                         <td className="p-3">
                           <input
@@ -987,14 +987,14 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {twin.assets.length === 0 ? (
+                  {(twin.assets || []).length === 0 ? (
                     <tr>
                       <td colSpan={5} className="p-4 text-center text-slate-400 italic font-sans">
                         No accounts added yet. Let Aura know your savings above.
                       </td>
                     </tr>
                   ) : (
-                    twin.assets.map((ast) => (
+                    (twin.assets || []).map((ast) => (
                       <tr key={ast.id} className="hover:bg-slate-50/50 transition-all">
                         <td className="p-3">
                           <input
@@ -1155,14 +1155,14 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {twin.liabilities.length === 0 ? (
+                  {(twin.liabilities || []).length === 0 ? (
                     <tr>
                       <td colSpan={6} className="p-4 text-center text-slate-400 italic font-sans text-xs">
                         No debts added yet. Tell Aura if you have any loans or credits.
                       </td>
                     </tr>
                   ) : (
-                    twin.liabilities.map((lia) => (
+                    (twin.liabilities || []).map((lia) => (
                       <tr key={lia.id} className="hover:bg-slate-50/50 transition-all">
                         <td className="p-3">
                           <input
