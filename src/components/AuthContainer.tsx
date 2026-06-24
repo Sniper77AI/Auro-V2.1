@@ -74,36 +74,36 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center p-6 text-zinc-100 selection:bg-emerald-500/20">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6 text-slate-800 selection:bg-teal-500/20 relative overflow-hidden">
       
       {/* Background radial effects */}
-      <div className="absolute w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-tr from-emerald-500/10 to-teal-400/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-zinc-900/40 rounded-full blur-3xl" />
+      <div className="absolute w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-tr from-teal-200/40 to-emerald-100/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-indigo-100/40 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md relative z-10 space-y-6 font-sans">
         {/* Core application banner */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-450 flex items-center justify-center font-bold text-zinc-950 font-mono shadow-lg text-lg">
-            A
+          <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center font-bold text-white shadow-lg text-lg">
+            AR
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white mt-3">Aura Identity Gate</h1>
-          <p className="text-xs font-mono text-emerald-400 tracking-wider uppercase">
+          <h1 className="text-2xl font-black tracking-tight text-slate-950 mt-3">Aura Identity Gate</h1>
+          <p className="text-xs font-mono text-teal-700 tracking-wider uppercase font-bold">
             Phase 2A Secure Database Core
           </p>
-          <p className="text-xs text-zinc-400 italic">
+          <p className="text-xs text-slate-500 italic">
             "See your future before you spend your money."
           </p>
         </div>
 
         {/* Core login card */}
-        <div className="bg-zinc-900/90 border border-zinc-805 rounded-2xl p-6 shadow-2xl backdrop-blur-xl space-y-4">
-          <div className="flex justify-between items-center pb-2 border-b border-zinc-850">
-            <span className="text-xs font-mono font-bold text-zinc-300 uppercase tracking-widest">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-xl space-y-4">
+          <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+            <span className="text-xs font-mono font-bold text-slate-700 uppercase tracking-widest">
               {isReset ? "Password Link Recovery" : isSignUp ? "Establish Customer Record" : "Authorized Gate Entry"}
             </span>
-            <span className="bg-emerald-950/40 border border-emerald-900/30 text-[9px] text-emerald-400 px-2 py-0.5 rounded font-mono font-bold uppercase">
+            <span className="bg-teal-50 border border-teal-200 text-[9px] text-teal-800 px-2 py-0.5 rounded font-mono font-bold uppercase">
               RLS ACTIVE
             </span>
           </div>
@@ -111,17 +111,17 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
           {status.message && (
             <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
               status.type === "success" 
-                ? "bg-emerald-950/20 border-emerald-900/40 text-emerald-300" 
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
                 : status.type === "info"
-                  ? "bg-teal-950/20 border-teal-900/40 text-teal-350 animate-pulse"
-                  : "bg-rose-950/20 border-rose-900/40 text-rose-300"
+                  ? "bg-teal-50 border-teal-200 text-teal-800 animate-pulse"
+                  : "bg-rose-50 border-rose-200 text-rose-800"
             }`}>
               {status.type === "success" ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               ) : status.type === "info" ? (
-                <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
+                <div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
               ) : (
-                <ShieldAlert className="w-4 h-4 text-rose-450 shrink-0 mt-0.5" />
+                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               )}
               <span className="font-medium leading-relaxed">{status.message}</span>
             </div>
@@ -133,31 +133,31 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
             {isSignUp && (
               <div className="grid grid-cols-2 gap-3.5">
                 <div>
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wide block mb-1">First Name</label>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wide block mb-1">First Name</label>
                   <div className="relative">
-                    <User className="w-3.5 h-3.5 text-zinc-550 absolute left-3 top-3" />
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5" />
                     <input
                       type="text"
                       required
                       placeholder="Jane"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-805 rounded-lg p-2.5 pl-9 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 pl-9 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all shadow-inner"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wide block mb-1">Last Name</label>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wide block mb-1">Last Name</label>
                   <div className="relative">
-                    <User className="w-3.5 h-3.5 text-zinc-550 absolute left-3 top-3" />
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5" />
                     <input
                       type="text"
                       required
                       placeholder="Doe"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-805 rounded-lg p-2.5 pl-9 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 pl-9 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all shadow-inner"
                     />
                   </div>
                 </div>
@@ -166,31 +166,31 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
 
             {isSignUp && (
               <div>
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wide block mb-1">Contact Phone (PII Encrypted)</label>
+                <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wide block mb-1">Contact Phone (PII Encrypted)</label>
                 <div className="relative">
-                  <Phone className="w-3.5 h-3.5 text-zinc-550 absolute left-3 top-3" />
+                  <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5" />
                   <input
                     type="tel"
                     placeholder="+1 (555) 012-3456"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-805 rounded-lg p-2.5 pl-9 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 pl-9 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all shadow-inner"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wide block mb-1">Email Coordinates</label>
+              <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wide block mb-1">Email Coordinates</label>
               <div className="relative">
-                <Mail className="w-3.5 h-3.5 text-zinc-550 absolute left-3 top-3" />
+                <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5" />
                 <input
                   type="email"
                   required
                   placeholder="name@domain.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-805 rounded-lg p-2.5 pl-9 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 pl-9 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all shadow-inner"
                 />
               </div>
             </div>
@@ -198,7 +198,7 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
             {!isReset && (
               <div>
                 <div className="flex justify-between items-baseline mb-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wide block">Personal Password</label>
+                  <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wide block">Personal Password</label>
                   {!isSignUp && (
                     <button
                       type="button"
@@ -206,21 +206,21 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
                         setIsReset(true);
                         setStatus({ type: "", message: "" });
                       }}
-                      className="text-[10px] text-zinc-500 hover:text-emerald-400 uppercase tracking-wide font-semibold cursor-pointer"
+                      className="text-[10px] text-teal-600 hover:text-teal-700 uppercase tracking-wide font-bold cursor-pointer"
                     >
                       Forgot?
                     </button>
                   )}
                 </div>
                 <div className="relative">
-                  <KeyRound className="w-3.5 h-3.5 text-zinc-550 absolute left-3 top-3" />
+                  <KeyRound className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5" />
                   <input
                     type="password"
                     required
                     placeholder="••••••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-805 rounded-lg p-2.5 pl-9 text-xs text-zinc-200 focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 pl-9 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all shadow-inner"
                   />
                 </div>
               </div>
@@ -229,7 +229,7 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-black tracking-tight text-xs py-3 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-40"
+              className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold tracking-tight text-xs py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-lg shadow-teal-600/10 active:scale-[0.98] disabled:opacity-40"
             >
               {loading ? (
                 <span>Validating Cryptographic Session...</span>
@@ -250,14 +250,14 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
           </form>
 
           {/* Toggle buttons */}
-          <div className="flex justify-between pt-3 border-t border-zinc-850 text-[11px] text-zinc-450">
+          <div className="flex justify-between pt-3 border-t border-slate-100 text-[11px] text-slate-500">
             {isReset ? (
               <button
                 onClick={() => {
                   setIsReset(false);
                   setStatus({ type: "", message: "" });
                 }}
-                className="hover:text-zinc-200 font-bold uppercase tracking-wider font-mono cursor-pointer"
+                className="hover:text-teal-600 font-bold uppercase tracking-wider font-mono cursor-pointer"
               >
                 Back to Entrance
               </button>
@@ -271,7 +271,7 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
                     setIsSignUp(!isSignUp);
                     setStatus({ type: "", message: "" });
                   }}
-                  className="text-emerald-450 hover:text-emerald-400 font-bold uppercase tracking-wider font-mono cursor-pointer"
+                  className="text-teal-600 hover:text-teal-700 font-bold uppercase tracking-wider font-mono cursor-pointer"
                 >
                   {isSignUp ? "Gate entry" : "Create account"}
                 </button>
@@ -284,7 +284,7 @@ export default function AuthContainer({ onSuccess, initialSignUp = false, onBack
           <div className="text-center pt-2">
             <button
               onClick={onBackToLanding}
-              className="text-[11px] font-mono font-bold text-zinc-500 hover:text-emerald-450 uppercase tracking-widest cursor-pointer transition-colors"
+              className="text-[11px] font-mono font-bold text-slate-400 hover:text-teal-600 uppercase tracking-widest cursor-pointer transition-colors"
             >
               ← Back to Landing Page
             </button>

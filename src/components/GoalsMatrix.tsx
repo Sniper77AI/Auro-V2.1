@@ -177,37 +177,37 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
   return (
     <div id="goals-matrix-page" className="space-y-6 font-sans">
       {/* Page Header */}
-      <div>
-        <span className="text-emerald-400 font-mono text-xs tracking-wider uppercase font-bold">Life Outcomes & Progress</span>
-        <h2 className="text-2xl font-bold text-zinc-100 tracking-tight mt-1">My Life Outcomes</h2>
-        <p className="text-xs text-zinc-400 mt-1">
+      <div className="bg-gradient-to-r from-teal-50/70 via-emerald-50/40 to-slate-50 border border-slate-100 p-6 rounded-2xl">
+        <span className="text-teal-600 font-mono text-xs tracking-wider uppercase font-bold">Life Outcomes & Progress</span>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight mt-1">My Life Outcomes</h2>
+        <p className="text-xs text-slate-500 mt-1">
           Coordinate your personal life milestones. Aura maps out your trajectory to help secure your future.
         </p>
       </div>
 
       {/* CONFLICT DETECTOR PANEL */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
         <div className="flex items-center gap-2">
-          <Scale className="w-5 h-5 text-emerald-405" />
-          <h3 className="text-sm font-bold text-zinc-200">Aura's Outcome Guidance & Trade-offs</h3>
+          <Scale className="w-5 h-5 text-teal-600" />
+          <h3 className="text-sm font-bold text-slate-800">Aura's Outcome Guidance & Trade-offs</h3>
         </div>
 
         {conflicts.length === 0 ? (
-          <div className="bg-emerald-950/20 border border-emerald-900/40 p-4 rounded-xl flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+          <div className="bg-emerald-50/60 border border-emerald-100 p-4 rounded-xl flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
             <div>
-              <p className="text-xs text-zinc-200 font-bold">Zero Timeline Conflicts Detected</p>
-              <p className="text-[11px] text-zinc-400 mt-0.5">Your monthly saving surplus perfectly offsets prioritized targets across all chronological boundaries.</p>
+              <p className="text-xs text-emerald-800 font-bold">Zero Timeline Conflicts Detected</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Your monthly saving surplus perfectly offsets prioritized targets across all chronological boundaries.</p>
             </div>
           </div>
         ) : (
           <div className="space-y-3">
             {conflicts.map((conf, index) => (
-              <div key={index} className="bg-rose-950/20 border border-rose-900/40 p-4 rounded-xl flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
+              <div key={index} className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-rose-500 mt-0.5 shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-xs text-zinc-200 font-bold">Goal Collision #{index + 1}</p>
-                  <p className="text-[11px] text-rose-300 leading-relaxed font-sans">{conf}</p>
+                  <p className="text-xs text-rose-800 font-bold">Goal Collision #{index + 1}</p>
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-sans">{conf}</p>
                 </div>
               </div>
             ))}
@@ -216,26 +216,26 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
       </div>
 
       {/* NEW GOAL CREATION FORM */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
-        <h3 className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-widest">Establish New Milestone</h3>
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
+        <h3 className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">Establish New Milestone</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <div className="lg:col-span-2">
-            <label className="text-[10px] text-zinc-550 block mb-1">GOAL NAME</label>
+            <label className="text-[10px] text-slate-500 block mb-1 font-bold">GOAL NAME</label>
             <input
               type="text"
               placeholder="e.g. Dream Home down payment"
               value={newGoal.name}
               onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
-              className="w-full bg-zinc-950 border border-zinc-850 rounded p-2 text-xs text-zinc-200 focus:outline-none"
+              className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-850 focus:outline-none focus:border-teal-500"
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-zinc-550 block mb-1">CATEGORY</label>
+            <label className="text-[10px] text-slate-500 block mb-1 font-bold">CATEGORY</label>
             <select
               value={newGoal.category}
               onChange={(e) => setNewGoal({ ...newGoal, category: e.target.value as any })}
-              className="w-full bg-zinc-950 border border-zinc-850 rounded p-2 text-xs text-zinc-200 focus:outline-none"
+              className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-850 focus:outline-none focus:border-teal-500"
             >
               <option value="retirement">Retirement</option>
               <option value="property">Real Estate</option>
@@ -246,31 +246,31 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
           </div>
 
           <div>
-            <label className="text-[10px] text-zinc-550 block mb-1">TARGET VALUE ($)</label>
+            <label className="text-[10px] text-slate-500 block mb-1 font-bold">TARGET VALUE ($)</label>
             <input
               type="number"
               value={newGoal.targetAmount}
               onChange={(e) => setNewGoal({ ...newGoal, targetAmount: parseFloat(e.target.value) || 0 })}
-              className="w-full bg-zinc-950 border border-zinc-850 rounded p-2 text-xs text-zinc-200 font-mono focus:outline-none"
+              className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-850 font-mono focus:outline-none focus:border-teal-500"
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-zinc-550 block mb-1">TARGET YEAR</label>
+            <label className="text-[10px] text-slate-500 block mb-1 font-bold">TARGET YEAR</label>
             <input
               type="number"
               value={newGoal.targetYear}
               onChange={(e) => setNewGoal({ ...newGoal, targetYear: parseInt(e.target.value) || 2030 })}
-              className="w-full bg-zinc-950 border border-zinc-850 rounded p-2 text-xs text-zinc-200 font-mono focus:outline-none"
+              className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-850 font-mono focus:outline-none focus:border-teal-500"
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-zinc-550 block mb-1">PRIORITY</label>
+            <label className="text-[10px] text-slate-500 block mb-1 font-bold">PRIORITY</label>
             <select
               value={newGoal.priority}
               onChange={(e) => setNewGoal({ ...newGoal, priority: e.target.value as any })}
-              className="w-full bg-zinc-950 border border-zinc-850 rounded p-2 text-xs text-zinc-200 focus:outline-none"
+              className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-850 focus:outline-none focus:border-teal-500"
             >
               <option value="essential">Essential</option>
               <option value="important">Important</option>
@@ -282,7 +282,7 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
         <button
           onClick={handleCreateGoal}
           disabled={!newGoal.name}
-          className="bg-emerald-600 hover:bg-emerald-500 text-zinc-900 font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1 cursor-pointer disabled:opacity-40"
+          className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1 cursor-pointer disabled:opacity-40 transition-all shadow-md"
         >
           <Plus className="w-3.5 h-3.5" /> Add Milestone
         </button>
@@ -308,77 +308,77 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
         // Calculate Plan Health Rating dynamically
         const onTrackRatio = totalGoalsCount > 0 ? (goalsOnTrackCount / totalGoalsCount) : 1.0;
         let planHealthLabel = "Stable";
-        let planHealthColor = "text-teal-400";
-        let planHealthBgColor = "bg-teal-950/20 border-teal-900/40 text-teal-400";
+        let planHealthColor = "text-teal-600";
+        let planHealthBgColor = "bg-teal-50 border-teal-200 text-teal-700";
 
         if (onTrackRatio >= 0.8 && overallCompletionPercent >= 15) {
           planHealthLabel = "Excellent";
-          planHealthColor = "text-emerald-400";
-          planHealthBgColor = "bg-emerald-950/30 border-emerald-900/60 text-emerald-400";
+          planHealthColor = "text-emerald-600";
+          planHealthBgColor = "bg-emerald-50 border-emerald-200 text-emerald-700";
         } else if (onTrackRatio >= 0.6 || overallCompletionPercent >= 10) {
           planHealthLabel = "Strong";
-          planHealthColor = "text-emerald-400";
-          planHealthBgColor = "bg-emerald-950/20 border-emerald-900/40 text-emerald-400";
+          planHealthColor = "text-emerald-600";
+          planHealthBgColor = "bg-emerald-50 border-emerald-200 text-emerald-700";
         } else if (onTrackRatio >= 0.3 || overallCompletionPercent > 0) {
           planHealthLabel = "Stable";
-          planHealthColor = "text-teal-400";
-          planHealthBgColor = "bg-teal-950/20 border-teal-900/40 text-teal-400";
+          planHealthColor = "text-teal-600";
+          planHealthBgColor = "bg-teal-50 border-teal-200 text-teal-700";
         } else {
           planHealthLabel = "Needs Attention";
-          planHealthColor = "text-rose-450";
-          planHealthBgColor = "bg-rose-955/20 border-rose-900/40 text-rose-450";
+          planHealthColor = "text-rose-600";
+          planHealthBgColor = "bg-rose-50 border-rose-200 text-rose-700";
         }
 
         return (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 font-sans relative overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 font-sans relative overflow-hidden shadow-sm">
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-500/5 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
             
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
               <div className="space-y-2">
-                <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest block font-bold leading-none">Overall Plan Health</span>
-                <h3 className="text-lg font-bold text-zinc-100 tracking-tight">Your Cumulative Plan Health</h3>
-                <p className="text-xs text-zinc-400 leading-relaxed max-w-lg">
+                <span className="text-[10px] font-mono text-teal-600 uppercase tracking-widest block font-bold leading-none">Overall Plan Health</span>
+                <h3 className="text-lg font-bold text-slate-800 tracking-tight">Your Cumulative Plan Health</h3>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-lg">
                   A unified timeline projection coordinating your major lifetime milestones. The status of all essential and optional family milestones are combined here.
                 </p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-6 w-full lg:w-auto items-stretch sm:items-center font-sans">
                 {/* Main Plan Health Stat */}
-                <div className="bg-zinc-950/60 border border-zinc-800 p-4 rounded-xl flex flex-col justify-center min-w-[210px]">
+                <div className="bg-slate-50/50 border border-slate-200 p-4 rounded-xl flex flex-col justify-center min-w-[210px]">
                   <div className="flex justify-between items-baseline mb-1">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase font-bold tracking-wider">Plan Health</span>
-                    <span className={`font-sans text-[10px] font-bold px-2 py-0.5 rounded border leading-none capitalize ${planHealthBgColor}`}>
+                    <span className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">Plan Health</span>
+                    <span className={`font-sans text-[10px] font-bold px-2 py-0.5 rounded-lg border leading-none capitalize ${planHealthBgColor}`}>
                       {planHealthLabel}
                     </span>
                   </div>
-                  <div className="font-mono text-xs text-emerald-400 tracking-normal select-none leading-none mb-2 font-bold">
+                  <div className="font-mono text-xs text-teal-600 tracking-normal select-none leading-none mb-2 font-bold">
                     {blockProgressBar}
                   </div>
                   {/* Beautiful continuous bar */}
-                  <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                     <div 
-                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
+                      className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 rounded-full transition-all duration-700"
                       style={{ width: `${overallCompletionPercent}%` }}
                     />
                   </div>
-                  <span className="text-[9px] text-zinc-500 mt-1 font-mono uppercase block text-left">
+                  <span className="text-[9px] text-slate-400 mt-1 font-mono uppercase block text-left font-bold">
                     {overallCompletionPercent}% funded towards milestones
                   </span>
                 </div>
 
                 {/* Quick Metrics Grid */}
                 <div className="grid grid-cols-3 gap-3 flex-1 lg:flex-initial">
-                  <div className="bg-zinc-950/40 border border-zinc-850/60 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center">
-                    <span className="text-zinc-500 text-[9px] font-mono uppercase font-bold block leading-none">Total</span>
-                    <span className="text-zinc-200 font-mono text-lg font-bold mt-1 block leading-none">{totalGoalsCount}</span>
+                  <div className="bg-slate-50/50 border border-slate-200 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center shadow-sm">
+                    <span className="text-slate-400 text-[9px] font-mono uppercase font-bold block leading-none">Total</span>
+                    <span className="text-slate-800 font-mono text-lg font-bold mt-1 block leading-none">{totalGoalsCount}</span>
                   </div>
-                  <div className="bg-emerald-950/10 border border-emerald-950/20 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center">
-                    <span className="text-emerald-400 text-[9px] font-mono uppercase font-bold block leading-none">On Track</span>
-                    <span className="text-emerald-400 font-mono text-lg font-bold mt-1 block leading-none">{goalsOnTrackCount}</span>
+                  <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center shadow-sm">
+                    <span className="text-emerald-700 text-[9px] font-mono uppercase font-bold block leading-none font-bold">On Track</span>
+                    <span className="text-emerald-700 font-mono text-lg font-bold mt-1 block leading-none">{goalsOnTrackCount}</span>
                   </div>
-                  <div className="bg-rose-955/10 border border-rose-950/20 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center">
-                    <span className="text-rose-400 text-[9px] font-mono uppercase font-bold block leading-none">At Risk</span>
-                    <span className="text-rose-450 font-mono text-lg font-bold mt-1 block leading-none">{goalsAtRiskCount}</span>
+                  <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl text-center min-w-[80px] sm:min-w-[90px] flex flex-col justify-center shadow-sm">
+                    <span className="text-rose-700 text-[9px] font-mono uppercase font-bold block leading-none font-bold">At Risk</span>
+                    <span className="text-rose-700 font-mono text-lg font-bold mt-1 block leading-none">{goalsAtRiskCount}</span>
                   </div>
                 </div>
               </div>
@@ -397,32 +397,32 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
           // Dynamic emotional decision impact statements
           let decisionImpact = "";
           let statusLabel = "On Track";
-          let statusColor = "text-emerald-400 bg-emerald-950/40 border-emerald-900";
+          let statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
 
           if (g.category === "retirement") {
             decisionImpact = "Taking on a major extra luxury outlay now would delay your early retirement milestones by 14 months.";
             statusLabel = "Needs Growth";
-            statusColor = "text-amber-450 bg-amber-950/20 border-amber-900/40";
+            statusColor = "text-amber-700 bg-amber-50 border-amber-200";
           } else if (g.category === "property") {
             decisionImpact = "Simulating a high-price auto purchase on leverage may delay your property down payment by 8 months.";
             statusLabel = "Active Scenario";
-            statusColor = "text-teal-400 bg-teal-950/20 border-teal-900/40";
+            statusColor = "text-teal-700 bg-teal-50 border-teal-200";
           } else if (g.category === "education") {
             decisionImpact = "Increasing savings by $100/month covers premium university tuition projections years ahead.";
             statusLabel = "On Track";
-            statusColor = "text-emerald-400 bg-emerald-950/20 border-emerald-900/40";
+            statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
           } else if (g.category === "debt_free") {
             decisionImpact = "Paying down revolving credit card debt first shifts your complete debt-free target 10 months closer.";
             statusLabel = "Prioritized";
-            statusColor = "text-emerald-450 bg-emerald-950/25 border-emerald-900/40";
+            statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
           } else {
             decisionImpact = "Maintaining an emergency buffer keeps your dependents safe and independent of market drops.";
             statusLabel = "Fully Protected";
-            statusColor = "text-teal-450 bg-teal-950/25 border-teal-905/40";
+            statusColor = "text-teal-705 bg-teal-50 border-teal-200";
           }
 
           return (
-            <div key={g.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col justify-between hover:border-zinc-700/60 transition-all font-sans relative overflow-hidden">
+            <div key={g.id} className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between hover:border-teal-200 hover:shadow-md transition-all font-sans relative overflow-hidden shadow-sm">
               <div className="space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2.5">
@@ -431,54 +431,54 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
                       <select
                         value={g.category}
                         onChange={(e) => handleEditGoal(g.id, "category", e.target.value as any)}
-                        className="bg-transparent text-[10px] font-mono text-zinc-500 uppercase tracking-widest block font-bold cursor-pointer hover:text-zinc-300 focus:outline-none focus:text-emerald-400 p-0"
+                        className="bg-transparent text-[10px] font-mono text-slate-400 uppercase tracking-widest block font-bold cursor-pointer hover:text-teal-600 focus:outline-none focus:text-teal-600 p-0"
                       >
-                        <option value="property" className="bg-zinc-900 text-zinc-300">Dream Home</option>
-                        <option value="retirement" className="bg-zinc-900 text-zinc-300">Retirement</option>
-                        <option value="education" className="bg-zinc-900 text-zinc-300">College Fund</option>
-                        <option value="debt_free" className="bg-zinc-900 text-zinc-300">Debt Freedom</option>
-                        <option value="other" className="bg-zinc-905 text-zinc-300">Family Security</option>
+                        <option value="property" className="bg-white text-slate-800">Dream Home</option>
+                        <option value="retirement" className="bg-white text-slate-800">Retirement</option>
+                        <option value="education" className="bg-white text-slate-800">College Fund</option>
+                        <option value="debt_free" className="bg-white text-slate-800">Debt Freedom</option>
+                        <option value="other" className="bg-white text-slate-800">Family Security</option>
                       </select>
                       <input
                         type="text"
                         value={g.name}
                         onChange={(e) => handleEditGoal(g.id, "name", e.target.value)}
-                        className="bg-transparent text-zinc-100 text-base font-bold mt-0.5 border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-0.5 px-1 rounded focus:outline-none w-full"
+                        className="bg-transparent text-slate-800 text-base font-bold mt-0.5 border-b border-transparent hover:border-slate-300 focus:border-teal-500 focus:bg-slate-50 transition-all py-0.5 px-1 rounded-lg focus:outline-none w-full"
                       />
                     </div>
                   </div>
                   <button
                     onClick={() => handleRemoveGoal(g.id)}
-                    className="text-zinc-600 hover:text-rose-450 p-1.5 rounded-lg hover:bg-zinc-950 transition-all cursor-pointer border-transparent"
+                    className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-slate-50 transition-all cursor-pointer border-transparent"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
                 {/* Progress indicators and metrics */}
-                <div className="space-y-3 bg-zinc-950/40 p-4 rounded-xl border border-zinc-850/40">
+                <div className="space-y-3 bg-slate-50/50 p-4 rounded-xl border border-slate-150 shadow-inner">
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-zinc-500 block text-[9px] uppercase font-mono tracking-wider font-semibold">Target Amount</span>
+                      <span className="text-slate-400 block text-[9px] uppercase font-mono tracking-wider font-bold">Target Amount</span>
                       <div className="relative flex items-center mt-1">
-                        <span className="text-zinc-500 mr-0.5 text-xs font-mono">$</span>
+                        <span className="text-slate-400 mr-0.5 text-xs font-mono font-bold">$</span>
                         <input
                           type="number"
                           value={g.targetAmount}
                           onChange={(e) => handleEditGoal(g.id, "targetAmount", parseFloat(e.target.value) || 0)}
-                          className="bg-transparent text-zinc-200 font-bold font-mono text-[13px] border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-0.5 px-1 rounded focus:outline-none w-full"
+                          className="bg-transparent text-slate-800 font-bold font-mono text-[13px] border-b border-transparent hover:border-slate-300 focus:border-teal-500 focus:bg-slate-50 transition-all py-0.5 px-1 rounded-lg focus:outline-none w-full"
                         />
                       </div>
                     </div>
                     <div className="text-right flex flex-col items-end">
-                      <span className="text-zinc-500 block text-[9px] uppercase font-mono tracking-wider font-semibold">Saved So Far</span>
+                      <span className="text-slate-400 block text-[9px] uppercase font-mono tracking-wider font-bold">Saved So Far</span>
                       <div className="relative flex items-center justify-end mt-1">
-                        <span className="text-zinc-500 mr-0.5 text-xs font-mono">$</span>
+                        <span className="text-slate-400 mr-0.5 text-xs font-mono font-bold">$</span>
                         <input
                           type="number"
                           value={g.currentSavings}
                           onChange={(e) => handleEditGoal(g.id, "currentSavings", parseFloat(e.target.value) || 0)}
-                          className="bg-transparent text-emerald-400 font-bold font-mono text-[13px] text-right border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-0.5 px-1 rounded focus:outline-none w-28"
+                          className="bg-transparent text-teal-600 font-bold font-mono text-[13px] text-right border-b border-transparent hover:border-slate-300 focus:border-teal-500 focus:bg-slate-50 transition-all py-0.5 px-1 rounded-lg focus:outline-none w-28"
                         />
                       </div>
                     </div>
@@ -486,20 +486,20 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
 
                   <div className="pt-1">
                     <div className="flex justify-between items-center text-[11px] mb-1 font-sans">
-                      <span className="text-zinc-400 font-medium font-mono">Progress: {percent}%</span>
+                      <span className="text-slate-500 font-medium font-mono font-bold">Progress: {percent}%</span>
                       <div className="flex items-center gap-1 font-mono">
-                        <span className="text-zinc-400 font-medium">Year:</span>
+                        <span className="text-slate-400 font-bold">Year:</span>
                         <input
                           type="number"
                           value={g.targetYear}
                           onChange={(e) => handleEditGoal(g.id, "targetYear", parseInt(e.target.value) || 2035)}
-                          className="bg-transparent text-teal-400 font-semibold border-b border-transparent hover:border-zinc-700 focus:border-emerald-500 focus:bg-zinc-950/60 transition-all py-0.5 px-1 rounded focus:outline-none w-14 font-mono text-right"
+                          className="bg-transparent text-teal-600 font-bold border-b border-transparent hover:border-slate-300 focus:border-teal-500 focus:bg-slate-50 transition-all py-0.5 px-1 rounded-lg focus:outline-none w-14 font-mono text-right"
                         />
                       </div>
                     </div>
-                    <div className="w-full h-2 bg-zinc-950 rounded-full overflow-hidden border border-zinc-850">
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${percent > 75 ? "bg-emerald-500" : percent > 40 ? "bg-teal-400" : "bg-zinc-500"}`}
+                        className={`h-full rounded-full transition-all duration-500 ${percent > 75 ? "bg-teal-500" : percent > 40 ? "bg-emerald-400" : "bg-slate-300"}`}
                         style={{ width: `${percent}%` }}
                       />
                     </div>
@@ -507,30 +507,30 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
                 </div>
 
                 {/* Dynamic status & Coaching speech */}
-                <div className="bg-zinc-950/45 p-3 rounded-lg border border-zinc-850/20 font-sans">
-                  <div className="flex justify-between items-center mb-1 pb-1 border-b border-zinc-850/20">
-                    <span className="text-[9px] uppercase font-mono text-zinc-500 font-bold">Goal Status</span>
-                    <span className={`text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded border ${statusColor}`}>
+                <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-150 font-sans">
+                  <div className="flex justify-between items-center mb-1 pb-1 border-b border-slate-150">
+                    <span className="text-[9px] uppercase font-mono text-slate-400 font-bold">Goal Status</span>
+                    <span className={`text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded-lg border ${statusColor}`}>
                       {statusLabel}
                     </span>
                   </div>
-                  <p className="text-[11px] text-zinc-350 leading-relaxed font-sans mt-2 italic md:text-xs">
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-sans mt-2 italic md:text-xs">
                     &ldquo;{decisionImpact}&rdquo;
                   </p>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center text-[10px] font-sans border-t border-zinc-850/40 pt-4 mt-5">
-                <span className="text-zinc-500 uppercase tracking-widest font-mono font-bold text-[9px]">TIMELINE INDEX</span>
+              <div className="flex justify-between items-center text-[10px] font-sans border-t border-slate-100 pt-4 mt-5">
+                <span className="text-slate-400 uppercase tracking-widest font-mono font-bold text-[9px]">TIMELINE INDEX</span>
                 <div>
                   <select
                     value={g.priority}
                     onChange={(e) => handleEditGoal(g.id, "priority", e.target.value as any)}
-                    className="bg-transparent text-[9px] font-mono uppercase tracking-wider font-bold cursor-pointer hover:text-zinc-350 border-b border-transparent hover:border-zinc-700 focus:outline-none focus:text-emerald-400 p-0 text-right"
+                    className="bg-transparent text-[9px] font-mono uppercase tracking-wider font-bold cursor-pointer hover:text-teal-600 border-b border-transparent hover:border-slate-300 focus:outline-none focus:text-teal-600 p-0 text-right"
                   >
-                    <option value="essential" className="bg-zinc-900 text-emerald-400 uppercase">Essential Priority</option>
-                    <option value="important" className="bg-zinc-900 text-zinc-300 uppercase">Important Priority</option>
-                    <option value="flexible" className="bg-zinc-900 text-zinc-500 uppercase">Flexible Priority</option>
+                    <option value="essential" className="bg-white text-emerald-600 uppercase font-bold">Essential Priority</option>
+                    <option value="important" className="bg-white text-slate-600 uppercase font-bold">Important Priority</option>
+                    <option value="flexible" className="bg-white text-slate-400 uppercase font-bold">Flexible Priority</option>
                   </select>
                 </div>
               </div>

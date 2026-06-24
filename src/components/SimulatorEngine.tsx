@@ -928,8 +928,8 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="simulator-engine-section">
       {/* LEFT COLUMN: MODULE TOGGLES & INPUT PARAMETERS (5 cols) */}
       <div className="lg:col-span-5 space-y-6">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase block mb-3 font-semibold">Select Simulation Lens</span>
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <span className="text-[10px] font-mono text-slate-400 uppercase block mb-3 font-bold">Select Simulation Lens</span>
           <div className="space-y-2">
             {MODULES.map((mod) => {
               const IconComp = mod.icon;
@@ -943,19 +943,19 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                   }}
                   className={`w-full text-left p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer ${
                     selectedType === mod.type
-                      ? "bg-emerald-950/45 border-emerald-500/80 text-zinc-100 shadow-lg"
-                      : "bg-zinc-950/40 border-zinc-800/40 hover:border-zinc-700 hover:bg-zinc-900/60 text-zinc-400 hover:text-zinc-200"
+                      ? "bg-teal-50/80 border-teal-200 text-teal-800 shadow-sm font-bold"
+                      : "bg-white border-slate-150 hover:border-slate-300 hover:bg-slate-50 text-slate-600"
                   }`}
                 >
-                  <div className={`p-2 rounded-lg ${selectedType === mod.type ? "bg-emerald-600 text-zinc-900" : "bg-zinc-900 text-zinc-500"}`}>
+                  <div className={`p-2 rounded-lg ${selectedType === mod.type ? "bg-teal-600 text-white" : "bg-slate-100 text-slate-400"}`}>
                     <IconComp className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="block text-xs font-bold font-sans tracking-tight leading-none text-zinc-100">{mod.title}</span>
-                    <span className="block text-[10px] text-zinc-500 truncate mt-1 leading-none">{mod.subtitle}</span>
+                    <span className="block text-xs font-bold font-sans tracking-tight leading-none text-slate-800">{mod.title}</span>
+                    <span className="block text-[10px] text-slate-400 truncate mt-1 leading-none">{mod.subtitle}</span>
                   </div>
                   {selectedType === mod.type && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
                   )}
                 </button>
               );
@@ -964,13 +964,13 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
         </div>
 
         {/* PARAMETERS CONFIGURATION CARD */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-5">
-          <div className="flex justify-between items-center pb-3 border-b border-zinc-800/60">
-            <h3 className="text-sm font-bold text-zinc-200 tracking-tight flex items-center gap-2">
-              <Settings className="w-4 h-4 text-emerald-400" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5 shadow-sm">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <h3 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-2">
+              <Settings className="w-4 h-4 text-teal-650" />
               Scenario Constraints
             </h3>
-            <span className="text-[10px] font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800 text-zinc-400">
+            <span className="text-[10px] font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-slate-500 font-bold">
               {selectedType.toUpperCase().replace("_", " ")}
             </span>
           </div>
@@ -980,9 +980,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             {selectedType === "home_purchase" && (
               <>
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>HOME TARGET PRICE</span>
-                    <span className="text-emerald-400 font-bold">${(params.homePrice || 0).toLocaleString()}</span>
+                    <span className="text-teal-650 font-black">${(params.homePrice || 0).toLocaleString()}</span>
                   </div>
                   <input
                     type="range"
@@ -991,9 +991,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="25000"
                     value={params.homePrice}
                     onChange={(e) => setParams({ ...params, homePrice: parseFloat(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                  <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1 font-bold">
                     <span>$150k</span>
                     <span>$1.0M</span>
                     <span>$2.0M</span>
@@ -1001,9 +1001,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>DOWN PAYMENT RESERVE</span>
-                    <span className="text-teal-400 font-bold">${(params.downPayment || 0).toLocaleString()}</span>
+                    <span className="text-teal-600 font-black">${(params.downPayment || 0).toLocaleString()}</span>
                   </div>
                   <input
                     type="range"
@@ -1012,9 +1012,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="10000"
                     value={params.downPayment}
                     onChange={(e) => setParams({ ...params, downPayment: parseFloat(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                  <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1 font-bold">
                     <span>$10k</span>
                     <span>$250k</span>
                     <span>$500k</span>
@@ -1022,11 +1022,11 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
 
                 <div>
-                  <label className="text-zinc-400 text-xs font-mono block mb-1">INTEREST APR %</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">INTEREST APR %</label>
                   <select
                     value={params.interestRate}
                     onChange={(e) => setParams({ ...params, interestRate: parseFloat(e.target.value) })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs font-mono text-zinc-200 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs font-mono text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
                   >
                     <option value="0.055">5.5% (Best Case Tier)</option>
                     <option value="0.065">6.5% (Median National)</option>
@@ -1041,9 +1041,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             {selectedType === "vehicle_purchase" && (
               <>
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>VEHICLE ACQUISITION COST</span>
-                    <span className="text-emerald-400 font-bold">${(params.vehiclePrice || 0).toLocaleString()}</span>
+                    <span className="text-teal-600 font-black">${(params.vehiclePrice || 0).toLocaleString()}</span>
                   </div>
                   <input
                     type="range"
@@ -1052,9 +1052,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="5000"
                     value={params.vehiclePrice}
                     onChange={(e) => setParams({ ...params, vehiclePrice: parseFloat(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                  <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1 font-bold">
                     <span>$15k</span>
                     <span>$80k</span>
                     <span>$150k</span>
@@ -1062,17 +1062,17 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
 
                 <div>
-                  <label className="text-zinc-400 text-xs font-mono block mb-1">DRIVETRAIN CATEGORY</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">DRIVETRAIN CATEGORY</label>
                   <div className="grid grid-cols-3 gap-2">
                     {["ev", "hybrid", "gas"].map((t) => (
                       <button
                         key={t}
                         type="button"
                         onClick={() => setParams({ ...params, vehicleType: t as any })}
-                        className={`p-2 rounded border text-xs font-mono uppercase transition-all ${
+                        className={`p-2 rounded-lg border text-xs font-mono uppercase transition-all cursor-pointer ${
                           params.vehicleType === t
-                            ? "bg-emerald-950/40 border-emerald-500 text-emerald-400"
-                            : "bg-zinc-950 border-zinc-800 text-zinc-500"
+                            ? "bg-teal-50 border-teal-500 text-teal-700 font-bold"
+                            : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                         }`}
                       >
                         {t}
@@ -1082,17 +1082,17 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
 
                 <div>
-                  <label className="text-zinc-400 text-xs font-mono block mb-1">FINANCIAL TERM OPTION</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">FINANCIAL TERM OPTION</label>
                   <div className="grid grid-cols-2 gap-2">
                     {["buy", "lease"].map((o) => (
                       <button
                         key={o}
                         type="button"
                         onClick={() => setParams({ ...params, leaseVsBuy: o as any })}
-                        className={`p-2 rounded border text-xs font-mono uppercase transition-all ${
+                        className={`p-2 rounded-lg border text-xs font-mono uppercase transition-all cursor-pointer ${
                           params.leaseVsBuy === o
-                            ? "bg-emerald-950/40 border-emerald-500 text-emerald-400"
-                            : "bg-zinc-950 border-zinc-800 text-zinc-500"
+                            ? "bg-teal-50 border-teal-500 text-teal-700 font-bold"
+                            : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                         }`}
                       >
                         {o}
@@ -1107,9 +1107,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             {selectedType === "career_change" && (
               <>
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>NEW TARGET BASE SALARY</span>
-                    <span className="text-emerald-400 font-bold">${(params.newSalary || 0).toLocaleString()}</span>
+                    <span className="text-teal-650 font-black">${(params.newSalary || 0).toLocaleString()}</span>
                   </div>
                   <input
                     type="range"
@@ -1118,9 +1118,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="10000"
                     value={params.newSalary}
                     onChange={(e) => setParams({ ...params, newSalary: parseFloat(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                  <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1 font-bold">
                     <span>$50k</span>
                     <span>$220k</span>
                     <span>$400k</span>
@@ -1128,9 +1128,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>ESTIMATED RELOCATION / SETUP COST</span>
-                    <span className="text-rose-400 font-bold">${(params.relocationCost || 0).toLocaleString()}</span>
+                    <span className="text-rose-600 font-black">${(params.relocationCost || 0).toLocaleString()}</span>
                   </div>
                   <input
                     type="range"
@@ -1139,16 +1139,16 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="1000"
                     value={params.relocationCost}
                     onChange={(e) => setParams({ ...params, relocationCost: parseFloat(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
                 </div>
 
                 <div>
-                  <label className="text-zinc-400 text-xs font-mono block mb-1">TRANSACTION TYPE</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">TRANSACTION TYPE</label>
                   <select
                     value={params.careerType}
                     onChange={(e) => setParams({ ...params, careerType: e.target.value as any })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-zinc-200 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all font-sans"
                   >
                     <option value="job_change">W2 Corporate Realignment</option>
                     <option value="start_business">Start business Venture (Pre-revenue)</option>
@@ -1161,9 +1161,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             {selectedType === "retirement_planning" && (
               <>
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>TARGET RETIREMENT AGE</span>
-                    <span className="text-emerald-400 font-bold">{params.targetRetirementAge || 62} Years Old</span>
+                    <span className="text-teal-650 font-black">{params.targetRetirementAge || 62} Years Old</span>
                   </div>
                   <input
                     type="range"
@@ -1172,9 +1172,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="1"
                     value={params.targetRetirementAge || 62}
                     onChange={(e) => setParams({ ...params, targetRetirementAge: parseInt(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                  <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1 font-bold">
                     <span>45 y/o</span>
                     <span>62 y/o</span>
                     <span>80 y/o</span>
@@ -1182,9 +1182,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>DESIRED ANNUAL SPENDING (In retirement)</span>
-                    <span className="text-teal-400 font-bold">${(params.desiredAnnualSpending || 80000).toLocaleString()}/yr</span>
+                    <span className="text-teal-600 font-black">${(params.desiredAnnualSpending || 80000).toLocaleString()}/yr</span>
                   </div>
                   <input
                     type="range"
@@ -1193,9 +1193,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="5000"
                     value={params.desiredAnnualSpending || 80000}
                     onChange={(e) => setParams({ ...params, desiredAnnualSpending: parseFloat(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                  <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1 font-bold">
                     <span>$30k</span>
                     <span>$150k</span>
                     <span>$300k</span>
@@ -1208,11 +1208,11 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             {selectedType === "debt_optimization" && (
               <>
                 <div>
-                  <label className="text-zinc-400 text-xs font-mono block mb-1">REPAYMENT HEURISTIC STRATEGY</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">REPAYMENT HEURISTIC STRATEGY</label>
                   <select
                     value={params.focusStrategy}
                     onChange={(e) => setParams({ ...params, focusStrategy: e.target.value as any })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-xs text-zinc-200 focus:outline-none font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none font-sans"
                   >
                     <option value="avalanche">Avalanche Model (Highest APR Weighted)</option>
                     <option value="snowball">Snowball Model (Lowest Principal Weighted)</option>
@@ -1221,9 +1221,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>REFINANCED LOAN APR TARGET</span>
-                    <span className="text-emerald-400 font-bold">{(params.refinanceRate || 0.045) * 100}% APR</span>
+                    <span className="text-teal-650 font-black">{(params.refinanceRate || 0.045) * 100}% APR</span>
                   </div>
                   <input
                     type="range"
@@ -1232,7 +1232,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="0.5"
                     value={(params.refinanceRate || 0.045) * 100}
                     onChange={(e) => setParams({ ...params, refinanceRate: parseFloat(e.target.value) / 100 })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
                 </div>
               </>
@@ -1242,9 +1242,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             {selectedType === "college_funding" && (
               <>
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>ANNUAL STATE COLLEGE COST / CHILD</span>
-                    <span className="text-emerald-400 font-bold">${(params.annualCollegeCost || 35000).toLocaleString()}/yr</span>
+                    <span className="text-teal-650 font-black">${(params.annualCollegeCost || 35000).toLocaleString()}/yr</span>
                   </div>
                   <input
                     type="range"
@@ -1253,9 +1253,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="2000"
                     value={params.annualCollegeCost || 35000}
                     onChange={(e) => setParams({ ...params, annualCollegeCost: parseFloat(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
-                  <div className="flex justify-between text-[9px] text-zinc-650 font-mono mt-1">
+                  <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1 font-bold">
                     <span>$10k</span>
                     <span>$50k</span>
                     <span>$90k</span>
@@ -1263,9 +1263,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>REQUIRED UNIVERSITY FUNDING TARGET</span>
-                    <span className="text-teal-400 font-bold">{params.fundingTargetPercent || 80}% funded</span>
+                    <span className="text-teal-650 font-black">{params.fundingTargetPercent || 80}% funded</span>
                   </div>
                   <input
                     type="range"
@@ -1274,7 +1274,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="10"
                     value={params.fundingTargetPercent || 80}
                     onChange={(e) => setParams({ ...params, fundingTargetPercent: parseInt(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
                 </div>
               </>
@@ -1284,9 +1284,9 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             {selectedType === "estate_legacy" && (
               <>
                 <div>
-                  <div className="flex justify-between text-[11px] font-mono text-zinc-400 mb-1.5">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
                     <span>WEALTH TRANSFER VALUE GOAL</span>
-                    <span className="text-emerald-400 font-bold">${(params.wealthTransferGoal || 1000000).toLocaleString()}</span>
+                    <span className="text-teal-650 font-black">${(params.wealthTransferGoal || 1000000).toLocaleString()}</span>
                   </div>
                   <input
                     type="range"
@@ -1295,32 +1295,32 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     step="100000"
                     value={params.wealthTransferGoal || 1000000}
                     onChange={(e) => setParams({ ...params, wealthTransferGoal: parseFloat(e.target.value) })}
-                    className="w-full accent-emerald-500 cursor-pointer"
+                    className="w-full accent-teal-600 cursor-pointer"
                   />
                 </div>
 
                 <div>
-                  <label className="text-zinc-400 text-xs font-mono block mb-1">PROTECTION COEFFICIENT</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">PROTECTION COEFFICIENT</label>
                   <select
                     value={params.estatePreservationLevel}
                     onChange={(e) => setParams({ ...params, estatePreservationLevel: e.target.value as any })}
-                    className="w-full bg-zinc-950 border border-zinc-805 rounded p-2.5 text-xs text-zinc-200 focus:outline-none font-mono"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none font-sans"
                   >
                     <option value="standard">Standard Preservation (Federal Level)</option>
                     <option value="high_protection">High Preservation (Probate Bypass Trust)</option>
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 p-2.5 bg-zinc-950 rounded border border-zinc-850">
+                <div className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
                   <input
                     type="checkbox"
                     checked={params.useTrustStructure ?? true}
                     onChange={(e) => setParams({ ...params, useTrustStructure: e.target.checked })}
-                    className="accent-emerald-500 cursor-pointer h-4 w-4"
+                    className="accent-teal-600 cursor-pointer h-4 w-4"
                   />
                   <div>
-                    <span className="text-xs text-zinc-200 block font-bold leading-none">Assemble Secure Trust Structure</span>
-                    <span className="text-[10px] text-zinc-500 mt-1 block">Bypasses local state probate cycles.</span>
+                    <span className="text-xs text-slate-800 block font-bold leading-none">Assemble Secure Trust Structure</span>
+                    <span className="text-[10px] text-slate-500 mt-1 block font-bold">Bypasses local state probate cycles.</span>
                   </div>
                 </div>
               </>
@@ -1330,7 +1330,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
           <button
             type="button"
             onClick={saveSimulationPlan}
-            className="w-full bg-emerald-600 hover:bg-emerald-505 text-zinc-900 font-bold transition-all text-xs rounded-xl py-3 flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-950/20 font-sans"
+            className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold transition-all text-xs rounded-xl py-3 flex items-center justify-center gap-1.5 cursor-pointer shadow-md font-sans"
           >
             <CheckCircle className="w-4 h-4" /> Save This Plan
           </button>
@@ -1340,7 +1340,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
       {/* RIGHT COLUMN: SIMULATION REPORT & PROJECTIONS VISUAL (7 cols) */}
       <div className="lg:col-span-7 space-y-6">
         {simulationResult && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col justify-between h-full">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden flex flex-col justify-between h-full shadow-sm">
             {/* HERO COMPASS: LIFESTYLE WEALTH IMPACT */}
             {(() => {
               const wealthImpactVal = simulationResult.lifetimeWealthImpact ?? 0;
@@ -1348,78 +1348,78 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
               const formattedWealthImpact = (isPositive ? "+" : "-") + "$" + Math.abs(Math.round(wealthImpactVal)).toLocaleString();
               
               return (
-                <div className="mx-6 mt-6 bg-gradient-to-r from-zinc-950 via-zinc-950 to-emerald-950/10 border border-zinc-800 rounded-2xl p-5 relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
-                  <div className={`absolute -right-12 -bottom-12 w-32 h-32 rounded-full blur-2xl pointer-events-none ${isPositive ? "bg-emerald-500/10" : "bg-rose-500/5"}`} />
-                  <div className="space-y-1 z-10">
-                    <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-widest block leading-none">Lifetime Decision Horizon</span>
-                    <h3 className="text-sm font-bold text-zinc-100 tracking-tight mt-1.5">Projected Lifetime Wealth Impact</h3>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed max-w-sm">
+                <div className="mx-6 mt-6 bg-gradient-to-r from-teal-50/70 via-emerald-50/30 to-slate-50 border border-slate-150 rounded-2xl p-5 relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
+                  <div className={`absolute -right-12 -bottom-12 w-32 h-32 rounded-full blur-2xl pointer-events-none ${isPositive ? "bg-teal-500/10" : "bg-rose-500/5"}`} />
+                  <div className="space-y-1 z-10 font-sans">
+                    <span className="text-[10px] font-mono text-teal-600 font-bold uppercase tracking-widest block leading-none">Lifetime Decision Horizon</span>
+                    <h3 className="text-sm font-bold text-slate-850 tracking-tight mt-1.5">Projected Lifetime Wealth Impact</h3>
+                    <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm">
                       Compared with doing nothing, this is the estimated difference after 30 years.
                     </p>
                   </div>
-                  <div className="z-10 text-left sm:text-right select-none shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-zinc-800 w-full sm:w-auto">
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest block font-bold leading-none">LIFETIME IMPACT</span>
-                    <div className={`text-2xl sm:text-3xl font-black tracking-tight mt-1.5 font-mono ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                  <div className="z-10 text-left sm:text-right select-none shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 w-full sm:w-auto">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block font-bold leading-none">LIFETIME IMPACT</span>
+                    <div className={`text-2xl sm:text-3xl font-black tracking-tight mt-1.5 font-mono ${isPositive ? "text-teal-600" : "text-rose-600"}`}>
                       {formattedWealthImpact}
                     </div>
                     {Math.abs(wealthImpactVal) >= 5000000 && (
-                      <span className="text-[9.5px] text-zinc-400 font-medium leading-relaxed block mt-1 max-w-[200px] text-left sm:text-right bg-rose-500/10 border border-rose-500/20 rounded px-2 py-0.5 mt-1.5">
+                      <span className="text-[9.5px] text-rose-800 font-bold leading-relaxed block mt-1 max-w-[200px] text-left sm:text-right bg-rose-50 border border-rose-200 rounded px-2 py-0.5 mt-1.5">
                         ⚠️ High Variance Alert: Compounding exceeds realistic predictability limits.
                       </span>
                     )}
-                    <span className="text-[9px] text-zinc-550 block mt-1 uppercase font-mono">calculated 30-year delta</span>
+                    <span className="text-[9px] text-slate-400 block mt-1 uppercase font-mono font-bold">calculated 30-year delta</span>
                   </div>
                 </div>
               );
             })()}
 
             {simulationResult.aggressiveAssumptions && (
-              <div className="mx-6 mt-2 mb-4 flex items-center gap-3 bg-rose-950/20 border border-rose-900/40 rounded-2xl px-5 py-3 text-rose-400 text-xs">
-                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+              <div className="mx-6 mt-2 mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-amber-800 text-xs shadow-sm">
+                <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
                 <div>
-                  <strong className="font-semibold block sm:inline">Simulation Hazard Flags:</strong>{" "}
-                  <span className="text-zinc-300">Scenario contains unusually aggressive assumptions. Theoretical compounding confidence rating has been discounted.</span>
+                  <strong className="font-bold block sm:inline">Simulation Hazard Flags:</strong>{" "}
+                  <span className="text-slate-600">Scenario contains unusually aggressive assumptions. Theoretical compounding confidence rating has been discounted.</span>
                 </div>
               </div>
             )}
 
             {/* Header statistics block */}
-            <div className="p-6 border-b border-zinc-800 bg-zinc-900/60 font-sans">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/40 font-sans">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Score block */}
-                <div className="bg-zinc-950 border border-zinc-850/40 p-3.5 rounded-xl text-left relative overflow-hidden group">
-                  <div className="absolute top-2 right-2 text-emerald-400">
+                <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-left relative overflow-hidden group shadow-sm">
+                  <div className="absolute top-2 right-2 text-teal-600">
                     <Star className="w-3.5 h-3.5 fill-current" />
                   </div>
-                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Decision Score</span>
-                  <span className="text-2xl font-black font-mono text-zinc-105 tracking-tight block mt-1">
+                  <span className="text-[10px] uppercase font-mono text-slate-400 block leading-none font-bold">Decision Score</span>
+                  <span className="text-2xl font-black font-mono text-slate-800 tracking-tight block mt-1">
                     {simulationResult.decisionHealthScore}
                   </span>
-                  <span className="text-[9px] text-emerald-400 font-medium block mt-1.5 font-mono">HEALTH SCORES</span>
+                  <span className="text-[9px] text-teal-650 font-bold block mt-1.5 font-mono">HEALTH SCORES</span>
                 </div>
 
-                <div className="bg-zinc-950 border border-zinc-850/40 p-3.5 rounded-xl text-left">
-                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Monthly Outlay</span>
-                  <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.projectedCashFlowDelta < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-left shadow-sm">
+                  <span className="text-[10px] uppercase font-mono text-slate-400 block leading-none font-bold">Monthly Outlay</span>
+                  <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.projectedCashFlowDelta < 0 ? "text-rose-600" : "text-teal-600"}`}>
                     {simulationResult.projectedCashFlowDelta >= 0 ? "+" : ""}${Math.round(simulationResult.projectedCashFlowDelta).toLocaleString()}
                   </span>
-                  <span className="text-[9px] text-zinc-500 block mt-1">CASH FLOW</span>
+                  <span className="text-[9px] text-slate-400 block mt-1 font-bold">CASH FLOW</span>
                 </div>
 
-                <div className="bg-zinc-950 border border-zinc-850/40 p-3.5 rounded-xl text-left">
-                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Nest Egg Impact</span>
-                  <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.retirementReadinessShift < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-left shadow-sm">
+                  <span className="text-[10px] uppercase font-mono text-slate-400 block leading-none font-bold">Nest Egg Impact</span>
+                  <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.retirementReadinessShift < 0 ? "text-rose-600" : "text-teal-600"}`}>
                     {simulationResult.retirementReadinessShift >= 0 ? "+" : ""}{simulationResult.retirementReadinessShift} Years
                   </span>
-                  <span className="text-[9px] text-zinc-500 block mt-1">RETIREMENT AGE</span>
+                  <span className="text-[9px] text-slate-400 block mt-1 font-bold">RETIREMENT AGE</span>
                 </div>
 
-                <div className="bg-zinc-950 border border-zinc-850/40 p-3.5 rounded-xl text-left">
-                  <span className="text-[10px] uppercase font-mono text-zinc-500 block leading-none">Risk Level</span>
-                  <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.riskScore > 50 ? "text-rose-400" : "text-teal-400"}`}>
+                <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-left shadow-sm">
+                  <span className="text-[10px] uppercase font-mono text-slate-400 block leading-none font-bold">Risk Level</span>
+                  <span className={`text-xl font-bold font-mono tracking-tight block mt-1.5 ${simulationResult.riskScore > 50 ? "text-rose-600" : "text-teal-600"}`}>
                     {simulationResult.riskScore > 65 ? "High Risk" : simulationResult.riskScore > 35 ? "Medium Risk" : "Low Risk"}
                   </span>
-                  <span className="text-[9px] text-zinc-550 block mt-1">{simulationResult.riskScore}/100 SCORE</span>
+                  <span className="text-[9px] text-slate-400 block mt-1 font-bold">{simulationResult.riskScore}/100 SCORE</span>
                 </div>
               </div>
             </div>
@@ -1428,14 +1428,14 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             {(() => {
               const { outcome, nextStep } = getLifeOutcomeStatement(selectedType, simulationResult, params);
               return (
-                <div className="mx-6 mt-6 p-4 bg-emerald-950/20 border border-emerald-900/40 rounded-xl space-y-3 font-sans">
+                <div className="mx-6 mt-6 p-4 bg-teal-50/50 border border-teal-150 rounded-xl space-y-3 font-sans shadow-sm">
                   <div>
-                    <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold block mb-1">What happens if I do this?</span>
-                    <p className="text-xs text-zinc-200 font-medium leading-relaxed font-sans">{outcome}</p>
+                    <span className="text-[10px] uppercase font-mono text-teal-700 font-bold block mb-1">What happens if I do this?</span>
+                    <p className="text-xs text-slate-800 font-bold leading-relaxed font-sans">{outcome}</p>
                   </div>
-                  <div className="border-t border-emerald-905/30 pt-3">
-                    <span className="text-[10px] uppercase font-mono text-teal-400 font-bold block mb-1">What should I do next?</span>
-                    <p className="text-xs text-zinc-350 leading-relaxed font-sans">{nextStep}</p>
+                  <div className="border-t border-teal-150/40 pt-3">
+                    <span className="text-[10px] uppercase font-mono text-teal-600 font-bold block mb-1">What should I do next?</span>
+                    <p className="text-xs text-slate-600 leading-relaxed font-sans">{nextStep}</p>
                   </div>
                 </div>
               );
@@ -1443,22 +1443,22 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
 
             {/* Three Future Story Cards */}
             <div className="px-6 pt-6 font-sans">
-              <span className="text-[10px] uppercase font-mono text-zinc-500 font-bold block mb-3">Narrative Future Stories</span>
+              <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block mb-3">Narrative Future Stories</span>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {getFutureStories(selectedType, params).map((story, i) => {
                   const colors = 
                     story.scenario === "conservative" 
-                      ? { bg: "bg-zinc-950/80 border-zinc-850", title: "text-zinc-300", accent: "bg-zinc-650" } 
+                      ? { bg: "bg-slate-50 border-slate-200", title: "text-slate-700", accent: "bg-slate-400" } 
                       : story.scenario === "balanced" 
-                      ? { bg: "bg-emerald-950/10 border-emerald-900/35", title: "text-emerald-400", accent: "bg-emerald-500" } 
-                      : { bg: "bg-teal-950/15 border-teal-900/35", title: "text-teal-400", accent: "bg-teal-400" };
+                      ? { bg: "bg-teal-50/40 border-teal-200", title: "text-teal-700", accent: "bg-teal-500" } 
+                      : { bg: "bg-emerald-50/35 border-emerald-200", title: "text-emerald-700", accent: "bg-emerald-500" };
                   return (
-                    <div key={i} className={`p-4 rounded-xl border ${colors.bg} space-y-2.5 flex flex-col justify-between font-sans`}>
+                    <div key={i} className={`p-4 rounded-xl border ${colors.bg} space-y-2.5 flex flex-col justify-between font-sans shadow-sm`}>
                       <div>
                         <span className={`text-[11px] font-bold ${colors.title} block font-mono uppercase tracking-wider`}>{story.title}</span>
                         <ul className="space-y-1.5 mt-2.5">
                           {story.bullets.map((bullet, idx) => (
-                            <li key={idx} className="text-[10px] text-zinc-400 leading-snug flex items-start gap-1.5 font-sans">
+                            <li key={idx} className="text-[10px] text-slate-600 leading-snug flex items-start gap-1.5 font-sans font-medium">
                               <span className={`w-1 h-1 rounded-full ${colors.accent} mt-1.5 shrink-0`} />
                               <span>{bullet}</span>
                             </li>
@@ -1472,32 +1472,32 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             </div>
 
             {/* THE DUAL-PATH PROJECTION CHART */}
-            <div className="p-6 bg-zinc-900/40">
-              <span className="text-[10px] font-mono text-zinc-500 uppercase block mb-3">Projected Net Worth Curves (30-Year Horizon)</span>
+            <div className="p-6 bg-slate-50/30">
+              <span className="text-[10px] font-mono text-slate-400 uppercase block mb-3 font-bold">Projected Net Worth Curves (30-Year Horizon)</span>
               
               {/* Complex SVG charting */}
-              <div className="relative h-64 bg-zinc-950 border border-zinc-800/80 rounded-xl p-4 overflow-hidden">
-                <div className="absolute top-3 left-4 flex gap-4 text-[9px] font-mono text-zinc-400 bg-zinc-900/80 p-2 rounded border border-zinc-800">
+              <div className="relative h-64 bg-white border border-slate-200 rounded-xl p-4 overflow-hidden shadow-sm">
+                <div className="absolute top-3 left-4 flex gap-4 text-[9px] font-mono text-slate-500 bg-slate-50/90 p-2 rounded border border-slate-250 z-10 shadow-sm font-bold">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-0.5 bg-zinc-500" />
+                    <div className="w-2.5 h-0.5 bg-slate-400" />
                     <span>Baseline Path (Continuity)</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-0.5 bg-emerald-400" />
+                    <div className="w-2.5 h-0.5 bg-teal-500" />
                     <span>Simulated Path (Proposed Choice)</span>
                   </div>
                 </div>
 
-                <div className="absolute bottom-2 right-4 text-[9px] font-mono text-zinc-500">
+                <div className="absolute bottom-2 right-4 text-[9px] font-mono text-slate-400 font-bold">
                   Confidence Interval: {simulationResult.confidenceScore}% (Analytical)
                 </div>
 
                 {/* SVG Render loops */}
                 <svg className="w-full h-full pt-10 pb-6" viewBox="0 0 500 200" preserveAspectRatio="none">
                   {/* Grid Lines */}
-                  <line x1="0" y1="40" x2="500" y2="40" stroke="#1f2937" strokeDasharray="3,3" />
-                  <line x1="0" y1="100" x2="500" y2="100" stroke="#1f2937" strokeDasharray="3,3" />
-                  <line x1="0" y1="160" x2="500" y2="160" stroke="#1f2937" strokeDasharray="3,3" />
+                  <line x1="0" y1="40" x2="500" y2="40" stroke="#f1f5f9" strokeDasharray="3,3" />
+                  <line x1="0" y1="100" x2="500" y2="100" stroke="#f1f5f9" strokeDasharray="3,3" />
+                  <line x1="0" y1="160" x2="500" y2="160" stroke="#f1f5f9" strokeDasharray="3,3" />
 
                   {/* Baseline path line */}
                   {(() => {
@@ -1513,7 +1513,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     return (
                       <polyline
                         fill="none"
-                        stroke="#6b7280"
+                        stroke="#94a3b8"
                         strokeWidth="1.5"
                         strokeDasharray="4,4"
                         points={points}
@@ -1533,18 +1533,18 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                       <>
                         <polyline
                           fill="none"
-                          stroke="#10b981"
+                          stroke="#0d9488"
                           strokeWidth="2"
                           points={points}
                         />
                         {/* Shimmer dots on key targets */}
-                        <circle cx={495} cy={190 - (simulationResult.projectedNetWorth30Y[29] / maxVal) * 160} r="4.5" fill="#14b8a6" />
+                        <circle cx={495} cy={190 - (simulationResult.projectedNetWorth30Y[29] / maxVal) * 160} r="4.5" fill="#0d9488" />
                       </>
                     );
                   })()}
                 </svg>
 
-                <div className="absolute bottom-1 left-2 right-2 flex justify-between text-[8px] font-mono text-zinc-650">
+                <div className="absolute bottom-1 left-2 right-2 flex justify-between text-[8px] font-mono text-slate-400 font-bold">
                   <span>Year 0</span>
                   <span>Year 10</span>
                   <span>Year 20</span>
@@ -1555,24 +1555,24 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
 
             {/* Assumptions and Limitations Lists */}
             <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-zinc-950 border border-zinc-850/45 p-4 rounded-xl">
-                <span className="text-[10px] uppercase font-mono text-zinc-500 font-bold block mb-1.5">Simulation Assumptions</span>
-                <ul className="space-y-1.5 text-[11px] text-zinc-300">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
+                <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block mb-1.5">Simulation Assumptions</span>
+                <ul className="space-y-1.5 text-[11px] text-slate-650 font-medium">
                   {simulationResult.keyAssumptions.map((ass, i) => (
                     <li key={i} className="flex items-start gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1 shrink-0" />
                       <span>{ass}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="bg-zinc-955 border border-zinc-850/45 p-4 rounded-xl">
-                <span className="text-[10px] uppercase font-mono text-zinc-500 font-bold block mb-1.5">Analysis Limitations</span>
-                <ul className="space-y-1.5 text-[11px] text-zinc-350">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
+                <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block mb-1.5">Analysis Limitations</span>
+                <ul className="space-y-1.5 text-[11px] text-slate-650 font-medium">
                   {simulationResult.limitations.map((lim, i) => (
                     <li key={i} className="flex items-start gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1 shrink-0" />
                       <span>{lim}</span>
                     </li>
                   ))}
@@ -1582,19 +1582,19 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
 
             {/* Alternative Scenarios Block */}
             <div className="px-6 pb-6 font-sans">
-              <div className="bg-emerald-950/20 border border-emerald-900/40 p-4 rounded-xl space-y-3">
-                <span className="text-[10px] uppercase font-mono text-emerald-400 font-bold block">Suggested Alternatives</span>
+              <div className="bg-teal-50/40 border border-teal-150 p-4 rounded-xl space-y-3 shadow-sm">
+                <span className="text-[10px] uppercase font-mono text-teal-700 font-bold block">Suggested Alternatives</span>
                 <div className="space-y-2">
                   {simulationResult.alternativeScenarios.map((alt, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-zinc-950/40 p-3 rounded-lg border border-zinc-900">
+                    <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                       <div>
-                        <strong className="text-zinc-200 text-xs block">{alt.title}</strong>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">{alt.description}</p>
+                        <strong className="text-slate-800 text-xs block font-bold">{alt.title}</strong>
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{alt.description}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleApplyAlternative(alt.params)}
-                        className="text-[10px] bg-emerald-600 hover:bg-emerald-505 text-zinc-950 font-bold px-2.5 py-1.5 rounded transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                        className="text-[10px] bg-teal-650 hover:bg-teal-600 text-white font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-sm"
                       >
                         Model scenario <ArrowRight className="w-3 h-3" />
                       </button>
@@ -1605,22 +1605,22 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
             </div>
 
             {/* FEEDBACK LOOP MODULE */}
-            <div className="bg-zinc-950 p-6 border-t border-zinc-805">
+            <div className="bg-slate-50 p-6 border-t border-slate-200">
               {!feedbackSubmitted ? (
                 <form onSubmit={submitFeedbackAction} className="space-y-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                      <h4 className="text-xs font-bold text-zinc-200">Rate Aura's Guidance</h4>
-                      <p className="text-[10px] text-zinc-500">Provide direct feedback to help customize your financial coach.</p>
+                      <h4 className="text-xs font-bold text-slate-850">Rate Aura's Guidance</h4>
+                      <p className="text-[10px] text-slate-500 font-bold">Provide direct feedback to help customize your financial coach.</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => setFeedbackRating("helpful")}
-                        className={`px-3 py-1.5 rounded border text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all ${
                           feedbackRating === "helpful" 
-                            ? "bg-emerald-900/30 border-emerald-500 text-emerald-400 font-bold" 
-                            : "bg-zinc-900 border-zinc-800 text-zinc-550 hover:text-zinc-300"
+                            ? "bg-teal-50 border-teal-500 text-teal-700 font-bold" 
+                            : "bg-white border-slate-200 text-slate-500 hover:text-slate-700 shadow-sm"
                         }`}
                       >
                         <ThumbsUp className="w-3 h-3" /> Helpful
@@ -1628,10 +1628,10 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                       <button
                         type="button"
                         onClick={() => setFeedbackRating("not_helpful")}
-                        className={`px-3 py-1.5 rounded border text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all ${
                           feedbackRating === "not_helpful" 
-                            ? "bg-rose-950/35 border-rose-500 text-rose-450 font-bold" 
-                            : "bg-zinc-900 border-zinc-800 text-zinc-550 hover:text-zinc-300"
+                            ? "bg-rose-50 border-rose-500 text-rose-700 font-bold" 
+                            : "bg-white border-slate-200 text-slate-500 hover:text-slate-700 shadow-sm"
                         }`}
                       >
                         <ThumbsDown className="w-3 h-3" /> Not Helpful
@@ -1643,11 +1643,11 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                     <div className="space-y-3 pt-2">
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
-                          <label className="text-[9px] text-zinc-505 font-mono uppercase block mb-1">Select Core Assessment</label>
+                          <label className="text-[9px] text-slate-400 font-mono uppercase block mb-1 font-bold">Select Core Assessment</label>
                           <select
                             value={feedbackReason}
                             onChange={(e) => setFeedbackReason(e.target.value)}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded p-1.5 text-[10px] text-zinc-300 focus:outline-none"
+                            className="w-full bg-white border border-slate-200 rounded p-1.5 text-[10px] text-slate-700 focus:outline-none"
                           >
                             <option value="">-- Choose Reason --</option>
                             <option value="highly_realistic">Accurate state tax integration</option>
@@ -1658,19 +1658,19 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                           </select>
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="text-[9px] text-zinc-505 font-mono uppercase block mb-1">Optional commentary</label>
+                          <label className="text-[9px] text-slate-400 font-mono uppercase block mb-1 font-bold">Optional commentary</label>
                           <input
                             type="text"
                             placeholder="State assumptions or elements missing..."
                             value={feedbackComment}
                             onChange={(e) => setFeedbackComment(e.target.value)}
-                            className="w-full bg-zinc-900 border border-zinc-800 rounded p-1.5 text-[10px] text-zinc-300 focus:outline-none focus:border-zinc-700"
+                            className="w-full bg-white border border-slate-200 rounded p-1.5 text-[10px] text-slate-700 focus:outline-none focus:border-teal-500"
                           />
                         </div>
                       </div>
                       <button
                         type="submit"
-                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-bold tracking-tight px-3 py-1.5 rounded transition-all cursor-pointer"
+                        className="bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold tracking-tight px-3 py-1.5 rounded transition-all cursor-pointer shadow-sm"
                       >
                         Submit Feedback
                       </button>
@@ -1679,7 +1679,7 @@ export default function SimulatorEngine({ twin, initialType, onSaveSimulation, o
                 </form>
               ) : (
                 <div className="text-center p-2.5">
-                  <span className="text-[11px] font-mono text-emerald-400 font-semibold">{feedbackSubmitted}</span>
+                  <span className="text-[11px] font-mono text-teal-600 font-bold">{feedbackSubmitted}</span>
                 </div>
               )}
             </div>

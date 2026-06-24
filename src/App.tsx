@@ -351,17 +351,19 @@ export default function App() {
 
   if (isBooting) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center p-6 text-zinc-100">
-        <div className="space-y-4 text-center">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-450 flex items-center justify-center font-bold text-zinc-950 font-mono shadow-lg text-lg animate-pulse">
-            A
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6 text-slate-800 relative overflow-hidden">
+        {/* Background blobs */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-200/40 rounded-full blur-3xl pointer-events-none" />
+        <div className="space-y-4 text-center relative z-10">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center font-bold text-white shadow-lg text-lg animate-pulse">
+            AR
           </div>
           <div className="space-y-2">
-            <h1 className="text-sm font-bold tracking-tight text-white font-sans">Initializing AuraRipple Secure Core</h1>
-            <div className="w-48 h-1 bg-zinc-900 rounded-full mx-auto overflow-hidden relative">
-              <div className="absolute top-0 bottom-0 left-0 right-0 bg-emerald-500 animate-pulse rounded-full" />
+            <h1 className="text-sm font-bold tracking-tight text-slate-900 font-sans">Initializing AuraRipple Secure Core</h1>
+            <div className="w-48 h-1 bg-slate-200 rounded-full mx-auto overflow-hidden relative">
+              <div className="absolute top-0 bottom-0 left-0 right-0 bg-gradient-to-r from-teal-600 to-emerald-500 animate-pulse rounded-full" />
             </div>
-            <p className="text-[9px] font-mono text-zinc-550 uppercase tracking-widest">Verifying database integrity...</p>
+            <p className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Verifying database integrity...</p>
           </div>
         </div>
       </div>
@@ -461,31 +463,31 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-slate-50 text-slate-800 font-sans overflow-hidden">
       
       {/* 1. LEFT NAVIGATION MENU RAIL */}
-      <aside className="w-64 bg-zinc-900 border-r border-zinc-805 shrink-0 flex flex-col justify-between select-none font-sans">
+      <aside className="w-64 bg-white border-r border-slate-200 shrink-0 flex flex-col justify-between select-none font-sans shadow-sm">
         <div className="p-5 space-y-6 flex-1 flex flex-col justify-between overflow-y-auto">
           <div className="space-y-6">
             {/* Logo segment */}
             <div className="space-y-1 pb-1">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-zinc-950 font-mono shadow-md text-xs">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center font-bold text-white shadow-md text-xs">
                   AR
                 </div>
                 <div>
-                  <h1 className="text-lg font-black tracking-tight text-white font-sans leading-none">AuraRipple</h1>
-                  <span className="text-[9px] font-mono font-semibold tracking-wider text-emerald-400 uppercase leading-none mt-1.5 block">Financial Decision Coach</span>
+                  <h1 className="text-lg font-black tracking-tight text-slate-900 font-sans leading-none">AuraRipple</h1>
+                  <span className="text-[9px] font-mono font-bold tracking-wider text-teal-600 uppercase leading-none mt-1.5 block">Financial Decision Coach</span>
                 </div>
               </div>
-              <p className="text-[10px] text-zinc-500 italic leading-snug pt-1">
+              <p className="text-[10px] text-slate-500 italic leading-snug pt-1">
                 "See your future before you spend your money."
               </p>
             </div>
 
             {/* Nav groups */}
             <nav className="space-y-1.5">
-              <span className="text-[9px] uppercase font-mono tracking-wider text-zinc-500 block pb-2 border-b border-zinc-805">
+              <span className="text-[9px] uppercase font-mono tracking-wider text-slate-400 block pb-2 border-b border-slate-100 font-semibold">
                 Financial Twin Experience
               </span>
 
@@ -493,11 +495,11 @@ export default function App() {
                 onClick={() => setActiveMenu("command")}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                   activeMenu === "command"
-                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
-                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                    ? "bg-teal-50/70 border border-teal-100 text-teal-800 font-bold shadow-sm"
+                    : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                 }`}
               >
-                <LayoutDashboard className="w-4 h-4 text-teal-400 shrink-0" />
+                <LayoutDashboard className="w-4 h-4 text-teal-600 shrink-0" />
                 <span>Financial Twin Command Center</span>
               </button>
 
@@ -505,11 +507,11 @@ export default function App() {
                 onClick={() => setActiveMenu("twin")}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                   activeMenu === "twin"
-                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
-                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                    ? "bg-teal-50/70 border border-teal-100 text-teal-800 font-bold shadow-sm"
+                    : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                 }`}
               >
-                <Wallet className="w-4 h-4 text-emerald-450 shrink-0" />
+                <Wallet className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Financial Profile Builder</span>
               </button>
 
@@ -517,14 +519,14 @@ export default function App() {
                 onClick={() => setActiveMenu("simulator")}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                   activeMenu === "simulator"
-                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
-                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                    ? "bg-teal-50/70 border border-teal-100 text-teal-800 font-bold shadow-sm"
+                    : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                 }`}
               >
-                <Sparkles className="w-4 h-4 text-emerald-410 shrink-0" />
+                <Sparkles className="w-4 h-4 text-teal-500 shrink-0" />
                 <span>Life Simulator</span>
                 {savedSimulations.length > 0 && (
-                  <span className="text-[9px] text-emerald-400 font-bold ml-auto bg-emerald-950 px-1.5 rounded font-mono">
+                  <span className="text-[9px] text-teal-700 font-bold ml-auto bg-teal-100 px-1.5 py-0.5 rounded font-mono">
                     {savedSimulations.length}
                   </span>
                 )}
@@ -534,11 +536,11 @@ export default function App() {
                 onClick={() => setActiveMenu("goals")}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                   activeMenu === "goals"
-                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
-                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                    ? "bg-teal-50/70 border border-teal-100 text-teal-800 font-bold shadow-sm"
+                    : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                 }`}
               >
-                <Target className="w-4 h-4 text-teal-400 shrink-0" />
+                <Target className="w-4 h-4 text-teal-600 shrink-0" />
                 <span>Life Outcomes & Goals</span>
               </button>
 
@@ -546,18 +548,18 @@ export default function App() {
                 onClick={() => setActiveMenu("settings")}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                   activeMenu === "settings"
-                    ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
-                    : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                    ? "bg-teal-50/70 border border-teal-100 text-teal-800 font-bold shadow-sm"
+                    : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                 }`}
               >
-                <Settings className="w-4 h-4 text-emerald-405 shrink-0" />
+                <Settings className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Settings</span>
               </button>
 
               {/* SYSTEM ADMINISTRATIVE SECTOR (Visible ONLY under non-customer roles) */}
               {userRole !== "customer" && (
                 <div className="pt-4 space-y-1.5">
-                  <span className="text-[9px] uppercase font-mono tracking-wider text-rose-450 block pb-2 border-b border-zinc-805">
+                  <span className="text-[9px] uppercase font-mono tracking-wider text-rose-600 block pb-2 border-b border-slate-100 font-bold">
                     Oversight & Compliance
                   </span>
 
@@ -565,11 +567,11 @@ export default function App() {
                     onClick={() => setActiveMenu("governance")}
                     className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                       activeMenu === "governance"
-                        ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
-                        : "border border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/60"
+                        ? "bg-rose-50/70 border border-rose-100 text-rose-800 font-bold shadow-sm"
+                        : "border border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60"
                     }`}
                   >
-                    <Scale className="w-4 h-4 text-rose-400 shrink-0" />
+                    <Scale className="w-4 h-4 text-rose-500 shrink-0" />
                     <span>Governance Dashboard</span>
                   </button>
 
@@ -577,11 +579,11 @@ export default function App() {
                     onClick={() => setActiveMenu("feedback")}
                     className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-sans transition-all flex items-center gap-3 cursor-pointer ${
                       activeMenu === "feedback"
-                        ? "bg-zinc-950 border border-zinc-900 text-zinc-101 font-bold shadow-inner"
-                        : "border border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-zinc-850/60"
+                        ? "bg-rose-50/70 border border-rose-100 text-rose-800 font-bold shadow-sm"
+                        : "border border-transparent text-slate-500 hover:text-slate-850 hover:bg-slate-100/60"
                     }`}
                   >
-                    <MessageSquare className="w-4 h-4 text-rose-400 shrink-0" />
+                    <MessageSquare className="w-4 h-4 text-rose-500 shrink-0" />
                     <span>Feedback Recalibrator</span>
                   </button>
                 </div>
@@ -592,16 +594,16 @@ export default function App() {
         </div>
 
         {/* User Identity bottom tag */}
-        <div className="p-4 border-t border-zinc-805 bg-zinc-950/40 text-xs shrink-0 font-sans flex items-center justify-between gap-2">
+        <div className="p-4 border-t border-slate-100 bg-slate-50 text-xs shrink-0 font-sans flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-1.5 rounded-full bg-zinc-805 text-zinc-400 shrink-0">
+            <div className="p-1.5 rounded-full bg-slate-200 text-slate-500 shrink-0">
               <User className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <span className="font-semibold block text-zinc-200 truncate font-sans text-xs">
+              <span className="font-semibold block text-slate-800 truncate font-sans text-xs">
                 {session?.user?.userEmail || "guest@domain.com"}
               </span>
-              <span className="text-[9px] font-mono text-emerald-450 uppercase leading-none block mt-1">
+              <span className="text-[9px] font-mono text-teal-600 uppercase font-bold leading-none block mt-1">
                 ROLE: {userRole.replace("_", " ")}
               </span>
             </div>
@@ -609,7 +611,7 @@ export default function App() {
           <button
             onClick={handleSignOut}
             title="Terminate secure session key"
-            className="p-2 hover:bg-zinc-850 rounded-lg text-zinc-500 hover:text-emerald-400 transition-all cursor-pointer shrink-0"
+            className="p-2 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-rose-600 transition-all cursor-pointer shrink-0"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -617,39 +619,39 @@ export default function App() {
       </aside>
 
       {/* 2. MAIN CENTER BODY SCROLL */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-zinc-950/20">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
         
         {/* UPPER STATUS BAR */}
-        <header className="h-16 border-b border-zinc-805 px-8 flex justify-between items-center bg-zinc-900 shrink-0 bg-zinc-900/40 backdrop-blur-md font-sans">
+        <header className="h-16 border-b border-slate-200 px-8 flex justify-between items-center bg-white shrink-0 shadow-sm font-sans">
           <div className="flex items-center gap-4 text-xs">
-            <span className="text-zinc-500 font-medium">Active Zone:</span>
-            <div className="flex items-center gap-1.5 bg-zinc-950 px-2.5 py-1.5 rounded-md border border-zinc-850 text-zinc-350 font-mono text-[11px]">
-              <MapPin className="w-3 h-3 text-emerald-400" />
-              <span>CA</span>
+            <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Active Zone:</span>
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-700 font-mono text-[11px] shadow-inner">
+              <MapPin className="w-3 h-3 text-teal-600" />
+              <span className="font-semibold">CA</span>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-zinc-950 px-2.5 py-1.5 rounded-md border border-zinc-850 text-zinc-350 font-mono text-[11px]">
-              <Coins className="w-3.5 h-3.5 text-teal-400" />
-              <span>Long-Term Growth Assumption: {(twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span>
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-700 font-mono text-[11px] shadow-inner">
+              <Coins className="w-3.5 h-3.5 text-teal-600" />
+              <span>Long-Term Growth Assumption: <span className="font-semibold">{(twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + c.annualGrowth, 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span></span>
             </div>
 
             {session?.user && (
               <div className="ml-2">
                 {syncingState === "syncing" && (
-                  <span className="text-[11px] font-mono text-amber-400 animate-pulse bg-amber-950/40 px-2.5 py-1.5 rounded-md border border-amber-900/30 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                  <span className="text-[11px] font-mono text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-lg border border-amber-200 flex items-center gap-1.5 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
                     Syncing changes...
                   </span>
                 )}
                 {syncingState === "synced" && (
-                  <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 px-2.5 py-1.5 rounded-md border border-emerald-900/30 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     Synced to Supabase
                   </span>
                 )}
                 {syncingState === "error" && (
-                  <span className="text-[11px] font-mono text-rose-400 bg-rose-950/40 px-2.5 py-1.5 rounded-md border border-rose-900/30 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                  <span className="text-[11px] font-mono text-rose-700 bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-200 flex items-center gap-1.5 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                     ⚠ Database Save Error
                   </span>
                 )}
@@ -659,8 +661,8 @@ export default function App() {
 
           <div className="flex items-center gap-4 text-xs font-mono">
             <div className="text-right">
-              <span className="text-[10px] text-zinc-550 block leading-none">TOTAL NET WORTH</span>
-              <span className={`text-xs font-bold block mt-1 ${netWorth >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              <span className="text-[10px] text-slate-400 font-bold uppercase block leading-none">TOTAL NET WORTH</span>
+              <span className={`text-sm font-extrabold block mt-1 ${netWorth >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                 ${netWorth.toLocaleString()}
               </span>
             </div>
@@ -668,7 +670,7 @@ export default function App() {
         </header>
 
         {/* WORKSPACE AREA CONTAINER */}
-        <div className="flex-1 overflow-y-auto p-8 bg-zinc-950/10 font-sans">
+        <div className="flex-1 overflow-y-auto p-8 bg-slate-50 font-sans">
           
           {/* Main dynamic dispatcher */}
           {activeMenu === "command" && (
