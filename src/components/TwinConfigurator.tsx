@@ -16,19 +16,6 @@ interface TwinConfiguratorProps {
   onChange: (updatedTwin: FinancialTwin, skipDbSave?: boolean) => void;
 }
 
-const US_STATES = [
-  { code: "CA", name: "California (Prog. Tax to 13.3%)" },
-  { code: "TX", name: "Texas (0.0% State Income Tax)" },
-  { code: "NY", name: "New York (Prog. Tax to 10.9%)" },
-  { code: "FL", name: "Florida (0.0% State Income Tax)" },
-  { code: "IL", name: "Illinois (4.95% Flat State Tax)" },
-  { code: "WA", name: "Washington (0.0% State Income Income Tax)" },
-  { code: "MA", name: "Massachusetts (5.0% Flat State Tax)" },
-  { code: "NV", name: "Nevada (0.0% State Income Tax)" },
-  { code: "OH", name: "Ohio (Prog. Tax to 3.99%)" },
-  { code: "NC", name: "North Carolina (4.5% Flat State Tax)" }
-];
-
 export default function TwinConfigurator({ twin, profileId, syncingState, setSyncingState, onChange }: TwinConfiguratorProps) {
   const [activeTab, setActiveTab ] = useState<"income" | "savings" | "debts" | "family" | "retirement" | "risk">("income");
 
@@ -594,7 +581,7 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-slate-500 text-xs font-bold block mb-1.5 uppercase tracking-wide">Do you support dependents?</label>
                 <input
@@ -624,22 +611,6 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
                   </span>
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1.5 block">Used to anchor your timeline projection models.</span>
-              </div>
-
-              <div>
-                <label className="text-slate-500 text-xs font-bold block mb-1.5 uppercase tracking-wide">Which state do you call home?</label>
-                <select
-                  value={twin.taxState}
-                  onChange={(e) => handleUpdateGeneral("taxState", e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-sans text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all shadow-inner"
-                >
-                  {US_STATES.map((st) => (
-                    <option key={st.code} value={st.code}>
-                      {st.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-[10px] text-slate-400 mt-1.5 block">Required to calculate regional state income tax offsets.</span>
               </div>
             </div>
 

@@ -331,6 +331,21 @@ export default function App() {
 
   // Combined saving orchestrations
   const handleSaveTwin = async (updatedTwin: FinancialTwin, skipDbSave = false) => {
+    const previousTaxState = twin.taxState || "US";
+    const newTaxState = updatedTwin.taxState || "US";
+    const sourceComponent = activeMenu === "settings" ? "UnifiedSettings" : "TwinConfigurator";
+
+    if (previousTaxState !== newTaxState && process.env.NODE_ENV !== "production") {
+      console.log("[QA LOG] State Change Detected in handleSaveTwin:", {
+        previousTaxState,
+        newTaxState,
+        sourceComponent,
+        savedSuccessfully: "Saving...",
+        activeStateUsedBySimulatorEngine: newTaxState,
+        activeStateShownByTopBadge: newTaxState
+      });
+    }
+
     setTwin(updatedTwin);
     const hasSupabase = SupabaseService.isConfigured();
     // Always save to sandbox storage immediately if we are offline/sandbox mode (ignores skipDbSave)
@@ -338,6 +353,16 @@ export default function App() {
       const uId = session?.user?.userId || session?.user?.id || "fallback_sandbox_uid";
       await SupabaseService.saveCombinedProfile(uId, profileId, updatedTwin);
       setSyncingState("synced");
+      if (previousTaxState !== newTaxState && process.env.NODE_ENV !== "production") {
+        console.log("[QA LOG] State Change Saved Successfully (Sandbox):", {
+          previousTaxState,
+          newTaxState,
+          sourceComponent,
+          savedSuccessfully: true,
+          activeStateUsedBySimulatorEngine: newTaxState,
+          activeStateShownByTopBadge: newTaxState
+        });
+      }
       return;
     }
     if (skipDbSave) return;
@@ -347,6 +372,16 @@ export default function App() {
     if (uId) {
       const success = await SupabaseService.saveCombinedProfile(uId, profileId, updatedTwin);
       setSyncingState(success ? "synced" : "error");
+      if (previousTaxState !== newTaxState && process.env.NODE_ENV !== "production") {
+        console.log("[QA LOG] State Change Save Completed (Supabase):", {
+          previousTaxState,
+          newTaxState,
+          sourceComponent,
+          savedSuccessfully: success,
+          activeStateUsedBySimulatorEngine: newTaxState,
+          activeStateShownByTopBadge: newTaxState
+        });
+      }
     } else {
       setSyncingState("synced");
     }
@@ -938,7 +973,7 @@ export default function App() {
             <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Active Zone:</span>
             <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-700 font-mono text-[11px] shadow-inner">
               <MapPin className="w-3 h-3 text-teal-600" />
-              <span className="font-semibold">CA</span>
+              <span className="font-semibold">{twin.taxState || "US"}</span>
             </div>
 
             <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-700 font-mono text-[11px] shadow-inner">

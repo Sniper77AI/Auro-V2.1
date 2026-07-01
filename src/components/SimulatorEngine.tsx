@@ -4,7 +4,13 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { FinancialTwin, SimulationType, SimulationParams, SimulationResult, FeedbackItem, GovernanceEvent } from "../types";
+import { FinancialTwin, SimulationType, SimulationParams, SimulationResult, FeedbackItem, GovernanceEvent, StateAssumption } from "../types";
+import { SupabaseService } from "../supabaseService";
+import { 
+  calculateHomePurchaseScenario, 
+  calculateProfileCompleteness, 
+  clamp 
+} from "../utils/financialCalculations";
 import { 
   Home, Car, Briefcase, Calendar, ShieldAlert, Zap, 
   Settings, CheckCircle, Info, RefreshCw, Star, 
@@ -336,6 +342,32 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
   const [selectedType, setSelectedType] = useState<SimulationType>("home_purchase");
   const [showApprovalPanel, setShowApprovalPanel] = useState(false);
 
+  // Load state assumptions from Supabase/Sandbox
+  const [stateAssumptions, setStateAssumptions] = useState<StateAssumption[]>([]);
+  const [assumptionsLoading, setAssumptionsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchAssumptions() {
+      try {
+        const data = await SupabaseService.loadStateAssumptions();
+        setStateAssumptions(data || []);
+      } catch (err) {
+        console.error("Error loading state assumptions in SimulatorEngine:", err);
+      } finally {
+        setAssumptionsLoading(false);
+      }
+    }
+    fetchAssumptions();
+  }, []);
+
+  const fallbackAssumption: StateAssumption = {
+    state_code: "US",
+    effective_tax_rate: 0.04,
+    property_tax_rate: 0.012, // Standard 1.2% national average property tax
+    cost_of_living_index: 1.0,
+    appreciation_rate: 0.04,   // 4.0% national average appreciation
+  };
+
   // Sync with initialType prop
   useEffect(() => {
     if (initialType) {
@@ -433,9 +465,10 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
     let limitations: string[] = [];
     let alternativeScenarios: any[] = [];
 
-    // State tax multiplier
-    const stateTaxMap: Record<string, number> = { CA: 0.08, NY: 0.06, FL: 0.0, TX: 0.0, IL: 0.0495, WA: 0.0 };
-    const taxPenaltyMultiplier = 1 - (stateTaxMap[twin.taxState || "CA"] || 0.04);
+    // Resolve state tax multiplier from loaded state assumptions dynamically
+    const matchedStateTaxAss = stateAssumptions.find(a => a.state_code.toUpperCase() === (twin.taxState || "US").toUpperCase());
+    const effectiveTaxRate = matchedStateTaxAss ? matchedStateTaxAss.effective_tax_rate : fallbackAssumption.effective_tax_rate;
+    const taxPenaltyMultiplier = 1 - effectiveTaxRate;
     const liquidCash = (twin.assets || []).filter(a => a.type === "cash" || a.type === "brokerage").reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
 
     // Module math logic
@@ -454,53 +487,168 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         });
       }
 
-      // Mortgage payment formula
-      const loanAmount = Math.max(0, price - down);
-      const monthlyRate = rate / 12;
-      const numPayments = 360;
-      const monthlyMortgage = monthlyRate > 0 
-        ? (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / (Math.pow(1 + monthlyRate, numPayments) - 1)
-        : loanAmount / numPayments;
+      // Resolve state assumption:
+      const activeStateCode = twin.taxState || "US";
+      const matchedAssumption = stateAssumptions.find(
+        (a) => a.state_code.toUpperCase() === activeStateCode.toUpperCase()
+      );
+      const usingFallback = !matchedAssumption;
+      const activeStateAssumption = matchedAssumption || fallbackAssumption;
 
-      // Maintenance + State property taxes (averages about 1.2% per year of purchase)
-      const monthlyPropTaxAndMaint = (price * 0.012) / 12;
-      const rentOffset = price * 0.00538; // Calibrated rent offset (~$2,690/mo for a $500k home to match realistic 30y delta)
-      projectedCashFlowDelta = -(monthlyMortgage + monthlyPropTaxAndMaint) + rentOffset;
-
-      // Build out NW curves
-      tempBaseline = currentNetWorth;
-      // Model liquid wealth separately from property asset value
-      let tempLiquidSimulated = currentNetWorth - down; // start with liquid assets after down payment
-
-      for (let i = 1; i <= years; i++) {
-        // Baseline: cash compounds + annual savings compound
-        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
-        baselineNW.push(Math.round(tempBaseline));
-
-        // Simulated: home appreciates (approx 4.0%), mortgage pays down, savings compound
-        const propertyValue = price * Math.pow(1.04, i);
-        // remaining mortgage decays linearly down to 0 at year 30
-        const remainingMortgage = loanAmount * Math.max(0, 1 - i / 30);
-        const simulatedAnnualSavings = Math.max(0, annualSurplus + (projectedCashFlowDelta * 12));
-        
-        // Compound only the liquid wealth portion
-        tempLiquidSimulated = (tempLiquidSimulated + simulatedAnnualSavings) * (1 + averageGrowthRate);
-        
-        // Total Simulated Net Worth = Liquid wealth + home property value - remaining mortgage
-        tempSimulated = tempLiquidSimulated + propertyValue - remainingMortgage;
-        simulatedNW.push(Math.round(tempSimulated));
+      // Find current monthly rent from twin if available
+      let currentMonthlyRent = 0;
+      if (twin.liabilities) {
+        const rentLiability = twin.liabilities.find((l) =>
+          (l.name || "").toLowerCase().includes("rent") ||
+          (l.name || "").toLowerCase().includes("lease")
+        );
+        if (rentLiability) {
+          currentMonthlyRent = Number(rentLiability.monthlyPayment) || 0;
+        }
       }
 
-      retirementReadinessShift = projectedCashFlowDelta < -1500 ? -3.5 : projectedCashFlowDelta < 0 ? -1.5 : 1;
-      decisionHealthScore = Math.max(25, Math.min(95, 85 + (projectedCashFlowDelta / 100)));
-      riskScore = Math.round((price / (totalAnnualIncome + 1)) * 12);
-      confidenceScore = 85;
+      const result = calculateHomePurchaseScenario({
+        currentNetWorth,
+        annualSurplus,
+        averageGrowthRate,
+        homePrice: price,
+        downPayment: down,
+        interestRate: rate,
+        years,
+        stateAssumption: activeStateAssumption,
+        currentMonthlyRent,
+      });
 
-      keyAssumptions = [
-        `Constant property appreciation rate of 4.0% in ${twin.taxState}`,
-        `Standard 30-year amortization schedule at ${rate * 100}% APR`,
-        `Home maintenance and state taxes calculated at 1.5% annual cap`
-      ];
+      // Populate curves
+      baselineNW.push(...result.baselineNetWorthProjection);
+      simulatedNW.push(...result.simulatedNetWorthProjection);
+
+      projectedCashFlowDelta = result.projectedCashFlowDelta;
+
+      // Calculate retirement readiness shift based on cash flow delta
+      retirementReadinessShift = projectedCashFlowDelta < -1500 ? -3.5 : projectedCashFlowDelta < 0 ? -1.5 : 1;
+
+      // --- DYNAMIC DECISION HEALTH SCORE ---
+      const monthlyHomeCost = result.monthlyHomeCost;
+      const postPurchaseCash = liquidCash - down;
+      const emergencyMonthsPost = monthlyExpenses > 0 ? postPurchaseCash / monthlyExpenses : 0;
+
+      // 1. Housing Cost percentage (optimal is <= 28% of gross income)
+      let housingCostPoints = 0;
+      const monthlyGross = totalAnnualIncome / 12;
+      if (monthlyGross > 0) {
+        const housingRatio = monthlyHomeCost / monthlyGross;
+        if (housingRatio <= 0.28) {
+          housingCostPoints = 35;
+        } else if (housingRatio <= 0.36) {
+          housingCostPoints = 25;
+        } else if (housingRatio <= 0.45) {
+          housingCostPoints = 15;
+        } else {
+          housingCostPoints = 5;
+        }
+      } else {
+        housingCostPoints = 10;
+      }
+
+      // 2. Emergency Reserve (remaining cash after purchase, optimal is >= 6 months)
+      let emergencyPoints = 0;
+      if (emergencyMonthsPost >= 6) {
+        emergencyPoints = 25;
+      } else if (emergencyMonthsPost >= 3) {
+        emergencyPoints = 18;
+      } else if (emergencyMonthsPost > 0) {
+        emergencyPoints = 10;
+      } else {
+        emergencyPoints = 0;
+      }
+
+      // 3. Cash Flow Delta
+      let cashFlowPoints = 0;
+      if (projectedCashFlowDelta >= 0) {
+        cashFlowPoints = 20;
+      } else if (projectedCashFlowDelta > -500) {
+        cashFlowPoints = 15;
+      } else if (projectedCashFlowDelta > -1500) {
+        cashFlowPoints = 10;
+      } else {
+        cashFlowPoints = 2;
+      }
+
+      // 4. Down Payment Affordability
+      let downPaymentPoints = 0;
+      if (down <= liquidCash) {
+        downPaymentPoints = 15;
+      } else {
+        downPaymentPoints = 0;
+      }
+
+      // 5. State Assumption Availability
+      const statePoints = usingFallback ? 2 : 5;
+
+      decisionHealthScore = housingCostPoints + emergencyPoints + cashFlowPoints + downPaymentPoints + statePoints;
+      decisionHealthScore = Math.round(clamp(decisionHealthScore, 10, 100));
+
+      // --- DYNAMIC CONFIDENCE SCORE ---
+      let finalConfidenceScore = 95;
+
+      if (usingFallback) {
+        finalConfidenceScore -= 15;
+      }
+      if (!twin.incomes || twin.incomes.length === 0 || monthlyExpenses === 0) {
+        finalConfidenceScore -= 20;
+      }
+      if (down > liquidCash) {
+        finalConfidenceScore -= 25;
+      }
+      // Check if rent is estimated
+      const isRentEstimated = currentMonthlyRent <= 0;
+      if (isRentEstimated) {
+        finalConfidenceScore -= 10;
+      }
+
+      // Factor in profile completeness
+      const profileCompletenessFactor = calculateProfileCompleteness(twin);
+      if (profileCompletenessFactor < 70) {
+        finalConfidenceScore -= (70 - profileCompletenessFactor) * 0.5;
+      }
+
+      confidenceScore = Math.round(clamp(finalConfidenceScore, 20, 100));
+      riskScore = Math.min(100, Math.round((price / (totalAnnualIncome + 1)) * 12));
+
+      keyAssumptions = [...result.assumptionsUsed];
+      
+      // If fallback was used, add a highly visible assumption stating so
+      if (usingFallback) {
+        if (!twin.taxState) {
+          keyAssumptions.push("National fallback assumptions are being used because no state was selected.");
+        } else {
+          keyAssumptions.push(`Fallback national-average assumptions were applied because active state profiles for ${twin.taxState} were not available.`);
+        }
+      }
+
+      // Temporary development-only console QA logs for Home Purchase
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[AURA HP SIMULATOR QA LOG]", {
+          price,
+          down,
+          interestRate: rate,
+          stateCode: activeStateAssumption.state_code,
+          propertyTaxRate: activeStateAssumption.property_tax_rate,
+          appreciationRate: activeStateAssumption.appreciation_rate,
+          monthlyMortgage: result.monthlyMortgage,
+          monthlyPropertyTax: result.monthlyPropertyTax,
+          monthlyMaintenance: result.monthlyMaintenance,
+          monthlyHomeCost: result.monthlyHomeCost,
+          monthlyRentAssumption: result.monthlyRentAssumption,
+          projectedCashFlowDelta: result.projectedCashFlowDelta,
+          lifetimeWealthImpact: result.lifetimeWealthImpact,
+          decisionHealthScore,
+          confidenceScore,
+          usingFallback,
+        });
+      }
+
       limitations = [
         "Does not project unhedged regional real estate market flash-crashes",
         "Assumes homeowner insurance premiums index constant with standard inflation"
@@ -592,7 +740,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
       keyAssumptions = [
         `Expected relocation friction offset of $${relocation} in year-1`,
-        `Progressive state income tax brackets computed on federal W2 for ${twin.taxState}`,
+        `Progressive state income tax brackets computed on federal W2 for ${twin.taxState || "US / National"}`,
         "Assumes target lifestyle cost inflation is capped at 3% post transition"
       ];
       alternativeScenarios = [
@@ -641,7 +789,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       keyAssumptions = [
         `Assumed safe drawdown ceiling aligned with historical 4.0% rules`,
         `Steady lifestyle capital spending rate of $${desiredSpending.toLocaleString()}/year`,
-        `Filing status set to progressive ${twin.taxState} taxation schedules`
+        `Filing status set to progressive ${twin.taxState || "US / National"} taxation schedules`
       ];
       limitations = [
         "Neglects dynamic market crashes occurring precisely during year-1 of drawdown block (Sequence of Returns)",

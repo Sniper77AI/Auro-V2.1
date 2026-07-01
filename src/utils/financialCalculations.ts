@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { FinancialTwin, IncomeSource, AssetItem, LiabilityItem } from "../types";
+import { FinancialTwin, IncomeSource, AssetItem, LiabilityItem, StateAssumption } from "../types";
 
 /**
  * Ensures a value is a valid finite number, otherwise returns the fallback.
@@ -376,5 +376,180 @@ export function calculateReadinessScore(twin: FinancialTwin): ReadinessResult {
       retirementFactor,
       completenessFactor,
     ],
+  };
+}
+
+// CONSTANTS FOR HOME PURCHASE MODELING
+export const DEFAULT_HOME_MAINTENANCE_RATE = 0.01; // 1.0%
+export const DEFAULT_RENT_TO_PRICE_RATIO = 0.048;  // 4.8%
+
+/**
+ * Calculates the monthly loan payment using standard amortization.
+ */
+export function calculateMonthlyLoanPayment(principal: number, annualRate: number, months: number): number {
+  const safeP = safeNumber(principal);
+  const safeRate = safeNumber(annualRate);
+  const safeMonths = safeNumber(months);
+  if (safeP <= 0 || safeMonths <= 0) return 0;
+  if (safeRate <= 0) return safeP / safeMonths;
+  const r = safeRate / 12;
+  return (safeP * r * Math.pow(1 + r, safeMonths)) / (Math.pow(1 + r, safeMonths) - 1);
+}
+
+/**
+ * Calculates the remaining loan balance at a given month of an amortizing loan.
+ */
+export function calculateRemainingLoanBalance(principal: number, annualRate: number, monthsElapsed: number, totalMonths: number): number {
+  const safeP = safeNumber(principal);
+  const safeRate = safeNumber(annualRate);
+  const safePms = safeNumber(monthsElapsed);
+  const safeTot = safeNumber(totalMonths);
+  if (safeP <= 0) return 0;
+  if (safePms >= safeTot) return 0;
+  if (safePms <= 0) return safeP;
+  if (safeRate <= 0) {
+    return Math.max(0, safeP * (1 - safePms / safeTot));
+  }
+  const r = safeRate / 12;
+  const numerator = Math.pow(1 + r, safeTot) - Math.pow(1 + r, safePms);
+  const denominator = Math.pow(1 + r, safeTot) - 1;
+  return Math.max(0, safeP * (numerator / denominator));
+}
+
+/**
+ * Helper to calculate a 30-year amortized mortgage payment.
+ */
+export function calculateMortgagePayment(homePrice: number, downPayment: number, annualRate: number, loanYears = 30): number {
+  const principal = Math.max(0, safeNumber(homePrice) - safeNumber(downPayment));
+  return calculateMonthlyLoanPayment(principal, annualRate, loanYears * 12);
+}
+
+export interface HomePurchaseInput {
+  currentNetWorth: number;
+  annualSurplus: number;
+  averageGrowthRate: number;
+  homePrice: number;
+  downPayment: number;
+  interestRate: number;
+  years?: number;
+  stateAssumption: StateAssumption;
+  currentMonthlyRent?: number;
+}
+
+export interface HomePurchaseResult {
+  baselineNetWorthProjection: number[];
+  simulatedNetWorthProjection: number[];
+  monthlyMortgage: number;
+  monthlyPropertyTax: number;
+  monthlyMaintenance: number;
+  monthlyHomeCost: number;
+  monthlyRentAssumption: number;
+  projectedCashFlowDelta: number;
+  lifetimeWealthImpact: number;
+  remainingMortgageByYear: number[];
+  propertyValueByYear: number[];
+  assumptionsUsed: string[];
+}
+
+/**
+ * Builds the comprehensive 30-year home purchase simulation.
+ */
+export function calculateHomePurchaseScenario(input: HomePurchaseInput): HomePurchaseResult {
+  const currentNetWorth = safeNumber(input.currentNetWorth);
+  const annualSurplus = safeNumber(input.annualSurplus);
+  const averageGrowthRate = safeNumber(input.averageGrowthRate);
+  const homePrice = safeNumber(input.homePrice);
+  const downPayment = safeNumber(input.downPayment);
+  const interestRate = safeNumber(input.interestRate);
+  const years = safeNumber(input.years, 30);
+  const stateAssumption = input.stateAssumption;
+  const currentMonthlyRent = safeNumber(input.currentMonthlyRent);
+
+  const baselineNetWorthProjection: number[] = [];
+  const simulatedNetWorthProjection: number[] = [];
+  const remainingMortgageByYear: number[] = [];
+  const propertyValueByYear: number[] = [];
+
+  const loanAmount = Math.max(0, homePrice - downPayment);
+  const monthlyMortgage = calculateMortgagePayment(homePrice, downPayment, interestRate, years);
+  const monthlyPropertyTax = (homePrice * safeNumber(stateAssumption.property_tax_rate)) / 12;
+  const monthlyMaintenance = (homePrice * DEFAULT_HOME_MAINTENANCE_RATE) / 12;
+  const monthlyHomeCost = monthlyMortgage + monthlyPropertyTax + monthlyMaintenance;
+
+  const monthlyRentAssumption = currentMonthlyRent > 0
+    ? currentMonthlyRent
+    : (homePrice * DEFAULT_RENT_TO_PRICE_RATIO) / 12;
+
+  const projectedCashFlowDelta = monthlyRentAssumption - monthlyHomeCost;
+
+  let tempBaseline = currentNetWorth;
+  let tempLiquidSimulated = currentNetWorth - downPayment;
+
+  for (let t = 1; t <= years; t++) {
+    // Baseline: cash compounds + annual savings compound
+    tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
+    baselineNetWorthProjection.push(Math.round(tempBaseline));
+
+    // Simulated: home appreciates, mortgage pays down, savings compound
+    const propertyValue = homePrice * Math.pow(1 + safeNumber(stateAssumption.appreciation_rate), t);
+    const remainingMortgage = calculateRemainingLoanBalance(loanAmount, interestRate, t * 12, years * 12);
+
+    propertyValueByYear.push(Math.round(propertyValue));
+    remainingMortgageByYear.push(Math.round(remainingMortgage));
+
+    const simulatedAnnualSavings = annualSurplus + (projectedCashFlowDelta * 12);
+    
+    // Compound only liquid portion (which can go negative if expenses exceed income)
+    tempLiquidSimulated = (tempLiquidSimulated + simulatedAnnualSavings) * (1 + averageGrowthRate);
+
+    const tempSimulated = tempLiquidSimulated + propertyValue - remainingMortgage;
+    simulatedNetWorthProjection.push(Math.round(tempSimulated));
+  }
+
+  const finalSimulatedNW = simulatedNetWorthProjection[years - 1] || 0;
+  const finalBaselineNW = baselineNetWorthProjection[years - 1] || 0;
+  let lifetimeWealthImpact = finalSimulatedNW - finalBaselineNW;
+
+  let compressed = false;
+  if (Math.abs(lifetimeWealthImpact) > 5000000) {
+    compressed = true;
+    if (lifetimeWealthImpact > 5000000) {
+      const excess = lifetimeWealthImpact - 5000000;
+      lifetimeWealthImpact = 5000000 + Math.log10(excess) * 150000;
+    } else {
+      const excess = -5000000 - lifetimeWealthImpact;
+      lifetimeWealthImpact = -5000000 - Math.log10(excess) * 150000;
+    }
+  }
+
+  const rentDisclosedStr = currentMonthlyRent > 0
+    ? `Rent comparison uses your reported monthly rent of ${formatCurrency(currentMonthlyRent)}.`
+    : `Rent estimate uses ${(DEFAULT_RENT_TO_PRICE_RATIO * 100).toFixed(1)}% annual rent-to-price ratio because no current rent was provided.`;
+
+  const assumptionsUsed = [
+    `Property tax uses ${stateAssumption.state_code} state assumption of ${(safeNumber(stateAssumption.property_tax_rate) * 100).toFixed(2)}%.`,
+    `Maintenance uses ${(DEFAULT_HOME_MAINTENANCE_RATE * 100).toFixed(1)}% of home value annually.`,
+    `Home appreciation uses ${stateAssumption.state_code} state assumption of ${(safeNumber(stateAssumption.appreciation_rate) * 100).toFixed(1)}%.`,
+    rentDisclosedStr,
+    `Standard 30-year amortization schedule at ${(interestRate * 100).toFixed(2)}% APR.`,
+  ];
+
+  if (compressed) {
+    assumptionsUsed.push("Lifetime wealth impact has been compressed using a credibility safeguard to prevent multi-million mathematical outlier tail scenarios.");
+  }
+
+  return {
+    baselineNetWorthProjection,
+    simulatedNetWorthProjection,
+    monthlyMortgage,
+    monthlyPropertyTax,
+    monthlyMaintenance,
+    monthlyHomeCost,
+    monthlyRentAssumption,
+    projectedCashFlowDelta,
+    lifetimeWealthImpact,
+    remainingMortgageByYear,
+    propertyValueByYear,
+    assumptionsUsed
   };
 }

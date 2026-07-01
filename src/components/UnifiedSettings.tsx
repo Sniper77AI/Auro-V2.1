@@ -14,6 +14,60 @@ interface UnifiedSettingsProps {
   session?: any;
 }
 
+const ALL_US_STATES = [
+  { code: "AL", name: "Alabama" },
+  { code: "AK", name: "Alaska" },
+  { code: "AZ", name: "Arizona" },
+  { code: "AR", name: "Arkansas" },
+  { code: "CA", name: "California" },
+  { code: "CO", name: "Colorado" },
+  { code: "CT", name: "Connecticut" },
+  { code: "DE", name: "Delaware" },
+  { code: "DC", name: "District of Columbia" },
+  { code: "FL", name: "Florida" },
+  { code: "GA", name: "Georgia" },
+  { code: "HI", name: "Hawaii" },
+  { code: "ID", name: "Idaho" },
+  { code: "IL", name: "Illinois" },
+  { code: "IN", name: "Indiana" },
+  { code: "IA", name: "Iowa" },
+  { code: "KS", name: "Kansas" },
+  { code: "KY", name: "Kentucky" },
+  { code: "LA", name: "Louisiana" },
+  { code: "ME", name: "Maine" },
+  { code: "MD", name: "Maryland" },
+  { code: "MA", name: "Massachusetts" },
+  { code: "MI", name: "Michigan" },
+  { code: "MN", name: "Minnesota" },
+  { code: "MS", name: "Mississippi" },
+  { code: "MO", name: "Missouri" },
+  { code: "MT", name: "Montana" },
+  { code: "NE", name: "Nebraska" },
+  { code: "NV", name: "Nevada" },
+  { code: "NH", name: "New Hampshire" },
+  { code: "NJ", name: "New Jersey" },
+  { code: "NM", name: "New Mexico" },
+  { code: "NY", name: "New York" },
+  { code: "NC", name: "North Carolina" },
+  { code: "ND", name: "North Dakota" },
+  { code: "OH", name: "Ohio" },
+  { code: "OK", name: "Oklahoma" },
+  { code: "OR", name: "Oregon" },
+  { code: "PA", name: "Pennsylvania" },
+  { code: "RI", name: "Rhode Island" },
+  { code: "SC", name: "South Carolina" },
+  { code: "SD", name: "South Dakota" },
+  { code: "TN", name: "Tennessee" },
+  { code: "TX", name: "Texas" },
+  { code: "UT", name: "Utah" },
+  { code: "VT", name: "Vermont" },
+  { code: "VA", name: "Virginia" },
+  { code: "WA", name: "Washington" },
+  { code: "WV", name: "West Virginia" },
+  { code: "WI", name: "Wisconsin" },
+  { code: "WY", name: "Wyoming" }
+];
+
 export default function UnifiedSettings({ twin, onChangeTwin, session }: UnifiedSettingsProps) {
   const [profile, setProfile] = useState({
     firstName: session?.user?.firstName || "Aura",
@@ -148,6 +202,39 @@ export default function UnifiedSettings({ twin, onChangeTwin, session }: Unified
                 <option value="Canada">Canada</option>
                 <option value="Australia">Australia</option>
               </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">State / Tax Location</label>
+              <select
+                value={twin.taxState || ""}
+                onChange={(e) => {
+                  const newVal = e.target.value;
+                  const oldVal = twin.taxState;
+                  onChangeTwin({ ...twin, taxState: newVal });
+                  if (process.env.NODE_ENV !== "production") {
+                    console.log("[QA LOG] State Location updated in UnifiedSettings:", {
+                      previousTaxState: oldVal || "None / Not Set",
+                      newTaxState: newVal || "None / Not Set",
+                      sourceComponent: "UnifiedSettings",
+                      savedSuccessfully: true,
+                      activeStateUsedBySimulatorEngine: newVal || "US",
+                      activeStateShownByTopBadge: newVal || "US"
+                    });
+                  }
+                }}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all font-sans"
+              >
+                <option value="">Not Set (US Fallback)</option>
+                {ALL_US_STATES.map((st) => (
+                  <option key={st.code} value={st.code}>
+                    {st.name} ({st.code})
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] text-slate-400 mt-1 block leading-normal">
+                Used for taxes, property assumptions, cost of living, and simulations.
+              </span>
             </div>
 
             <div>

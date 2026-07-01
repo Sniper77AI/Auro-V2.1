@@ -157,3 +157,13 @@ export interface ProductDeliverable {
     bullets?: string[];
   }>;
 }
+
+export interface StateAssumption {
+  state_code: string;
+  state_name?: string;
+  effective_tax_rate: number;
+  property_tax_rate: number;
+  cost_of_living_index: number;
+  appreciation_rate: number;
+}
+
