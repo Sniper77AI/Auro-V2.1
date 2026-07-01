@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import { FinancialTwin, SimulationResult } from "../types";
 import { 
   ShieldAlert, Sparkles, TrendingUp, HelpCircle, 
@@ -11,6 +11,22 @@ import {
   ChevronRight, Calendar, DollarSign, Award, Clock,
   Home, Car, Briefcase, GraduationCap, Heart
 } from "lucide-react";
+import {
+  calculateReadinessScore,
+  calculateTotalAnnualIncome,
+  calculateTotalAssets,
+  calculateTotalLiabilities,
+  calculateNetWorth,
+  calculateMonthlyDebtPayments,
+  calculateMonthlyGrossIncome,
+  calculateMonthlySurplus,
+  calculateDebtToIncomeRatio,
+  calculateEmergencyFundMonths,
+  calculateHighInterestDebt,
+  calculateValueWeightedAssetGrowth,
+  calculateProfileCompleteness,
+  formatCurrency
+} from "../utils/financialCalculations";
 
 interface CommandCenterProps {
   twin: FinancialTwin;
@@ -20,51 +36,34 @@ interface CommandCenterProps {
 }
 
 export default function CommandCenter({ twin, savedSimulations, onOpenSimulator, onOpenTwin }: CommandCenterProps) {
-  // Aggregate stats
-  const totalAnnualIncome = (twin.incomes || []).reduce((acc, curr) => acc + (curr.frequency === "annual" ? (Number(curr.amount) || 0) : (Number(curr.amount) || 0) * 12), 0);
-  const totalAssetsValue = (twin.assets || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const totalLiabilitiesValue = (twin.liabilities || []).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const netWorth = totalAssetsValue - totalLiabilitiesValue;
+  // Aggregate stats using central calculation engine
+  const totalAnnualIncome = calculateTotalAnnualIncome(twin.incomes || []);
+  const totalAssetsValue = calculateTotalAssets(twin.assets || []);
+  const totalLiabilitiesValue = calculateTotalLiabilities(twin.liabilities || []);
+  const netWorth = calculateNetWorth(twin.assets || [], twin.liabilities || []);
 
   const cashAssets = (twin.assets || []).filter(a => a.type === "cash").reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
-  const highInterestLiabilities = (twin.liabilities || []).filter(l => (Number(l.interestRate) || 0) > 0.05).reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
-  const totalMonthlyDebtPayments = (twin.liabilities || []).reduce((acc, curr) => acc + (Number(curr.monthlyPayment) || 0), 0);
-  const monthlyGrossIncome = totalAnnualIncome / 12;
-  const debtToIncomeRatio = monthlyGrossIncome > 0 ? (totalMonthlyDebtPayments / monthlyGrossIncome) * 100 : 0;
-  
-  const averageGrowthRate = (twin.assets && (twin.assets || []).length > 0) 
-    ? ((twin.assets || []).reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / (twin.assets || []).length) 
-    : 0.06;
+  const highInterestLiabilities = calculateHighInterestDebt(twin.liabilities || [], 0.05); // Keeps 0.05 custom threshold for display indicators
+  const totalMonthlyDebtPayments = calculateMonthlyDebtPayments(twin.liabilities || []);
+  const monthlyGrossIncome = calculateMonthlyGrossIncome(twin.incomes || []);
+  const debtToIncomeRatio = calculateDebtToIncomeRatio(twin.incomes || [], twin.liabilities || []);
+  const averageGrowthRate = calculateValueWeightedAssetGrowth(twin.assets || []);
+  const expensesRatio = calculateEmergencyFundMonths(twin.assets || [], twin.monthlyExpenses);
+  const monthlySurplus = calculateMonthlySurplus(twin.incomes || [], twin.monthlyExpenses, twin.liabilities || []);
 
-  // Analytical Health score math formulation
-  // Weight 1: Net Worth level (max 30 pts)
-  const nwScore = Math.min(30, Math.max(0, netWorth / 12000));
-  // Weight 2: DTI ratio (max 30 pts): 0% DTI = 30 pts, 50% DTI = 0 pts
-  const dtiScore = Math.max(0, Math.min(30, 30 - (debtToIncomeRatio * 0.6)));
-  // Weight 3: Liquidity buffer (max 20 pts): 6 months = 20 pts
-  const monthlyExpensesSafe = Number(twin.monthlyExpenses) || 0;
-  const expensesRatio = monthlyExpensesSafe > 0 ? cashAssets / monthlyExpensesSafe : 12;
-  const liquidityScore = Math.min(20, Math.max(0, expensesRatio * 3));
-  // Weight 4: Diversified inflow segments (max 20 pts)
-  const incomeDiversityScore = Math.min(20, (twin.incomes || []).length * 10);
+  // Compute readiness score and its details from the single source of truth
+  const readinessResult = calculateReadinessScore(twin);
+  const healthScore = readinessResult.score;
+  const statusLabel = readinessResult.label;
 
-  const rawHealthScore = Math.round(nwScore + dtiScore + liquidityScore + incomeDiversityScore);
-  const healthScore = Math.max(10, Math.min(100, rawHealthScore));
-
-  let statusLabel = "On Track";
   let statusColorClass = "text-emerald-700 border-emerald-200 bg-emerald-50";
-
-  if (healthScore >= 85) {
-    statusLabel = "Excellent";
+  if (statusLabel === "Excellent") {
     statusColorClass = "text-emerald-700 border-emerald-200 bg-emerald-50";
-  } else if (healthScore >= 70) {
-    statusLabel = "Good";
+  } else if (statusLabel === "Strong") {
     statusColorClass = "text-teal-700 border-teal-200 bg-teal-50";
-  } else if (healthScore >= 50) {
-    statusLabel = "Proceed Carefully";
+  } else if (statusLabel === "Proceed Carefully") {
     statusColorClass = "text-amber-700 border-amber-200 bg-amber-50";
   } else {
-    statusLabel = "Needs Attention";
     statusColorClass = "text-rose-700 border-rose-200 bg-rose-50";
   }
 
@@ -75,11 +74,11 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
 
   if (expensesRatio < 3) {
     primaryActionTitle = "Halt Discretionary Spending & Save Emergency Buffer";
-    primaryActionDesc = `Your liquid cache ($${cashAssets.toLocaleString()}) covers less than 3 months of basic expenses ($${twin.monthlyExpenses.toLocaleString()}). Prioritize liquid compound cash flow.`;
+    primaryActionDesc = `Your liquid cache (${formatCurrency(cashAssets)}) covers less than 3 months of basic expenses (${formatCurrency(twin.monthlyExpenses)}). Prioritize liquid compound cash flow.`;
     priorityLevel = "high";
   } else if (highInterestLiabilities > 10000) {
     primaryActionTitle = "Launch Private Debt Avalanche payoff";
-    primaryActionDesc = `You hold $${highInterestLiabilities.toLocaleString()} of liabilities averaging over 5.0% interest APR. Prioritize surplus cash flows to trigger refinancing or avalanche schedules.`;
+    primaryActionDesc = `You hold ${formatCurrency(highInterestLiabilities)} of liabilities averaging over 5.0% interest APR. Prioritize surplus cash flows to trigger refinancing or avalanche schedules.`;
     priorityLevel = "high";
   } else if (debtToIncomeRatio > 36) {
     primaryActionTitle = "DTI Overhead Correction";
@@ -88,16 +87,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   }
 
   // Calculate profile completeness status for dynamic confidence assessment
-  const hasIncomesVal = twin.incomes && twin.incomes.length > 0;
-  const hasBasicSavingsVal = twin.assets && twin.assets.some(a => a.type === "cash" && a.amount > 0);
-  const hasInvestmentsVal = twin.assets && twin.assets.some(a => a.type === "brokerage" && a.amount > 0);
-  const hasRetirementVal = twin.assets && twin.assets.some(a => a.type === "retirement" && a.amount > 0);
-  const hasRealEstateVal = twin.assets && twin.assets.some(a => a.type === "real_estate" && a.amount > 0);
-  const hasDebtInfoVal = twin.liabilities && twin.liabilities.length > 0;
-  const hasCollegeSavingsVal = (twin.assets && twin.assets.some(a => a.name.toLowerCase().includes("529") || a.name.toLowerCase().includes("college") || a.name.toLowerCase().includes("education"))) || (twin.dependants > 0);
-
-  const profileItems = [hasIncomesVal, hasBasicSavingsVal, hasInvestmentsVal, hasRetirementVal, hasRealEstateVal, hasDebtInfoVal, hasCollegeSavingsVal];
-  const profileCompleteness = Math.round((profileItems.filter(Boolean).length / profileItems.length) * 100);
+  const profileCompleteness = calculateProfileCompleteness(twin);
 
   // Derive model recommendation confidence
   let confidencePct = Math.round(profileCompleteness * 0.8 + 12);
@@ -114,7 +104,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   let reasons: string[] = [];
   if (expensesRatio < 3) {
     reasons = [
-      `Liquid checking and cash reserves of $${cashAssets.toLocaleString()} cover less than 3 months of basic outflows`,
+      `Liquid checking and cash reserves of ${formatCurrency(cashAssets)} cover less than 3 months of basic outflows`,
       "Protects regular household expenses from forced early liquidation penalties in long-term accounts",
       "Stabilizes fundamental household cash availability during general macroeconomic transitions",
       "Establishes a solid baseline emergency buffer before exposing surpluses to asset market valuation volatility"
@@ -122,7 +112,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   } else if (highInterestLiabilities > 10000) {
     reasons = [
       "Provides the highest guaranteed return currently available by bypassing standard interest rates",
-      `Directly eliminates compounding interest charges on outstanding $${highInterestLiabilities.toLocaleString()} student / vehicle liabilities`,
+      `Directly eliminates compounding interest charges on outstanding ${formatCurrency(highInterestLiabilities)} student / vehicle liabilities`,
       "Accelerates the overall timeline toward a debt-free calendar horizon",
       "Improves your financial readiness scores and reduces long-term debt-to-income overhead",
       "Reclaims active monthly cash flow margins for subsequently powering long-term index compounding"
@@ -138,7 +128,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
     reasons = [
       `Leverages and builds upon your resilient current emergency cushion of ${expensesRatio.toFixed(1)} months of coverage`,
       "Enables tax-advantaged compounding gains that grow protected from federal and state tax friction",
-      `Improves historical yield trajectory on your existing idle checking capital of $${cashAssets.toLocaleString()}`,
+      `Improves historical yield trajectory on your existing idle checking capital of ${formatCurrency(cashAssets)}`,
       `Strengthens and preserves early-retirement tracks ahead of your current target retirement age of ${twin.retirementAge}`
     ];
   }
@@ -173,6 +163,20 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
         : "Great! You have multiple stable sources of income, which greatly insulates your household from financial risk."
     }
   ];
+
+  // QA Check: temporary console logs only in development mode
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("=== [QA CHECK] DEVELOPMENT MODE FINANCIAL ENGINE ===");
+      console.log(`Annual Income:          ${totalAnnualIncome}`);
+      console.log(`Net Worth:              ${netWorth}`);
+      console.log(`Emergency Fund Months:  ${expensesRatio.toFixed(2)}`);
+      console.log(`Debt-to-Income Ratio:   ${debtToIncomeRatio.toFixed(2)}%`);
+      console.log(`Monthly Surplus:        ${monthlySurplus}`);
+      console.log(`Readiness Score:        ${healthScore} (${statusLabel})`);
+      console.log("====================================================");
+    }
+  }, [totalAnnualIncome, netWorth, expensesRatio, debtToIncomeRatio, monthlySurplus, healthScore, statusLabel]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
@@ -406,7 +410,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
 
           <div className="text-center pt-2 border-t border-slate-100">
             <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
-              Your score of <strong className="text-slate-800">{healthScore} ({statusLabel})</strong> is a weighted average based on defensive savings cushion, loan burdens, and cash surplus levels.
+              {readinessResult.explanation}
             </p>
           </div>
         </div>
