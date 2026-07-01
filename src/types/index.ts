@@ -77,6 +77,7 @@ export interface SimulationParams {
   // Retirement planning
   targetRetirementAge?: number;
   desiredAnnualSpending?: number;
+  retirementContributionAllocationPercent?: number;
 
   // Debt Optimization
   focusStrategy?: "snowball" | "avalanche" | "invest_surplus" | "refinance";

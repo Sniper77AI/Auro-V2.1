@@ -1004,12 +1004,49 @@ export function calculateAnnualSavingsCapacity(twin: FinancialTwin): number {
   return Math.max(0, monthlySurplus * 12);
 }
 
+export const DEFAULT_RETIREMENT_SURPLUS_ALLOCATION = 0.50;
+export const DEFAULT_RETIREMENT_GROWTH_FALLBACK = 0.06;
+
+/**
+ * Calculates value-weighted growth rate for retirement-only assets.
+ */
+export function calculateValueWeightedRetirementGrowthRate(assets: AssetItem[]): {
+  growthRate: number;
+  isFallback: boolean;
+} {
+  const retirementAssetsList = (assets || []).filter(
+    (a) => (a.type || "").toLowerCase() === "retirement"
+  );
+  const totalRetirementAssets = retirementAssetsList.reduce(
+    (sum, a) => sum + safeNumber(a.amount),
+    0
+  );
+
+  if (totalRetirementAssets <= 0) {
+    return {
+      growthRate: DEFAULT_RETIREMENT_GROWTH_FALLBACK,
+      isFallback: true
+    };
+  }
+
+  const weightedSum = retirementAssetsList.reduce(
+    (sum, a) => sum + safeNumber(a.amount) * safeNumber(a.annualGrowth),
+    0
+  );
+
+  return {
+    growthRate: weightedSum / totalRetirementAssets,
+    isFallback: false
+  };
+}
+
 interface RetirementProjectionInput {
   currentAge: number;
   targetRetirementAge: number;
   desiredAnnualSpending: number;
   retirementAssets: number;
   annualSavingsCapacity: number;
+  contributionAllocationPercent: number;
   growthRate: number;
   inflationRate: number;
   withdrawalRate: number;
@@ -1025,10 +1062,12 @@ export function calculateRetirementProjection(input: RetirementProjectionInput) 
   const desiredAnnualSpending = safeNumber(input.desiredAnnualSpending);
   const retirementAssets = safeNumber(input.retirementAssets);
   const annualSavingsCapacity = safeNumber(input.annualSavingsCapacity);
+  const allocationPercent = safeNumber(input.contributionAllocationPercent, 50);
   const growthRate = safeNumber(input.growthRate);
   const inflationRate = safeNumber(input.inflationRate);
-  const withdrawalRate = safeNumber(input.withdrawalRate, 0.04);
   const years = safeNumber(input.years, 30);
+
+  const annualContribution = annualSavingsCapacity * (allocationPercent / 100);
 
   const baselineNetWorthProjection: number[] = [];
   const simulatedNetWorthProjection: number[] = [];
@@ -1039,17 +1078,19 @@ export function calculateRetirementProjection(input: RetirementProjectionInput) 
 
   for (let i = 1; i <= years; i++) {
     // 1. Baseline projection: always accumulating, compounding existing assets and savings
-    tempBaseline = (tempBaseline + annualSavingsCapacity) * (1 + growthRate);
+    tempBaseline = (tempBaseline + annualContribution) * (1 + growthRate);
     baselineNetWorthProjection.push(Math.round(tempBaseline));
 
     // 2. Simulated projection: accumulation then drawdown
+    // Consistent timing convention:
+    // Drawdown begins immediately in the year the user reaches targetRetirementAge (i > ageDiff).
+    // This avoids adding a retirement contribution after retirement begins, and ensures exactly
+    // (targetRetirementAge - currentAge) years of accumulation.
     if (i > ageDiff) {
-      // Drawdown mode: apply inflation-adjusted spending, reduce assets by withdrawals, continue conservative growth
       const annualSpendingAdjusted = desiredAnnualSpending * Math.pow(1 + inflationRate, i);
       tempSimulated = Math.max(0, (tempSimulated - annualSpendingAdjusted) * (1 + growthRate * 0.7));
     } else {
-      // Accumulation mode: grow assets, add contributions, and compound correctly
-      tempSimulated = (tempSimulated + annualSavingsCapacity) * (1 + growthRate);
+      tempSimulated = (tempSimulated + annualContribution) * (1 + growthRate);
     }
     simulatedNetWorthProjection.push(Math.round(tempSimulated));
   }
@@ -1069,6 +1110,7 @@ export function calculateRetirementFundingGap(input: {
   desiredAnnualSpending: number;
   retirementAssets: number;
   annualSavingsCapacity: number;
+  contributionAllocationPercent: number;
   growthRate: number;
   inflationRate: number;
   withdrawalRate: number;
@@ -1078,16 +1120,18 @@ export function calculateRetirementFundingGap(input: {
   const desiredAnnualSpending = safeNumber(input.desiredAnnualSpending);
   const retirementAssets = safeNumber(input.retirementAssets);
   const annualSavingsCapacity = safeNumber(input.annualSavingsCapacity);
+  const allocationPercent = safeNumber(input.contributionAllocationPercent, 50);
   const growthRate = safeNumber(input.growthRate);
   const inflationRate = safeNumber(input.inflationRate);
   const withdrawalRate = safeNumber(input.withdrawalRate, 0.04);
 
   const ageDiff = Math.max(0, targetRetirementAge - currentAge);
+  const annualContribution = annualSavingsCapacity * (allocationPercent / 100);
 
   // Projected retirement assets at retirement age (accumulation only)
   let projectedAssetsAtRetirement = retirementAssets;
   for (let i = 1; i <= ageDiff; i++) {
-    projectedAssetsAtRetirement = (projectedAssetsAtRetirement + annualSavingsCapacity) * (1 + growthRate);
+    projectedAssetsAtRetirement = (projectedAssetsAtRetirement + annualContribution) * (1 + growthRate);
   }
 
   // Desired spending in future dollars adjusted for inflation at the point of retirement
@@ -1103,7 +1147,8 @@ export function calculateRetirementFundingGap(input: {
     targetNestEgg,
     gap: gap > 0 ? gap : 0,
     surplus: gap < 0 ? Math.abs(gap) : 0,
-    adjustedAnnualSpending
+    adjustedAnnualSpending,
+    annualContribution
   };
 }
 
@@ -1113,5 +1158,283 @@ export function calculateRetirementFundingGap(input: {
 export function calculateSafeWithdrawalTarget(annualSpending: number, withdrawalRate = 0.04): number {
   const rate = safeNumber(withdrawalRate, 0.04);
   return rate > 0 ? safeNumber(annualSpending) / rate : 0;
+}
+
+/**
+ * Calculates years until college starts.
+ */
+export function calculateYearsUntilCollege(childAge: number, collegeStartAge = 18): number {
+  return Math.max(0, safeNumber(collegeStartAge, 18) - safeNumber(childAge));
+}
+
+/**
+ * Calculates the inflated college cost for a single year of college.
+ */
+export function calculateInflatedCollegeCost(
+  annualCollegeCost: number,
+  yearsUntilCollege: number,
+  tuitionInflationRate: number
+): number {
+  return safeNumber(annualCollegeCost) * Math.pow(1 + safeNumber(tuitionInflationRate), safeNumber(yearsUntilCollege));
+}
+
+export interface CollegeRequiredSavingsInput {
+  childrenAges: number[];
+  annualCollegeCost: number;
+  fundingTargetPercent: number;
+  tuitionInflationRate: number;
+  collegeSavingsGrowthRate: number;
+  collegeStartAge: number;
+  collegeDurationYears: number;
+}
+
+/**
+ * Calculates required monthly savings to meet the college funding target.
+ */
+export function calculateRequiredMonthlyCollegeSavings(input: CollegeRequiredSavingsInput): {
+  requiredMonthlySavings: number;
+  totalInflatedTargetCost: number;
+  yearsUntilFirstCollegeStart: number;
+} {
+  const childrenAges = input.childrenAges || [];
+  const annualCollegeCost = safeNumber(input.annualCollegeCost, 35000);
+  const fundingTargetPercent = safeNumber(input.fundingTargetPercent, 80);
+  const tuitionInflationRate = safeNumber(input.tuitionInflationRate, 0.045);
+  const collegeSavingsGrowthRate = safeNumber(input.collegeSavingsGrowthRate, 0.06);
+  const collegeStartAge = safeNumber(input.collegeStartAge, 18);
+  const collegeDurationYears = safeNumber(input.collegeDurationYears, 4);
+
+  if (childrenAges.length === 0) {
+    return {
+      requiredMonthlySavings: 0,
+      totalInflatedTargetCost: 0,
+      yearsUntilFirstCollegeStart: 0
+    };
+  }
+
+  // Calculate the total inflated cost to fund across all children
+  let totalInflatedCostToFund = 0;
+  let yearsUntilFirstCollegeStart = 999;
+
+  childrenAges.forEach((age) => {
+    const yearsUntilStart = calculateYearsUntilCollege(age, collegeStartAge);
+    if (yearsUntilStart < yearsUntilFirstCollegeStart) {
+      yearsUntilFirstCollegeStart = yearsUntilStart;
+    }
+
+    let childTotalCost = 0;
+    for (let y = 0; y < collegeDurationYears; y++) {
+      // Each college year has tuition inflated to the year it is incurred
+      const inflatedCost = calculateInflatedCollegeCost(annualCollegeCost, yearsUntilStart + y, tuitionInflationRate);
+      childTotalCost += inflatedCost;
+    }
+
+    totalInflatedCostToFund += childTotalCost * (fundingTargetPercent / 100);
+  });
+
+  if (yearsUntilFirstCollegeStart === 999) {
+    yearsUntilFirstCollegeStart = 0;
+  }
+
+  // Sinking fund formula: Required Monthly Savings
+  // P = TotalFundNeeded / [((1 + r/12)^n - 1) / (r/12)]
+  // where n is the number of months until the first child starts college
+  const months = Math.max(1, yearsUntilFirstCollegeStart * 12);
+  const monthlyRate = collegeSavingsGrowthRate / 12;
+
+  let requiredMonthlySavings = 0;
+  if (monthlyRate > 0) {
+    const compoundFactor = Math.pow(1 + monthlyRate, months) - 1;
+    if (compoundFactor > 0) {
+      requiredMonthlySavings = totalInflatedCostToFund / (compoundFactor / monthlyRate);
+    } else {
+      requiredMonthlySavings = totalInflatedCostToFund / months;
+    }
+  } else {
+    requiredMonthlySavings = totalInflatedCostToFund / months;
+  }
+
+  return {
+    requiredMonthlySavings: Math.round(requiredMonthlySavings),
+    totalInflatedTargetCost: Math.round(totalInflatedCostToFund),
+    yearsUntilFirstCollegeStart
+  };
+}
+
+export interface CollegeFundingScenarioInput extends CollegeRequiredSavingsInput {
+  currentNetWorth: number;
+  annualSurplus: number;
+  averageGrowthRate: number;
+  years: number;
+}
+
+/**
+ * Generates the baseline and simulated college projections.
+ */
+export function calculateCollegeFundingScenario(input: CollegeFundingScenarioInput) {
+  const currentNetWorth = safeNumber(input.currentNetWorth);
+  const annualSurplus = safeNumber(input.annualSurplus);
+  const averageGrowthRate = safeNumber(input.averageGrowthRate, 0.06);
+  const childrenAges = input.childrenAges || [];
+  const annualCollegeCost = safeNumber(input.annualCollegeCost, 35000);
+  const fundingTargetPercent = safeNumber(input.fundingTargetPercent, 80);
+  const tuitionInflationRate = safeNumber(input.tuitionInflationRate, 0.045);
+  const collegeStartAge = safeNumber(input.collegeStartAge, 18);
+  const collegeDurationYears = safeNumber(input.collegeDurationYears, 4);
+  const years = safeNumber(input.years, 30);
+
+  const baselineNW: number[] = [];
+  const simulatedNW: number[] = [];
+
+  let tempBaseline = currentNetWorth;
+  let tempSimulated = currentNetWorth;
+
+  // Calculate the monthly college savings contribution based on the sinking fund requirement
+  const savingsInfo = calculateRequiredMonthlyCollegeSavings(input);
+  const monthlyContribution = savingsInfo.requiredMonthlySavings;
+  const annualContribution = monthlyContribution * 12;
+
+  for (let i = 1; i <= years; i++) {
+    // 1. Baseline: Standard accumulation with annual surplus compounding at averageGrowthRate
+    tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
+    baselineNW.push(Math.round(tempBaseline));
+
+    // 2. Simulated: Accumulation of surplus minus savings contribution, and deduction of tuition costs when children are in college
+    let simulatedAnnualSurplusFlow = annualSurplus - annualContribution;
+
+    // Calculate tuition deductions for this year
+    let annualTuitionDeduction = 0;
+    childrenAges.forEach((age) => {
+      const childAgeInYear = age + i;
+      const isCurrentlyInCollege = childAgeInYear >= collegeStartAge && childAgeInYear < (collegeStartAge + collegeDurationYears);
+
+      if (isCurrentlyInCollege) {
+        // Find how many years until this college year started
+        const collegeYearIndex = childAgeInYear - collegeStartAge;
+        const yearsSinceCurrent = (collegeStartAge - age) + collegeYearIndex;
+        const inflatedTuitionForYear = calculateInflatedCollegeCost(annualCollegeCost, yearsSinceCurrent, tuitionInflationRate);
+        annualTuitionDeduction += inflatedTuitionForYear * (fundingTargetPercent / 100);
+      }
+    });
+
+    simulatedAnnualSurplusFlow -= annualTuitionDeduction;
+
+    // Compound simulated net worth
+    tempSimulated = (tempSimulated + simulatedAnnualSurplusFlow) * (1 + averageGrowthRate);
+    simulatedNW.push(Math.round(tempSimulated));
+  }
+
+  return {
+    baselineNW,
+    simulatedNW,
+    requiredMonthlySavings: savingsInfo.requiredMonthlySavings,
+    totalInflatedTargetCost: savingsInfo.totalInflatedTargetCost,
+    yearsUntilFirstCollegeStart: savingsInfo.yearsUntilFirstCollegeStart
+  };
+}
+
+/**
+ * Calculates current estate value as total assets minus total liabilities.
+ */
+export function calculateEstateValue(assets: AssetItem[], liabilities: LiabilityItem[]): number {
+  return calculateNetWorth(assets, liabilities);
+}
+
+/**
+ * Calculates estimated probate cost based on estate value and probate rate.
+ */
+export function calculateEstimatedProbateCost(estateValue: number, probateCostRate: number): number {
+  return safeNumber(estateValue) * safeNumber(probateCostRate);
+}
+
+/**
+ * Calculates trust maintenance costs over a horizon of years.
+ */
+export function calculateTrustMaintenanceCost(monthlyTrustCost: number, years: number): number {
+  return safeNumber(monthlyTrustCost) * 12 * safeNumber(years);
+}
+
+export interface EstatePreservationScenarioInput {
+  currentNetWorth: number;
+  annualSurplus: number;
+  averageGrowthRate: number;
+  assets: AssetItem[];
+  liabilities: LiabilityItem[];
+  wealthTransferGoal: number;
+  useTrustStructure: boolean;
+  estatePreservationLevel: "standard" | "high_protection";
+  probateCostRate: number;
+  monthlyTrustCost: number;
+  years: number;
+  stateAssumption?: StateAssumption;
+}
+
+/**
+ * Calculates the baseline and simulated estate preservation projection.
+ */
+export function calculateEstatePreservationScenario(input: EstatePreservationScenarioInput) {
+  const currentNetWorth = safeNumber(input.currentNetWorth);
+  const annualSurplus = safeNumber(input.annualSurplus);
+  const averageGrowthRate = safeNumber(input.averageGrowthRate, 0.06);
+  const assets = input.assets || [];
+  const liabilities = input.liabilities || [];
+  const useTrustStructure = !!input.useTrustStructure;
+  const probateCostRate = safeNumber(input.probateCostRate, 0.045);
+  const monthlyTrustCost = safeNumber(input.monthlyTrustCost, 40);
+  const years = safeNumber(input.years, 30);
+
+  const baselineNW: number[] = [];
+  const simulatedNW: number[] = [];
+
+  let tempBaseline = currentNetWorth;
+  let tempSimulated = currentNetWorth;
+
+  const monthlyTrustCostVal = useTrustStructure ? monthlyTrustCost : 0;
+  const annualTrustCost = monthlyTrustCostVal * 12;
+
+  // 1. Calculate baseline growth
+  for (let i = 1; i <= years; i++) {
+    tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
+    baselineNW.push(Math.round(tempBaseline));
+  }
+
+  const projectedEstateValue = tempBaseline;
+
+  // 2. Calculate current and future estate values
+  let estimatedCurrentEstateValue = calculateEstateValue(assets, liabilities);
+  if (estimatedCurrentEstateValue <= 0 && currentNetWorth > 0) {
+    estimatedCurrentEstateValue = currentNetWorth;
+  }
+  estimatedCurrentEstateValue = Math.max(0, estimatedCurrentEstateValue);
+
+  // 3. Probate cost on projected estate value without trust
+  const estimatedProbateCost = calculateEstimatedProbateCost(projectedEstateValue, probateCostRate);
+
+  // 4. Calculate simulated growth
+  // If trust is used, we incur trust cost annually but avoid probate cost in the final year (representing the transfer)
+  for (let i = 1; i <= years; i++) {
+    const isFinalYear = i === years;
+    const addedValue = (isFinalYear && useTrustStructure) ? estimatedProbateCost : 0;
+    const simSurplus = annualSurplus - annualTrustCost;
+
+    tempSimulated = (tempSimulated + simSurplus) * (1 + averageGrowthRate) + addedValue;
+    simulatedNW.push(Math.round(tempSimulated));
+  }
+
+  const totalTrustCost = calculateTrustMaintenanceCost(monthlyTrustCostVal, years);
+  const preservationBenefit = useTrustStructure ? Math.max(0, estimatedProbateCost - totalTrustCost) : 0;
+  const lifetimeWealthImpact = tempSimulated - tempBaseline;
+
+  return {
+    baselineNW,
+    simulatedNW,
+    estimatedCurrentEstateValue,
+    projectedEstateValue,
+    estimatedProbateCost,
+    totalTrustCost,
+    preservationBenefit,
+    lifetimeWealthImpact,
+    projectedCashFlowDelta: -monthlyTrustCostVal
+  };
 }
 

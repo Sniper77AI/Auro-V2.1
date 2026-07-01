@@ -21,7 +21,18 @@ import {
   calculateAnnualSavingsCapacity,
   calculateRetirementProjection,
   calculateRetirementFundingGap,
-  calculateSafeWithdrawalTarget
+  calculateSafeWithdrawalTarget,
+  calculateValueWeightedRetirementGrowthRate,
+  DEFAULT_RETIREMENT_SURPLUS_ALLOCATION,
+  DEFAULT_RETIREMENT_GROWTH_FALLBACK,
+  calculateRequiredMonthlyCollegeSavings,
+  calculateCollegeFundingScenario,
+  calculateYearsUntilCollege,
+  calculateInflatedCollegeCost,
+  calculateEstateValue,
+  calculateEstimatedProbateCost,
+  calculateTrustMaintenanceCost,
+  calculateEstatePreservationScenario
 } from "../utils/financialCalculations";
 import { 
   Home, Car, Briefcase, Calendar, ShieldAlert, Zap, 
@@ -453,6 +464,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
     targetRetirementAge: 62,
     desiredAnnualSpending: 80000,
+    retirementContributionAllocationPercent: 50,
 
     focusStrategy: "avalanche",
     refinanceRate: 0.045,
@@ -966,11 +978,10 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       const desiredSpending = params.desiredAnnualSpending || 80000;
       const retirementAssetsVal = calculateRetirementAssets(twin.assets);
       const annualSavingsCap = calculateAnnualSavingsCapacity(twin);
+      const contributionAllocationPercent = params.retirementContributionAllocationPercent !== undefined ? params.retirementContributionAllocationPercent : 50;
 
-      const totalAssetsVal = (twin.assets || []).reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
-      const valueWeightedGrowthRate = totalAssetsVal > 0
-        ? (twin.assets || []).reduce((sum, a) => sum + (Number(a.amount) || 0) * (Number(a.annualGrowth) || 0), 0) / totalAssetsVal
-        : 0.06;
+      // Calculate retirement growth rate strictly from retirement assets
+      const { growthRate: valueWeightedGrowthRate, isFallback: isFallbackGrowth } = calculateValueWeightedRetirementGrowthRate(twin.assets);
 
       const inflationRate = 0.025;
       const withdrawalRate = 0.04;
@@ -981,6 +992,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         desiredAnnualSpending: desiredSpending,
         retirementAssets: retirementAssetsVal,
         annualSavingsCapacity: annualSavingsCap,
+        contributionAllocationPercent,
         growthRate: valueWeightedGrowthRate,
         inflationRate,
         withdrawalRate
@@ -992,6 +1004,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         desiredAnnualSpending: desiredSpending,
         retirementAssets: retirementAssetsVal,
         annualSavingsCapacity: annualSavingsCap,
+        contributionAllocationPercent,
         growthRate: valueWeightedGrowthRate,
         inflationRate,
         withdrawalRate,
@@ -1060,7 +1073,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       riskScore = clamp(rScore, 10, 100);
 
       // --- CONFIDENCE SCORE ---
-      let conf = 95;
+      let conf = 100;
       const hasIncomes = (twin.incomes || []).length > 0;
       const hasExpenses = twin.monthlyExpenses !== undefined && twin.monthlyExpenses > 0;
       const hasRetirementAssets = retirementAssetsVal > 0;
@@ -1069,9 +1082,12 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
       if (!hasIncomes) conf -= 20;
       if (!hasExpenses) conf -= 15;
-      if (!hasRetirementAssets) conf -= 20;
+      if (!hasRetirementAssets) conf -= 20; // Reduce confidence when no retirement assets exist
+      if (isFallbackGrowth) conf -= 15; // Reduce confidence when fallback retirement growth is used
       if (!hasTargetSpending) conf -= 15;
       if (isRetAgeUnrealistic) conf -= 20;
+      // Always subtract 10 because contribution is estimated from surplus rather than explicitly entered
+      conf -= 10;
 
       if (completeness < 70) {
         conf -= Math.round((70 - completeness) * 0.5);
@@ -1081,11 +1097,13 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
       // --- KEY ASSUMPTIONS (Dynamic) ---
       keyAssumptions = [
-        `Target retirement age is set to ${targetRetAge} years old (with ${ageDiff} years remaining until retirement).`,
-        `Desired annual retirement spending is ${formatCurrency(desiredSpending)} adjusted for ${formatPercent(inflationRate)} inflation (retirement spending).`,
-        `Assumed safe withdrawal target of ${formatPercent(withdrawalRate)} (safe withdrawal target is ${formatCurrency(calculateSafeWithdrawalTarget(desiredSpending, withdrawalRate))}).`,
-        `Value-weighted growth rate of assets estimated at ${formatPercent(valueWeightedGrowthRate)}.`,
-        `Projected retirement assets at target age is ${formatCurrency(gapResult.projectedAssetsAtRetirement)}.`,
+        `Target retirement age is set to ${targetRetAge} years old (with ${ageDiff} years until retirement).`,
+        `Current retirement assets: ${formatCurrency(retirementAssetsVal)}.`,
+        `Annual savings capacity: ${formatCurrency(annualSavingsCap)}, with ${contributionAllocationPercent}% allocated to retirement (annual retirement contribution of ${formatCurrency(gapResult.annualContribution)}).`,
+        `Projection directs ${contributionAllocationPercent}% of available monthly surplus toward retirement savings.`,
+        `Retirement-only growth rate of assets: ${formatPercent(valueWeightedGrowthRate)}${isFallbackGrowth ? " (Fallback rate used due to no retirement assets)" : ""}.`,
+        `Inflation-adjusted annual spending at retirement: ${formatCurrency(gapResult.adjustedAnnualSpending)} (based on ${formatCurrency(desiredSpending)} in today's dollars adjusted for ${formatPercent(inflationRate)} inflation).`,
+        `Target nest egg at retirement: ${formatCurrency(gapResult.targetNestEgg)} (derived using a safe withdrawal rate of ${formatPercent(withdrawalRate)}).`,
         gapResult.gap > 0
           ? `Estimated funding gap of ${formatCurrency(gapResult.gap)} at retirement.`
           : `Estimated funding surplus of ${formatCurrency(gapResult.surplus)} at retirement.`
@@ -1113,27 +1131,21 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         if (desiredSpending > 35000) {
           alternativeScenarios.push({
             title: "Reduce Annual Spending",
-            description: `Lowering annual spending by 15% to ${formatCurrency(desiredSpending * 0.85)} reduces the required target nest egg.`,
-            params: { desiredAnnualSpending: desiredSpending * 0.85 }
+            description: `Lowering annual spending by 15% to ${formatCurrency(Math.round(desiredSpending * 0.85))} reduces the required target nest egg.`,
+            params: { desiredAnnualSpending: Math.round(desiredSpending * 0.85) }
           });
         }
-        alternativeScenarios.push({
-          title: "Increase Monthly Contributions",
-          description: "Boost your savings rate to accelerate capital accumulation and close the funding gap.",
-          params: { desiredAnnualSpending: desiredSpending }
-        });
-        if (desiredSpending > 50000) {
+        if (contributionAllocationPercent < 100 && annualSavingsCap > 0) {
+          const increasedAllocation = Math.min(100, contributionAllocationPercent + 25);
           alternativeScenarios.push({
-            title: "Use Conservative Spending Target",
-            description: "Adopt a conservative spending structure during early retirement years.",
-            params: { desiredAnnualSpending: desiredSpending * 0.9 }
+            title: "Increase Monthly Contributions",
+            description: `Boost your retirement contribution allocation to ${increasedAllocation}% of monthly surplus (currently ${contributionAllocationPercent}%) to accelerate capital accumulation and close the funding gap.`,
+            params: { retirementContributionAllocationPercent: increasedAllocation }
           });
-        }
-        if (annualSavingsCap < totalAnnualIncome * 0.25) {
           alternativeScenarios.push({
             title: "Improve Savings Rate before Retirement",
-            description: "Trim current lifestyle expenses to maximize tax-advantaged contributions.",
-            params: { targetRetirementAge: targetRetAge }
+            description: "Maximize your retirement savings rate by allocating 100% of available monthly surplus toward tax-advantaged accounts.",
+            params: { retirementContributionAllocationPercent: 100 }
           });
         }
       } else {
@@ -1144,12 +1156,23 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
             params: { targetRetirementAge: targetRetAge - 3 }
           });
         }
-        alternativeScenarios.push({
-          title: "Increase Retirement Spending",
-          description: "You are on track! You can explore a higher lifestyle spending budget.",
-          params: { desiredAnnualSpending: desiredSpending * 1.15 }
-        });
+        if (desiredSpending > 0) {
+          alternativeScenarios.push({
+            title: "Increase Retirement Spending",
+            description: "You are on track! You can explore a higher retirement spending lifestyle.",
+            params: { desiredAnnualSpending: Math.round(desiredSpending * 1.15) }
+          });
+        }
       }
+
+      // Ensure every alternative scenario changes at least one active parameter (Requirement 6)
+      alternativeScenarios = alternativeScenarios.filter(scenario => {
+        const p = scenario.params;
+        const hasTargetAgeDiff = p.targetRetirementAge !== undefined && p.targetRetirementAge !== targetRetAge;
+        const hasSpendingDiff = p.desiredAnnualSpending !== undefined && p.desiredAnnualSpending !== desiredSpending;
+        const hasAllocDiff = p.retirementContributionAllocationPercent !== undefined && p.retirementContributionAllocationPercent !== contributionAllocationPercent;
+        return hasTargetAgeDiff || hasSpendingDiff || hasAllocDiff;
+      });
 
       if (process.env.NODE_ENV !== "production") {
         console.log("Retirement Planning QA Run Data:", {
@@ -1388,102 +1411,367 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       }
 
     } else if (selectedType === "college_funding") {
+      const completeness = calculateProfileCompleteness(twin);
       const tuition = params.annualCollegeCost || 35000;
       const targetPercent = params.fundingTargetPercent || 80;
+      const childrenAges = params.childrenAges || [4, 7];
+      const tuitionInflationRate = 0.045; // 4.5% tuition inflation cap
+      const collegeSavingsGrowthRate = 0.06; // 529 savings growth rate
+      const collegeStartAge = 18;
+      const collegeDurationYears = 4;
 
-      tempBaseline = currentNetWorth;
-      tempSimulated = currentNetWorth;
+      const scenarioResult = calculateCollegeFundingScenario({
+        currentNetWorth,
+        annualSurplus,
+        averageGrowthRate,
+        childrenAges,
+        annualCollegeCost: tuition,
+        fundingTargetPercent: targetPercent,
+        tuitionInflationRate,
+        collegeSavingsGrowthRate,
+        collegeStartAge,
+        collegeDurationYears,
+        years
+      });
 
-      // Children timeline parameters (ages 4 and 7 means college hits in 14 years and 11 years)
-      const collegeHitsYear1 = 11;
-      const collegeHitsYear2 = 14;
-      const totalCollegeNeeds = tuition * 4 * 2 * (targetPercent / 100);
+      // Assign baselines and simulation net worth curves
+      baselineNW.push(...scenarioResult.baselineNW);
+      simulatedNW.push(...scenarioResult.simulatedNW);
 
-      projectedCashFlowDelta = -250; // monthly standard 529 savings contribution
+      const requiredMonthlySavings = scenarioResult.requiredMonthlySavings;
+      const totalInflatedTargetCost = scenarioResult.totalInflatedTargetCost;
+      const yearsUntilFirstCollegeStart = scenarioResult.yearsUntilFirstCollegeStart;
 
-      for (let i = 1; i <= years; i++) {
-        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
-        baselineNW.push(Math.round(tempBaseline));
+      // Monthly impact of the college savings plan
+      projectedCashFlowDelta = -requiredMonthlySavings;
 
-        let currentAnnualSurplusSim = annualSurplus + (projectedCashFlowDelta * 12); // monthly 529 asset addition
-
-        // Deduct tuition when hit
-        if (i >= collegeHitsYear1 && i < collegeHitsYear1 + 4) {
-          currentAnnualSurplusSim -= tuition * (targetPercent / 100);
+      // Decision score (dynamic based on parameters)
+      const monthlySurplusVal = annualSurplus / 12;
+      let dHealth = 100;
+      if (monthlySurplusVal > 0) {
+        const surplusRequiredRatio = requiredMonthlySavings / monthlySurplusVal;
+        if (surplusRequiredRatio > 0.8) {
+          dHealth -= 30;
+        } else if (surplusRequiredRatio > 0.5) {
+          dHealth -= 15;
         }
-        if (i >= collegeHitsYear2 && i < collegeHitsYear2 + 4) {
-          currentAnnualSurplusSim -= tuition * (targetPercent / 100);
-        }
-
-        tempSimulated = (tempSimulated + currentAnnualSurplusSim) * (1 + averageGrowthRate);
-        simulatedNW.push(Math.round(tempSimulated));
+      } else {
+        dHealth -= 40; // No surplus to save
       }
 
-      decisionHealthScore = liquidCash >= 30000 ? 86 : 60;
-      riskScore = totalCollegeNeeds > 100000 ? 45 : 15;
-      confidenceScore = 90;
-      retirementReadinessShift = -2.2; // College funding represents a retirement delay due to capital deployment
+      if (childrenAges.length > 2) {
+        dHealth -= 10;
+      }
+      if (targetPercent > 85) {
+        dHealth -= 10;
+      }
 
+      if (yearsUntilFirstCollegeStart < 5 && requiredMonthlySavings > 500) {
+        dHealth -= 15;
+      }
+
+      if (completeness < 70) {
+        dHealth -= Math.round((70 - completeness) * 0.3);
+      }
+      decisionHealthScore = clamp(dHealth, 20, 100);
+
+      // Risk score
+      let rScore = 15;
+      if (totalInflatedTargetCost > 200000) {
+        rScore = 55;
+      } else if (totalInflatedTargetCost > 100000) {
+        rScore = 35;
+      }
+      if (requiredMonthlySavings > monthlySurplusVal && monthlySurplusVal > 0) {
+        rScore += 20;
+      }
+      riskScore = clamp(rScore, 10, 95);
+
+      // Confidence score (dynamic based on parameters)
+      let conf = 100;
+      const hasChildrenAges = childrenAges.length > 0;
+      const isDefaultCost = tuition === 35000;
+      const hasIncomes = (twin.incomes || []).length > 0;
+      const hasExpenses = twin.monthlyExpenses !== undefined && twin.monthlyExpenses > 0;
+
+      if (!hasChildrenAges) conf -= 25;
+      if (isDefaultCost) conf -= 10;
+      if (!hasIncomes) conf -= 15;
+      if (!hasExpenses) conf -= 15;
+
+      if (monthlySurplusVal > 0 && (requiredMonthlySavings / monthlySurplusVal) > 0.9) {
+        conf -= 15;
+      }
+
+      if (completeness < 70) {
+        conf -= Math.round((70 - completeness) * 0.5);
+      }
+      confidenceScore = clamp(conf, 10, 100);
+
+      // Retirement readiness shift (e.g., impact of college savings on retirement delay)
+      retirementReadinessShift = monthlySurplusVal > 0 
+        ? -Math.round((requiredMonthlySavings / Math.max(100, monthlySurplusVal)) * 5 * 10) / 10 
+        : -3.0;
+
+      // Key Assumptions (dynamic, readable plain language)
       keyAssumptions = [
-        `Expected tuition inflation cap set at 4.5% annual matching average national indexes`,
-        `Tax-sheltered 529 asset compounding at ${averageGrowthRate * 100}% without tax erosion`,
-        `Direct multi-child offset boundaries of age 18 distributions`
+        `Modeling educational funding for ${childrenAges.length} child(ren) (current ages: ${childrenAges.join(", ")}).`,
+        `Years until first child starts college: ${yearsUntilFirstCollegeStart} years (target start age: ${collegeStartAge}).`,
+        `Annual college cost today: ${formatCurrency(tuition)} per child, inflated at an expected tuition inflation rate of ${formatPercent(tuitionInflationRate)} annually.`,
+        `College enrollment duration: ${collegeDurationYears} academic years per child.`,
+        `Target funding share: ${targetPercent}% of the projected total inflated college costs (total funding need: ${formatCurrency(totalInflatedTargetCost)}).`,
+        `Required monthly savings of ${formatCurrency(requiredMonthlySavings)} matching college savings growth assumptions of ${formatPercent(collegeSavingsGrowthRate)} annually.`
       ];
+
+      // Limitations (plain language)
       limitations = [
-        "Does not project state university premium spikes or private institution tuition expansions",
-        "Assumes dependents enroll exactly on the traditional 4-year timeline targets"
+        "Does not include scholarships or financial grants.",
+        "Does not include student loans or alternative borrowing options.",
+        "Tuition costs vary significantly by school type (public vs. private) and state residency status.",
+        "Housing, books, transport, and auxiliary fees may differ from baseline projections.",
+        "Investment returns on college savings are not guaranteed and may vary over time."
       ];
-      alternativeScenarios = [
-        {
-          title: "Reduce Funding Cap to 50%",
-          description: "Co-share educational costs to preserve your retirement savings progress.",
+
+      // Suggested Alternatives
+      alternativeScenarios = [];
+      if (targetPercent > 50) {
+        alternativeScenarios.push({
+          title: "Reduce Funding Share to 50%",
+          description: "Co-share educational costs with children to preserve your own retirement savings progress.",
           params: { fundingTargetPercent: 50 }
-        }
-      ];
+        });
+      }
+      if (tuition > 20000) {
+        alternativeScenarios.push({
+          title: "In-State Public College Plan",
+          description: "Assume standard in-state public university tuition costs (~$20k/yr) to lower the target savings rate.",
+          params: { annualCollegeCost: 20000 }
+        });
+      }
+      if (targetPercent > 30) {
+        alternativeScenarios.push({
+          title: "Family Contribution Plan (30%)",
+          description: "Target a 30% family contribution, with scholarships, grants, and student loans covering the rest.",
+          params: { fundingTargetPercent: 30 }
+        });
+      } else if (targetPercent < 100) {
+        alternativeScenarios.push({
+          title: "Target Full Funding (100%)",
+          description: "Aim to cover 100% of all projected tuition expenses through your structured college savings plan.",
+          params: { fundingTargetPercent: 100 }
+        });
+      }
+      if (tuition > 12000) {
+        alternativeScenarios.push({
+          title: "Community College Transfer Pathway",
+          description: "Model 2 years at community college followed by transfer to standard state university (~$12k/yr average).",
+          params: { annualCollegeCost: 12000 }
+        });
+      }
+
+      // Prioritize retirement if college savings creates a budget deficit
+      if (requiredMonthlySavings > monthlySurplusVal && targetPercent > 20) {
+        alternativeScenarios.push({
+          title: "Prioritize Retirement First",
+          description: "Lower the college funding target to 20% to avoid a monthly budget deficit and prioritize building retirement assets first.",
+          params: { fundingTargetPercent: 20 }
+        });
+      }
+
+      // Ensure every alternative scenario changes at least one active parameter
+      alternativeScenarios = alternativeScenarios.filter(scenario => {
+        const p = scenario.params;
+        const hasSpendingDiff = p.annualCollegeCost !== undefined && p.annualCollegeCost !== tuition;
+        const hasTargetPercentDiff = p.fundingTargetPercent !== undefined && p.fundingTargetPercent !== targetPercent;
+        return hasSpendingDiff || hasTargetPercentDiff;
+      });
+
+      // QA Logging (in development only)
+      if (process.env.NODE_ENV !== "production") {
+        console.log("College Funding Simulator QA Log:", {
+          childrenAges,
+          yearsUntilCollege: childrenAges.map(age => calculateYearsUntilCollege(age, collegeStartAge)),
+          annualCollegeCost: tuition,
+          tuitionInflationRate,
+          fundingTargetPercent: targetPercent,
+          requiredMonthlySavings,
+          availableMonthlySurplus: monthlySurplusVal,
+          decisionHealthScore,
+          confidenceScore
+        });
+      }
 
     } else if (selectedType === "estate_legacy") {
-      const goalsVal = params.wealthTransferGoal || 1000000;
+      const activeStateCode = (twin.taxState || "").trim().toUpperCase();
+      const matchedAssumption = stateAssumptions.find(
+        (a) => (a.state_code || "").trim().toUpperCase() === activeStateCode
+      );
+      const activeStateAssumption = matchedAssumption || fallbackAssumption;
+
+      const scenario = calculateEstatePreservationScenario({
+        currentNetWorth,
+        annualSurplus,
+        averageGrowthRate,
+        assets: twin.assets || [],
+        liabilities: twin.liabilities || [],
+        wealthTransferGoal: params.wealthTransferGoal || 1000000,
+        useTrustStructure: params.useTrustStructure ?? true,
+        estatePreservationLevel: params.estatePreservationLevel || "standard",
+        probateCostRate: 0.045,
+        monthlyTrustCost: 40,
+        years,
+        stateAssumption: activeStateAssumption
+      });
+
+      baselineNW.push(...scenario.baselineNW);
+      simulatedNW.push(...scenario.simulatedNW);
+
+      projectedCashFlowDelta = scenario.projectedCashFlowDelta;
+
+      const completeness = calculateProfileCompleteness(twin);
       const useTrust = params.useTrustStructure ?? true;
 
-      tempBaseline = currentNetWorth;
-      tempSimulated = currentNetWorth;
-
-      // Estate protection calculations: trust structures protect from probate costs (3% loss)
-      // and state estate taxes on transfer
-      const savingsProbate = useTrust ? goalsVal * 0.045 : 0;
-      projectedCashFlowDelta = useTrust ? -40 : 0; // standard administrative trust upkeep cost
-
-      for (let i = 1; i <= years; i++) {
-        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
-        baselineNW.push(Math.round(tempBaseline));
-
-        // Simulated end net worth compiles higher on saved taxes
-        const addedValue = (i === years && useTrust) ? savingsProbate : 0;
-        tempSimulated = (tempSimulated + annualSurplus + (projectedCashFlowDelta * 12)) * (1 + averageGrowthRate) + addedValue;
-        simulatedNW.push(Math.round(tempSimulated));
+      // Decision Score
+      let dHealth = 80;
+      if (useTrust) {
+        if (scenario.estimatedCurrentEstateValue > 500000) {
+          dHealth += 15;
+        } else if (scenario.estimatedCurrentEstateValue < 100000) {
+          dHealth -= 15;
+        }
+        if (scenario.preservationBenefit > 0) {
+          dHealth += 5;
+        }
+        const monthlySurplusVal = annualSurplus / 12;
+        if (monthlySurplusVal > 0 && (40 / monthlySurplusVal) > 0.2) {
+          dHealth -= 15;
+        }
+      } else {
+        if (scenario.estimatedCurrentEstateValue > 500000) {
+          dHealth -= 20;
+        } else if (scenario.estimatedCurrentEstateValue < 100000) {
+          dHealth += 10;
+        }
       }
 
-      decisionHealthScore = useTrust ? 96 : 74;
-      riskScore = 10;
-      confidenceScore = 98; // legacy mapping is highly deterministic
-      retirementReadinessShift = -0.1;
+      if (completeness < 70) {
+        dHealth -= Math.round((70 - completeness) * 0.3);
+      }
 
-      keyAssumptions = [
-        `Federal transfer exemption benchmarks set at standard IRS guidelines`,
-        `Protected trust boundaries preserve an estimated 4.5% of transfer balances from probate courts`,
-        "Steady state inheritance tax structures without future federal tax changes"
-      ];
-      limitations = [
-        "Excludes dynamic changes in domestic tax laws or international jurisdiction treaties",
-        "Upkeep and legal setup expenses are aggregated with standard 30Y inflation ratios"
-      ];
-      alternativeScenarios = [
-        {
-          title: "High-Protection Trust Plan",
-          description: "Enable comprehensive asset preservation to bypass state probate entirely.",
-          params: { estatePreservationLevel: "high_protection", useTrustStructure: true }
+      const goalsVal = params.wealthTransferGoal || 1000000;
+      if (goalsVal > scenario.projectedEstateValue && scenario.projectedEstateValue > 0) {
+        dHealth -= 10;
+      }
+      decisionHealthScore = clamp(dHealth, 20, 100);
+
+      // Risk Score
+      let rScore = 15;
+      if (useTrust) {
+        rScore = 10;
+      } else {
+        if (scenario.estimatedCurrentEstateValue > 500000) {
+          rScore = 60;
+        } else if (scenario.estimatedCurrentEstateValue > 100000) {
+          rScore = 35;
+        } else {
+          rScore = 15;
         }
+      }
+      riskScore = clamp(rScore, 10, 95);
+
+      // Confidence Score
+      let conf = 100;
+      const hasAssets = (twin.assets || []).length > 0;
+      const hasLiabilities = (twin.liabilities || []).length > 0;
+      const isStateAssMissing = !matchedAssumption;
+
+      if (!hasAssets) conf -= 20;
+      if (!hasLiabilities) conf -= 10;
+      if (isStateAssMissing) conf -= 10;
+      if (scenario.estimatedCurrentEstateValue < 100000 && useTrust) conf -= 15;
+      if (completeness < 70) {
+        conf -= Math.round((70 - completeness) * 0.5);
+      }
+      confidenceScore = clamp(conf, 10, 100);
+
+      // Retirement readiness shift
+      retirementReadinessShift = useTrust ? -0.1 : 0.0;
+
+      // Key Assumptions
+      keyAssumptions = [
+        `Estimated current estate value of ${formatCurrency(scenario.estimatedCurrentEstateValue)} based on active assets and liabilities.`,
+        `Projected estate value grown to ${formatCurrency(scenario.projectedEstateValue)} over a ${years}-year planning horizon.`,
+        `Probate cost rate of ${formatPercent(0.045)} applied to projected estate transfer value without trust structures.`,
+        useTrust 
+          ? `Ongoing trust administrative cost of ${formatCurrency(40)}/month (${formatCurrency(scenario.totalTrustCost)} total over ${years} years).`
+          : `No ongoing trust administrative costs modeled.`,
+        `Selected preservation level: ${params.estatePreservationLevel === "high_protection" ? "High Preservation (Probate Bypass Trust)" : "Standard Preservation (Federal Level)"}.`,
+        useTrust
+          ? `Projected net preservation benefit of ${formatCurrency(scenario.preservationBenefit)} by avoiding future probate costs.`
+          : `Potential probate friction and estate delays without active trust structure planning.`
       ];
+
+      // Limitations
+      limitations = [
+        "This simulation is for educational purposes only and does not constitute formal legal or financial advice.",
+        "Estate planning and probate laws vary significantly by state jurisdiction and are subject to future regulatory changes.",
+        "Upfront trust setup costs are highly variable depending on individual estate complexity and legal services selected.",
+        "Taxes (inheritance/gift taxes), specific beneficiary designations, guardianship terms, and illiquid special assets are not fully modeled.",
+        "You should consult a qualified estate planning attorney to draft and execute any legally binding trust documents."
+      ];
+
+      // Suggested Alternatives
+      alternativeScenarios = [];
+      if (!useTrust) {
+        alternativeScenarios.push({
+          title: "Establish Revocable Living Trust",
+          description: "Set up a living trust to bypass probate courts entirely and preserve up to 4.5% of transfer assets.",
+          params: { useTrustStructure: true, estatePreservationLevel: "high_protection" }
+        });
+      } else {
+        alternativeScenarios.push({
+          title: "Transition to Basic Will Plan",
+          description: "Avoid ongoing trust administrative costs by utilizing standard legal wills and direct transfer beneficiaries.",
+          params: { useTrustStructure: false, estatePreservationLevel: "standard" }
+        });
+      }
+
+      if (scenario.estimatedCurrentEstateValue > 750000 && params.estatePreservationLevel !== "high_protection") {
+        alternativeScenarios.push({
+          title: "Optimize High-Protection Trust",
+          description: "With substantial assets, high preservation level trusts automate wealth transfer and secure privacy.",
+          params: { estatePreservationLevel: "high_protection", useTrustStructure: true }
+        });
+      } else if (scenario.estimatedCurrentEstateValue < 150000 && params.estatePreservationLevel === "high_protection") {
+        alternativeScenarios.push({
+          title: "Simplify to Standard Trust Plan",
+          description: "Choose a standard, lower-complexity trust plan to align administrative tasks with a modest estate value.",
+          params: { estatePreservationLevel: "standard", useTrustStructure: true }
+        });
+      }
+
+      // Filter alternatives to guarantee they change active parameters
+      alternativeScenarios = alternativeScenarios.filter(scenario => {
+        const p = scenario.params;
+        const hasLevelDiff = p.estatePreservationLevel !== undefined && p.estatePreservationLevel !== params.estatePreservationLevel;
+        const hasTrustDiff = p.useTrustStructure !== undefined && p.useTrustStructure !== useTrust;
+        return hasLevelDiff || hasTrustDiff;
+      });
+
+      // QA Logs in development only
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Estate Funding Simulator QA Log:", {
+          estimatedEstateValue: scenario.estimatedCurrentEstateValue,
+          projectedEstateValue: scenario.projectedEstateValue,
+          probateCostRate: 0.045,
+          monthlyTrustCost: 40,
+          totalTrustCost: scenario.totalTrustCost,
+          estimatedProbateCostAvoided: useTrust ? scenario.estimatedProbateCost : 0,
+          preservationBenefit: scenario.preservationBenefit,
+          decisionHealthScore,
+          confidenceScore
+        });
+      }
 
     } else {
       // General fallbacks
@@ -2009,6 +2297,27 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                     <span>$300k</span>
                   </div>
                 </div>
+
+                <div>
+                  <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
+                    <span>RETIREMENT SURPLUS ALLOCATION</span>
+                    <span className="text-teal-650 font-black">{params.retirementContributionAllocationPercent !== undefined ? params.retirementContributionAllocationPercent : 50}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="5"
+                    value={params.retirementContributionAllocationPercent !== undefined ? params.retirementContributionAllocationPercent : 50}
+                    onChange={(e) => setParams({ ...params, retirementContributionAllocationPercent: parseInt(e.target.value) })}
+                    className="w-full accent-teal-600 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-slate-400 font-mono mt-1 font-bold">
+                    <span>10%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
               </>
             )}
 
@@ -2051,7 +2360,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
               <>
                 <div>
                   <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
-                    <span>ANNUAL STATE COLLEGE COST / CHILD</span>
+                    <span>ANNUAL COLLEGE COST PER CHILD</span>
                     <span className="text-teal-650 font-black">${(params.annualCollegeCost || 35000).toLocaleString()}/yr</span>
                   </div>
                   <input
@@ -2072,7 +2381,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
                 <div>
                   <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
-                    <span>REQUIRED UNIVERSITY FUNDING TARGET</span>
+                    <span>TARGET SHARE TO FUND</span>
                     <span className="text-teal-650 font-black">{params.fundingTargetPercent || 80}% funded</span>
                   </div>
                   <input
@@ -2084,6 +2393,76 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                     onChange={(e) => setParams({ ...params, fundingTargetPercent: parseInt(e.target.value) })}
                     className="w-full accent-teal-600 cursor-pointer"
                   />
+                </div>
+
+                <div className="border-t border-slate-100 pt-3 mt-3">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-slate-500 text-xs font-mono font-bold uppercase">Children’s Ages</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = params.childrenAges || [];
+                        setParams({
+                          ...params,
+                          childrenAges: [...current, 5]
+                        });
+                      }}
+                      className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 bg-teal-50 px-2 py-1 rounded transition-colors"
+                    >
+                      + Add Child
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-mono mb-2">Used to estimate when college costs begin.</p>
+
+                  {(!params.childrenAges || params.childrenAges.length === 0) ? (
+                    <div className="text-xs text-slate-500 italic py-2 bg-slate-50 rounded-lg text-center border border-dashed border-slate-200">
+                      No children added yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {(params.childrenAges || []).map((age, idx) => (
+                        <div key={idx} className="flex items-center justify-between gap-2 p-1.5 bg-slate-50 rounded-lg border border-slate-100">
+                          <span className="text-[11px] font-mono text-slate-600 font-bold">Child {idx + 1} age</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              max="25"
+                              step="1"
+                              value={age}
+                              onChange={(e) => {
+                                const valStr = e.target.value;
+                                if (valStr === "") {
+                                  const updated = [...(params.childrenAges || [])];
+                                  updated[idx] = 0;
+                                  setParams({ ...params, childrenAges: updated });
+                                  return;
+                                }
+                                let val = parseInt(valStr, 10);
+                                if (isNaN(val)) val = 0;
+                                val = Math.max(0, Math.min(25, Math.floor(val)));
+                                const updated = [...(params.childrenAges || [])];
+                                updated[idx] = val;
+                                setParams({ ...params, childrenAges: updated });
+                              }}
+                              className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-xs text-right font-semibold text-slate-700 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 font-mono"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (params.childrenAges || []).filter((_, i) => i !== idx);
+                                setParams({ ...params, childrenAges: updated });
+                              }}
+                              className="text-slate-400 hover:text-red-500 p-1 rounded transition-colors text-xs font-bold"
+                              title="Remove Child"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -2108,7 +2487,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                 </div>
 
                 <div>
-                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">PROTECTION COEFFICIENT</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">ESTATE PROTECTION LEVEL</label>
                   <select
                     value={params.estatePreservationLevel}
                     onChange={(e) => setParams({ ...params, estatePreservationLevel: e.target.value as any })}
@@ -2127,8 +2506,8 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                     className="accent-teal-600 cursor-pointer h-4 w-4"
                   />
                   <div>
-                    <span className="text-xs text-slate-800 block font-bold leading-none">Assemble Secure Trust Structure</span>
-                    <span className="text-[10px] text-slate-500 mt-1 block font-bold">Bypasses local state probate cycles.</span>
+                    <span className="text-xs text-slate-800 block font-bold leading-none">Use a trust structure</span>
+                    <span className="text-[10px] text-slate-500 mt-1 block font-bold">May reduce probate delays and costs.</span>
                   </div>
                 </div>
               </>
