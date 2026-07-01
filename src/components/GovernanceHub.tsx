@@ -202,7 +202,7 @@ export default function GovernanceHub({ events, auditLogs, onAddDispute }: Gover
                   Aura operates under a strict dual-engine partition framework:
                 </p>
                 <ul className="list-disc list-inside space-y-1 pl-1">
-                  <li><strong>Heuristic Math Layer:</strong> Calculates amortization, progressive state taxes, compound interest multipliers via standard deterministic algorithms.</li>
+                  <li><strong>Core Math Layer:</strong> Calculates amortization, progressive state taxes, and compound interest multipliers via standard deterministic algorithms.</li>
                   <li><strong>Explainability Layer:</strong> Generates human-friendly summaries highlighting trade-offs without executing mathematical logic.</li>
                 </ul>
               </div>
@@ -210,7 +210,7 @@ export default function GovernanceHub({ events, auditLogs, onAddDispute }: Gover
               <div className="space-y-1.5">
                 <h4 className="font-bold text-slate-800 uppercase font-mono text-[11px] text-teal-600">2. Performance Boundaries</h4>
                 <p className="leading-relaxed">
-                  Calculations terminate at standard maximums to block systemic degradation (e.g., maximum compound interest parameters are capped at 15.0% ARR to prevent unrealistically rich simulations).
+                  Calculations terminate at standard maximums to block unstable compound ranges (e.g., maximum compound interest parameters are capped at 15.0% ARR to prevent unrealistically rich simulations).
                 </p>
               </div>
             </div>
@@ -219,7 +219,7 @@ export default function GovernanceHub({ events, auditLogs, onAddDispute }: Gover
               <div className="space-y-1.5">
                 <h4 className="font-bold text-slate-800 uppercase font-mono text-[11px] text-teal-600">3. Human Review Triggers</h4>
                 <p className="leading-relaxed">
-                  To protect pre-retiree and family profiles, Aura auto-flags compound profiles with downfalls in baseline emergency cash of below 3 months. High-density anomalies are held for human expert calibration queues.
+                  To protect pre-retiree and family profiles, Aura auto-flags profiles with low baseline emergency cash of below 3 months. Anomalous cases are flagged for thorough review.
                 </p>
               </div>
 
@@ -261,7 +261,7 @@ export default function GovernanceHub({ events, auditLogs, onAddDispute }: Gover
             <div className="border border-slate-150 p-4 rounded-xl space-y-2 bg-slate-50/50">
               <h4 className="font-bold text-slate-800 font-sans">Algorithmic Limitations</h4>
               <p className="text-slate-500 text-[11px] leading-relaxed">
-                Stochastic models assume continuous stable market parameters and standard constant inflation coefficients of 2.5%, and cannot account for black swan volatility events.
+                Models assume continuous stable market parameters and standard constant inflation rates of 2.5%, and cannot account for black swan volatility events.
               </p>
             </div>
           </div>

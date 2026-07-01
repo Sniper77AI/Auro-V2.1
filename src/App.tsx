@@ -86,6 +86,16 @@ export default function App() {
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [syncingState, setSyncingState] = useState<"synced" | "syncing" | "error">("synced");
   const [sandboxNotice, setSandboxNotice] = useState<string | null>(null);
+  const [toastNotification, setToastNotification] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+  useEffect(() => {
+    if (toastNotification) {
+      const timer = setTimeout(() => {
+        setToastNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastNotification]);
 
   // Initial Auth checking and Profile database sync on boot
   const withTimeout = <T,>(
@@ -413,7 +423,10 @@ export default function App() {
     // Check if goal category and name already exists to avoid duplication
     const exists = goals.some(g => g.category === goalData.category && g.name === goalData.name);
     if (exists) {
-      alert(`A Life Goal for "${goalData.name}" has already been approved and registered.`);
+      setToastNotification({
+        message: `A Life Goal for "${goalData.name}" has already been approved and registered.`,
+        type: "info"
+      });
       setActiveMenu("goals");
       return;
     }
@@ -464,6 +477,10 @@ export default function App() {
     }
 
     // Direct redirection to the Life Goals view
+    setToastNotification({
+      message: `Goal approved and successfully mapped to your active timeline!`,
+      type: "success"
+    });
     setActiveMenu("goals");
   };
 
@@ -1233,6 +1250,19 @@ export default function App() {
               Dismiss
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastNotification && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-slate-800 text-white text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 max-w-sm animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <span className="font-sans font-medium">{toastNotification.message}</span>
+          <button
+            onClick={() => setToastNotification(null)}
+            className="text-slate-400 hover:text-white font-bold ml-1 text-sm cursor-pointer"
+          >
+            &times;
+          </button>
         </div>
       )}
     </div>

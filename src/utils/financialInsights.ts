@@ -293,7 +293,7 @@ export function generateFinancialInsights(twin: FinancialTwin) {
     rulesLogged.push(`Risk Trigger: High Interest Debt Drag. Amount above 8%: ${formatCurrency(highInterestDebt8)}.`);
     
     const itemConfidence = Math.min(99, Math.max(30, Math.round(completeness * 0.9 + 10)));
-    const descStr = `You carry ${formatCurrency(highInterestDebt8)} of active student, car, or credit card liabilities over 8% interest. This compounding interest actively drains your monthly wealth-building velocity.`;
+    const descStr = `You carry ${formatCurrency(highInterestDebt8)} of active student, car, or credit card liabilities over 8% interest. This compounding interest actively drains your monthly wealth-building capacity.`;
     
     rawRisks.push({
       id: "high_interest_debt_drag_risk",

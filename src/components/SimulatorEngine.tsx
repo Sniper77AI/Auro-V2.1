@@ -403,7 +403,7 @@ function getLifeOutcomeStatement(type: SimulationType, result: SimulationResult,
     outcome = `Allocating 529 college trusts at a ${params.fundingTargetPercent || 80}% level preserves your children's access with very low impact on your retirement track.`;
     nextStep = "Initiate monthly automatic ACH transfers to state-sponsored tax shelter 529 plans.";
   } else {
-    outcome = "Establishing an advanced Trust Structure bypasses complex state probate cycles, protecting up to 98% of your estate's value.";
+    outcome = "Establishing an advanced Trust Structure bypasses complex state probate cycles, protecting the vast majority of your estate's value.";
     nextStep = "Draft basic estate directives and schedule a review with legal services to formalize probate-bypass trusts.";
   }
 
@@ -2984,7 +2984,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                   {/* Summary grid */}
                   <div className="bg-slate-50 p-4 border-b border-slate-150 grid grid-cols-2 gap-x-4 gap-y-3 font-sans">
                     <div>
-                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Decision Lens</span>
+                      <span className="text-slate-400 font-bold block text-[9px] uppercase font-mono">Goal Name</span>
                       <span className="font-bold text-slate-800">{details.title}</span>
                     </div>
                     <div>

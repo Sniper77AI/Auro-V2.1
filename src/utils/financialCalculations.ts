@@ -265,7 +265,7 @@ export function calculateReadinessScore(twin: FinancialTwin): ReadinessResult {
       ? (totalMonthlyDebt > 0 
         ? `You have monthly debt payments of ${formatCurrency(totalMonthlyDebt)} but no reported income, resulting in extreme leverage risk.`
         : "No active monthly income was reported to calculate a Debt-to-Income ratio.")
-      : `Your Debt-to-Income ratio sits at ${dti.toFixed(1)}%. Keeping this below 36% ensures systemic borrowing resilience.`,
+      : `Your Debt-to-Income ratio sits at ${dti.toFixed(1)}%. Keeping this below 36% ensures strong borrowing capacity.`,
   };
 
   // 4. High-Interest Debt Burden (Max 15 points)
@@ -277,7 +277,7 @@ export function calculateReadinessScore(twin: FinancialTwin): ReadinessResult {
     maxScore: 15,
     impact: highInterestDebt === 0 ? "positive" : highInterestDebt < 5000 ? "neutral" : "negative",
     description: highInterestDebt === 0
-      ? "Outstanding high-interest debts are zero. Excellent systemic cost protection!"
+      ? "Outstanding high-interest debts are zero. Excellent interest cost protection!"
       : `You carry ${formatCurrency(highInterestDebt)} of debt at or above 8% interest, creating a financial drag.`,
   };
 
