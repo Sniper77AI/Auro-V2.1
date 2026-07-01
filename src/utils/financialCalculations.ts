@@ -112,7 +112,7 @@ export function calculateDebtToIncomeRatio(incomes: IncomeSource[], liabilities:
  */
 export function calculateEmergencyFundMonths(assets: AssetItem[], monthlyExpenses: number): number {
   const cashAssets = (assets || [])
-    .filter((a) => a.type === "cash")
+    .filter((a) => (a.type || "").toLowerCase() === "cash")
     .reduce((total, asset) => total + safeNumber(asset.amount), 0);
   const safeExpenses = safeNumber(monthlyExpenses);
   if (safeExpenses <= 0) return 12; // Standard safety maximum fallback when expenses are zero
@@ -149,18 +149,17 @@ export function calculateValueWeightedAssetGrowth(assets: AssetItem[]): number {
 export function calculateProfileCompleteness(twin: FinancialTwin): number {
   if (!twin) return 0;
   const hasIncomesVal = twin.incomes && twin.incomes.length > 0;
-  const hasBasicSavingsVal = twin.assets && twin.assets.some((a) => a.type === "cash" && safeNumber(a.amount) > 0);
-  const hasInvestmentsVal = twin.assets && twin.assets.some((a) => a.type === "brokerage" && safeNumber(a.amount) > 0);
-  const hasRetirementVal = twin.assets && twin.assets.some((a) => a.type === "retirement" && safeNumber(a.amount) > 0);
-  const hasRealEstateVal = twin.assets && twin.assets.some((a) => a.type === "real_estate" && safeNumber(a.amount) > 0);
-  const hasDebtInfoVal = twin.liabilities && twin.liabilities.length > 0;
+  const hasBasicSavingsVal = twin.assets && twin.assets.some((a) => (a.type || "").toLowerCase() === "cash" && safeNumber(a.amount) > 0);
+  const hasInvestmentsVal = twin.assets && twin.assets.some((a) => (a.type || "").toLowerCase() === "brokerage" && safeNumber(a.amount) > 0);
+  const hasRetirementVal = twin.assets && twin.assets.some((a) => (a.type || "").toLowerCase() === "retirement" && safeNumber(a.amount) > 0);
+  const hasRealEstateVal = twin.assets && twin.assets.some((a) => (a.type || "").toLowerCase() === "real_estate" && safeNumber(a.amount) > 0);
   const hasCollegeSavingsVal =
     (twin.assets &&
       twin.assets.some(
         (a) =>
-          a.name.toLowerCase().includes("529") ||
-          a.name.toLowerCase().includes("college") ||
-          a.name.toLowerCase().includes("education")
+          (a.name || "").toLowerCase().includes("529") ||
+          (a.name || "").toLowerCase().includes("college") ||
+          (a.name || "").toLowerCase().includes("education")
       )) ||
     safeNumber(twin.dependants) > 0;
 
@@ -170,7 +169,6 @@ export function calculateProfileCompleteness(twin: FinancialTwin): number {
     hasInvestmentsVal,
     hasRetirementVal,
     hasRealEstateVal,
-    hasDebtInfoVal,
     hasCollegeSavingsVal,
   ];
   return Math.round((profileItems.filter(Boolean).length / profileItems.length) * 100);
@@ -212,17 +210,25 @@ export function calculateReadinessScore(twin: FinancialTwin): ReadinessResult {
   // 1. Emergency Fund Cushion (Max 20 points)
   // 6 months of reserves = full 20 points.
   let emergencyScore = 0;
+  let emergencyDescription = "";
+  let emergencyImpact: "positive" | "negative" | "neutral" = "negative";
+
   if (monthlyExpenses <= 0) {
-    emergencyScore = 20;
+    emergencyScore = 0; // zero or missing expenses gets 0 points (treated as incomplete)
+    emergencyDescription = "Monthly expenses are not defined or set to zero. Please enter your estimated monthly expenses to evaluate your emergency reserve cushion.";
+    emergencyImpact = "neutral";
   } else {
     emergencyScore = clamp((emergencyMonths / 6) * 20, 0, 20);
+    emergencyDescription = `Your liquid cash covers ${emergencyMonths.toFixed(1)} months of expenses. Prudent guidelines recommend a 6-month buffer.`;
+    emergencyImpact = emergencyMonths >= 6 ? "positive" : emergencyMonths >= 3 ? "neutral" : "negative";
   }
+
   const emergencyFactor: ScoreFactor = {
     name: "Emergency Reserve Months",
     score: Math.round(emergencyScore),
     maxScore: 20,
-    impact: emergencyMonths >= 6 ? "positive" : emergencyMonths >= 3 ? "neutral" : "negative",
-    description: `Your liquid cash covers ${emergencyMonths.toFixed(1)} months of expenses. Proved guidelines recommend a 6-month buffer.`,
+    impact: emergencyImpact,
+    description: emergencyDescription,
   };
 
   // 2. Monthly Cash Surplus (Max 20 points)
@@ -240,15 +246,26 @@ export function calculateReadinessScore(twin: FinancialTwin): ReadinessResult {
   // 3. Debt-to-Income Ratio (Max 20 points)
   // 0% DTI = 20 pts, >= 40% DTI = 0 pts.
   let dtiScore = 20;
-  if (dti > 0) {
+  const totalMonthlyDebt = calculateMonthlyDebtPayments(liabilities);
+  if (monthlyGross <= 0) {
+    if (totalMonthlyDebt > 0) {
+      dtiScore = 0; // No income plus debt payments receives 0 points
+    } else {
+      dtiScore = 10; // No income and no debt receives a neutral partial score
+    }
+  } else if (dti > 0) {
     dtiScore = clamp(20 - (dti / 40) * 20, 0, 20);
   }
   const dtiFactor: ScoreFactor = {
     name: "Debt-to-Income (DTI) Leverage",
     score: Math.round(dtiScore),
     maxScore: 20,
-    impact: dti <= 20 ? "positive" : dti <= 36 ? "neutral" : "negative",
-    description: `Your Debt-to-Income ratio sits at ${dti.toFixed(1)}%. Keeping this below 36% ensures systemic borrowing resilience.`,
+    impact: monthlyGross <= 0 ? (totalMonthlyDebt > 0 ? "negative" : "neutral") : (dti <= 20 ? "positive" : dti <= 36 ? "neutral" : "negative"),
+    description: monthlyGross <= 0 
+      ? (totalMonthlyDebt > 0 
+        ? `You have monthly debt payments of ${formatCurrency(totalMonthlyDebt)} but no reported income, resulting in extreme leverage risk.`
+        : "No active monthly income was reported to calculate a Debt-to-Income ratio.")
+      : `Your Debt-to-Income ratio sits at ${dti.toFixed(1)}%. Keeping this below 36% ensures systemic borrowing resilience.`,
   };
 
   // 4. High-Interest Debt Burden (Max 15 points)
@@ -279,7 +296,7 @@ export function calculateReadinessScore(twin: FinancialTwin): ReadinessResult {
   // 6. Retirement Asset Progress (Max 10 points)
   // Retirement assets >= annualIncome * 0.25 (minimum $20,000) gets 10 points.
   const retirementAssets = assets
-    .filter((a) => a.type === "retirement")
+    .filter((a) => (a.type || "").toLowerCase() === "retirement")
     .reduce((total, asset) => total + safeNumber(asset.amount), 0);
   const targetRetirement = Math.max(20000, annualIncome * 0.25);
   const retirementScore = clamp(retirementAssets > 0 ? (retirementAssets / targetRetirement) * 10 : 0, 0, 10);
