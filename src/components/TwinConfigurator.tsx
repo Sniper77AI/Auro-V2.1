@@ -465,9 +465,6 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
 
         const metCount = items.filter(it => it.met).length;
         const completionPercent = Math.round((metCount / items.length) * 100);
-        const filled = Math.round((completionPercent / 100) * 15);
-        const empty = 15 - filled;
-        const pBar = "█".repeat(filled) + "░".repeat(empty);
 
         return (
           <div className="bg-slate-50 border-b border-slate-200 divide-y divide-slate-100">
@@ -479,18 +476,6 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
                 <span className="text-xs text-slate-600 select-none">
                   Profile Completeness: <strong className="text-teal-600 font-bold font-mono">{completionPercent}%</strong>
                 </span>
-              </div>
-              
-              <div className="flex items-center gap-3 self-stretch sm:self-auto">
-                <span className="text-teal-600 font-mono text-[11px] select-none tracking-normal leading-none font-bold">
-                  {pBar}
-                </span>
-                <div className="w-24 h-1.5 bg-slate-200 rounded-full overflow-hidden border border-slate-300 shrink-0">
-                  <div 
-                    className="h-full bg-teal-600 rounded-full transition-all duration-300"
-                    style={{ width: `${completionPercent}%` }}
-                  />
-                </div>
               </div>
             </div>
 

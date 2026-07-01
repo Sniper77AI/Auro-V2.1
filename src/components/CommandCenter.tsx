@@ -24,6 +24,7 @@ import {
   calculateProfileCompleteness,
   formatCurrency
 } from "../utils/financialCalculations";
+import { generateFinancialInsights } from "../utils/financialInsights";
 
 interface CommandCenterProps {
   twin: FinancialTwin;
@@ -130,36 +131,10 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
     ];
   }
 
-  // Opportunities and Risks cards
-  const opportunities = [
-    {
-      title: "Increase Retirement Savings",
-      value: "Expected Yield: +$45,000",
-      desc: "By setting up tax-advantaged accounts like a Roth IRA, your money can grow completely tax-free. Under your current plan, this could yield up to $45,000 more when you reach retirement."
-    },
-    {
-      title: "Could Moving Save You Taxes?",
-      value: "State Offset: Max 13%",
-      desc: `You reside in ${twin.taxState}. Moving to a state with zero income tax (like Texas or Florida) could automatically keep up to $5,400 per year in your pocket, significantly speeding up your financial milestones.`
-    }
-  ];
-
-  const risks = [
-    {
-      title: "Too Much Cash Sitting Idle",
-      impact: "Caution Check",
-      desc: expensesRatio < 4 
-        ? "Your emergency savings cushion is currently thin. A sudden job change or unexpected expense could force you onto high-interest loans unless you save a larger buffer."
-        : "You have built up an excellent cash reserve! However, keeping too much money in low-interest savings accounts actually loses value over time due to inflation. Moving a portion to secure investments will put your money to work."
-    },
-    {
-      title: "Depending on a Single Income",
-      impact: "Safety Risk",
-      desc: (twin.incomes || []).length <= 1 
-        ? "Relying on a single salary can be vulnerable if unexpected events arise. Developing side projects or alternative consulting income would protect you from total income loss."
-        : "Great! You have multiple stable sources of income, which greatly insulates your household from financial risk."
-    }
-  ];
+  // Opportunities and Risks cards generated dynamically from the Financial Twin profile
+  const insightsResult = generateFinancialInsights(twin);
+  const opportunities = insightsResult.opportunities;
+  const risks = insightsResult.risks;
 
   // QA Check: temporary console logs only in development mode
   useEffect(() => {
@@ -390,15 +365,22 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
         <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-sm">
           <span className="text-[10px] font-mono text-teal-700 uppercase tracking-wider block font-bold">Proactive Opportunities</span>
           <div className="space-y-3">
-            {opportunities.map((opp, i) => (
-              <div key={i} className="bg-slate-50/50 border border-slate-150 p-4 rounded-2xl space-y-2 hover:bg-white hover:border-slate-300 transition-all shadow-sm">
-                <div className="flex justify-between items-start gap-2">
-                  <h4 className="text-xs font-bold text-slate-800">{opp.title}</h4>
-                  <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-lg font-bold shrink-0">{opp.value}</span>
-                </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">{opp.desc}</p>
+            {opportunities.length === 0 ? (
+              <div className="bg-slate-50/50 border border-slate-150 p-6 rounded-2xl text-center space-y-1">
+                <p className="text-xs text-slate-700 font-bold">Optimized Status</p>
+                <p className="text-[11px] text-slate-500 font-sans leading-relaxed">Your financial opportunities are fully optimized for now. Keep compounding!</p>
               </div>
-            ))}
+            ) : (
+              opportunities.map((opp, i) => (
+                <div key={i} className="bg-slate-50/50 border border-slate-150 p-4 rounded-2xl space-y-2 hover:bg-white hover:border-slate-300 transition-all shadow-sm">
+                  <div className="flex justify-between items-start gap-2">
+                    <h4 className="text-xs font-bold text-slate-800">{opp.title}</h4>
+                    <span className="text-[9px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-lg font-bold shrink-0">{opp.value}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">{opp.desc}</p>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -406,15 +388,22 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
         <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-sm">
           <span className="text-[10px] font-mono text-rose-600 uppercase tracking-wider block font-bold">Potential Risks</span>
           <div className="space-y-3">
-            {risks.map((risk, i) => (
-              <div key={i} className="bg-slate-50/50 border border-slate-150 p-4 rounded-2xl space-y-2 hover:bg-white hover:border-slate-300 transition-all shadow-sm">
-                <div className="flex justify-between items-start gap-2">
-                  <h4 className="text-xs font-bold text-slate-800">{risk.title}</h4>
-                  <span className="text-[9px] font-mono text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-lg font-bold shrink-0">{risk.impact}</span>
-                </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">{risk.desc}</p>
+            {risks.length === 0 ? (
+              <div className="bg-emerald-50/30 border border-emerald-100 p-6 rounded-2xl text-center space-y-1">
+                <p className="text-xs text-emerald-800 font-bold">Great job!</p>
+                <p className="text-[11px] text-emerald-600 font-sans leading-relaxed">Great job — no significant financial risks were detected based on your current profile.</p>
               </div>
-            ))}
+            ) : (
+              risks.map((risk, i) => (
+                <div key={i} className="bg-slate-50/50 border border-slate-150 p-4 rounded-2xl space-y-2 hover:bg-white hover:border-slate-300 transition-all shadow-sm">
+                  <div className="flex justify-between items-start gap-2">
+                    <h4 className="text-xs font-bold text-slate-800">{risk.title}</h4>
+                    <span className="text-[9px] font-mono text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-lg font-bold shrink-0">{risk.impact}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">{risk.desc}</p>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
