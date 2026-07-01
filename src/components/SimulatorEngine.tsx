@@ -14,6 +14,7 @@ import {
   calculateMonthlySurplus,
   calculateHighInterestDebt,
   calculateTotalLiabilities,
+  calculateMonthlyDebtPayments,
   formatCurrency,
   formatPercent,
   calculateVehiclePurchaseScenario,
@@ -32,7 +33,10 @@ import {
   calculateEstateValue,
   calculateEstimatedProbateCost,
   calculateTrustMaintenanceCost,
-  calculateEstatePreservationScenario
+  calculateEstatePreservationScenario,
+  calculateAfterTaxIncome,
+  calculateCareerTransitionScenario,
+  safeNumber
 } from "../utils/financialCalculations";
 import { 
   Home, Car, Briefcase, Calendar, ShieldAlert, Zap, 
@@ -936,41 +940,190 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       }
 
     } else if (selectedType === "career_change") {
-      const newSal = params.newSalary || 120000;
-      const relocation = params.relocationCost || 8000;
+      const activeStateCode = (twin.taxState || "").trim().toUpperCase();
+      const matchedAssumption = stateAssumptions.find(
+        (a) => (a.state_code || "").trim().toUpperCase() === activeStateCode
+      );
+      const activeStateAssumption = matchedAssumption || fallbackAssumption;
+      const taxRate = activeStateAssumption ? safeNumber(activeStateAssumption.effective_tax_rate, 0.25) : 0.25;
 
-      projectedCashFlowDelta = (newSal - totalAnnualIncome) / 12;
+      const monthlyDebt = calculateMonthlyDebtPayments(twin.liabilities);
 
-      tempBaseline = currentNetWorth;
-      tempSimulated = currentNetWorth - relocation;
+      const scenario = calculateCareerTransitionScenario({
+        currentAnnualIncome: totalAnnualIncome,
+        newSalary: params.newSalary || 120000,
+        relocationCost: params.relocationCost || 8000,
+        careerType: params.careerType || "job_change",
+        startupEquity: params.startupEquity || 0.02,
+        startupSuccessProb: params.startupSuccessProb || 0.20,
+        effectiveTaxRate: taxRate,
+        monthlyExpenses: twin.monthlyExpenses || 0,
+        monthlyDebtPayments: monthlyDebt,
+        currentNetWorth,
+        averageGrowthRate,
+        years
+      });
 
-      for (let i = 1; i <= years; i++) {
-        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
-        baselineNW.push(Math.round(tempBaseline));
+      baselineNW.push(...scenario.baselineNW);
+      simulatedNW.push(...scenario.simulatedNW);
 
-        // Incorporates wage-growth compounding
-        const simulatedAnnualSavings = Math.max(0, (newSal * taxPenaltyMultiplier) - (twin.monthlyExpenses * 12));
-        tempSimulated = (tempSimulated + simulatedAnnualSavings) * (1 + averageGrowthRate);
-        simulatedNW.push(Math.round(tempSimulated));
+      projectedCashFlowDelta = scenario.monthlyCashFlowChange;
+      retirementReadinessShift = scenario.monthlyCashFlowChange > 500 ? Math.min(8, scenario.monthlyCashFlowChange / 400) : -0.2;
+
+      const completeness = calculateProfileCompleteness(twin);
+      const cashAssets = (twin.assets || [])
+        .filter(a => ["cash", "checking", "savings", "brokerage"].includes((a.type || "").toLowerCase()))
+        .reduce((sum, a) => sum + safeNumber(a.amount), 0);
+      const emergencyFundMonths = twin.monthlyExpenses > 0 ? cashAssets / twin.monthlyExpenses : 6;
+
+      // 5. Decision Score
+      let dHealth = 75;
+      const pctImprovement = scenario.afterTaxCurrent > 0 
+        ? (scenario.afterTaxNew - scenario.afterTaxCurrent) / scenario.afterTaxCurrent 
+        : 0;
+
+      if (pctImprovement > 0) {
+        dHealth += Math.min(20, pctImprovement * 50);
+      } else {
+        dHealth -= Math.min(30, Math.abs(pctImprovement) * 100);
       }
 
-      retirementReadinessShift = projectedCashFlowDelta > 500 ? Math.min(8, projectedCashFlowDelta / 400) : -0.2;
-      decisionHealthScore = newSal > totalAnnualIncome ? 92 : 60;
-      riskScore = relocation > 15000 ? 45 : 15;
-      confidenceScore = 78; // Career shifts carry transition risk
+      if (scenario.breakEvenMonths > 0) {
+        if (scenario.breakEvenMonths <= 6) dHealth += 5;
+        if (scenario.breakEvenMonths > 24) dHealth -= 15;
+      } else if (scenario.breakEvenMonths === -1 && scenario.monthlyCashFlowChange < 0) {
+        dHealth -= 15;
+      }
 
+      if (emergencyFundMonths >= 6) {
+        dHealth += 10;
+      } else if (emergencyFundMonths < 3) {
+        dHealth -= 15;
+      }
+
+      if (scenario.relocationCost > cashAssets * 0.5 && cashAssets > 0) {
+        dHealth -= 10;
+      }
+
+      if (params.careerType === "start_business") {
+        if ((params.startupSuccessProb || 0) < 0.25) dHealth -= 15;
+        if ((params.startupSuccessProb || 0) >= 0.5) dHealth += 5;
+        if ((params.startupEquity || 0) === 0) dHealth -= 10;
+      }
+
+      if (completeness < 70) {
+        dHealth -= Math.round((70 - completeness) * 0.3);
+      }
+      decisionHealthScore = clamp(dHealth, 10, 100);
+
+      // Risk Score
+      let rScore = 15;
+      if (params.careerType === "start_business") {
+        rScore += 30;
+        if ((params.startupSuccessProb || 0) < 0.3) rScore += 20;
+      }
+      if (scenario.relocationCost > 15000) rScore += 15;
+      if (emergencyFundMonths < 3) rScore += 20;
+      riskScore = clamp(rScore, 10, 95);
+
+      // 6. Confidence Score
+      let conf = 100;
+      if (totalAnnualIncome <= 0) conf -= 25;
+      if ((twin.monthlyExpenses || 0) <= 0) conf -= 15;
+      if (!matchedAssumption) conf -= 10;
+      if (params.careerType === "start_business" && params.startupSuccessProb === 0.20) conf -= 10;
+      if (scenario.relocationCost > 15000) conf -= 15;
+      if (completeness < 70) {
+        conf -= Math.round((70 - completeness) * 0.4);
+      }
+      confidenceScore = clamp(conf, 10, 100);
+
+      // 7. Key Assumptions
       keyAssumptions = [
-        `Expected relocation cost of $${relocation} in year-1`,
-        `Progressive state income tax brackets computed on federal W2 for ${twin.taxState || "US / National"}`,
-        "Assumes target lifestyle cost inflation is capped at 3% post transition"
+        `Using an estimated effective tax rate of ${formatPercent(taxRate)} based on ${activeStateAssumption.state_code || "National"} state assumptions.`,
+        `Current after-tax annual income is ${formatCurrency(scenario.afterTaxCurrent)} vs. projected new after-tax income of ${formatCurrency(scenario.afterTaxNew)}.`,
+        `One-time transition cost of ${formatCurrency(scenario.relocationCost)} is incurred at the start of the career change.`,
+        `Projected break-even period of ${scenario.breakEvenMonths > 0 ? `${scenario.breakEvenMonths} months` : "N/A (salary is lower or unchanged)"}.`
       ];
-      alternativeScenarios = [
-        {
-          title: "Negotiate Relocation Sign-on",
-          description: "Acquire business subsidy offset for relocating.",
+
+      if (params.careerType === "start_business") {
+        keyAssumptions.push(
+          `Startup success probability is modeled at ${formatPercent(params.startupSuccessProb || 0.2)} with an expected equity payoff and downside transition risk of ${formatCurrency(scenario.downsideRiskVal)}.`
+        );
+      }
+
+      // 8. Limitations
+      limitations = [
+        "This simulation does not guarantee a formal job offer or the commercial success of a startup/business venture.",
+        "The projection does not model differences in non-salary employee benefits (health insurance, 401k matching, bonus structures) unless manually adjusted.",
+        "Does not account for micro cost-of-living adjustments, local rent changes, or lifestyle inflation beyond general state assumptions.",
+        "Taxes are estimated based on flat effective tax rate approximations and do not fully reflect specific local deductions or joint filing status."
+      ];
+
+      // 9. Suggested Alternatives
+      alternativeScenarios = [];
+      if (scenario.relocationCost > 0) {
+        alternativeScenarios.push({
+          title: "Negotiate Transition Support",
+          description: "Request sign-on incentives or business relocation assistance to reduce transition costs to $0.",
           params: { relocationCost: 0 }
-        }
-      ];
+        });
+      }
+      if (emergencyFundMonths < 3) {
+        alternativeScenarios.push({
+          title: "Defer Career Transition",
+          description: "Postpone the career transition or move to build a stronger cash safety cushion of at least 3-6 months.",
+          params: { relocationCost: Math.max(0, scenario.relocationCost - 3000) }
+        });
+      }
+      if (scenario.relocationCost > 5000) {
+        alternativeScenarios.push({
+          title: "Minimize Transition Budget",
+          description: "Optimize transition expenses and moving fees to cap total one-time costs under $4,000.",
+          params: { relocationCost: 4000 }
+        });
+      }
+      if (params.careerType === "start_business") {
+        alternativeScenarios.push({
+          title: "Select W-2 Corporate Path",
+          description: "Opt for a stable corporate job offer to guarantee base salary and eliminate startup failure risk.",
+          params: { careerType: "job_change", startupSuccessProb: 0, startupEquity: 0 }
+        });
+      }
+      if (scenario.breakEvenMonths > 18 || scenario.breakEvenMonths === -1) {
+        alternativeScenarios.push({
+          title: "Maintain Current Position",
+          description: "Retain your current role to protect cash flow until a higher base salary option is secured.",
+          params: { newSalary: Math.round(totalAnnualIncome * 1.1) }
+        });
+      }
+
+      // Filter alternatives to guarantee they change active parameters
+      alternativeScenarios = alternativeScenarios.filter(alt => {
+        const p = alt.params;
+        const hasSalaryDiff = p.newSalary !== undefined && p.newSalary !== params.newSalary;
+        const hasRelocationDiff = p.relocationCost !== undefined && p.relocationCost !== params.relocationCost;
+        const hasCareerTypeDiff = p.careerType !== undefined && p.careerType !== params.careerType;
+        return hasSalaryDiff || hasRelocationDiff || hasCareerTypeDiff;
+      });
+
+      // QA Logs in development only
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Career Transition Simulator QA Log:", {
+          currentAnnualIncome: totalAnnualIncome,
+          newSalary: params.newSalary,
+          relocationCost: scenario.relocationCost,
+          careerType: params.careerType,
+          afterTaxCurrent: scenario.afterTaxCurrent,
+          afterTaxNew: scenario.afterTaxNew,
+          monthlyCashFlowChange: scenario.monthlyCashFlowChange,
+          breakEvenMonths: scenario.breakEvenMonths,
+          downsideRiskVal: scenario.downsideRiskVal,
+          lifetimeWealthImpact: scenario.lifetimeWealthImpact,
+          decisionHealthScore,
+          confidenceScore
+        });
+      }
 
     } else if (selectedType === "retirement_planning") {
       const currentAge = twin.age;
@@ -2204,7 +2357,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
               <>
                 <div>
                   <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
-                    <span>NEW TARGET BASE SALARY</span>
+                    <span>NEW ANNUAL SALARY</span>
                     <span className="text-teal-650 font-black">${(params.newSalary || 0).toLocaleString()}</span>
                   </div>
                   <input
@@ -2225,7 +2378,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
                 <div>
                   <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
-                    <span>ESTIMATED RELOCATION / SETUP COST</span>
+                    <span>ONE-TIME TRANSITION COST</span>
                     <span className="text-rose-600 font-black">${(params.relocationCost || 0).toLocaleString()}</span>
                   </div>
                   <input
@@ -2240,16 +2393,52 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                 </div>
 
                 <div>
-                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">TRANSACTION TYPE</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">CAREER MOVE TYPE</label>
                   <select
                     value={params.careerType}
                     onChange={(e) => setParams({ ...params, careerType: e.target.value as any })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all font-sans"
                   >
-                    <option value="job_change">W2 Corporate Realignment</option>
-                    <option value="start_business">Start business Venture (Pre-revenue)</option>
+                    <option value="job_change">Job change</option>
+                    <option value="start_business">Start a business</option>
                   </select>
                 </div>
+
+                {params.careerType === "start_business" && (
+                  <>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
+                        <span>STARTUP EQUITY (%)</span>
+                        <span className="text-teal-650 font-black">{((params.startupEquity || 0.02) * 100).toFixed(1)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="0.20"
+                        step="0.005"
+                        value={params.startupEquity || 0.02}
+                        onChange={(e) => setParams({ ...params, startupEquity: parseFloat(e.target.value) })}
+                        className="w-full accent-teal-600 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
+                        <span>STARTUP SUCCESS PROBABILITY</span>
+                        <span className="text-teal-650 font-black">{((params.startupSuccessProb || 0.20) * 100).toFixed(0)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.05"
+                        max="1.00"
+                        step="0.05"
+                        value={params.startupSuccessProb || 0.20}
+                        onChange={(e) => setParams({ ...params, startupSuccessProb: parseFloat(e.target.value) })}
+                        className="w-full accent-teal-600 cursor-pointer"
+                      />
+                    </div>
+                  </>
+                )}
               </>
             )}
 

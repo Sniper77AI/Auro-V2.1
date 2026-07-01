@@ -1438,3 +1438,106 @@ export function calculateEstatePreservationScenario(input: EstatePreservationSce
   };
 }
 
+/**
+ * Calculates after-tax income.
+ */
+export function calculateAfterTaxIncome(annualIncome: number, effectiveTaxRate: number): number {
+  return safeNumber(annualIncome) * (1 - safeNumber(effectiveTaxRate));
+}
+
+export interface CareerTransitionScenarioInput {
+  currentAnnualIncome: number;
+  newSalary: number;
+  relocationCost: number;
+  careerType: "job_change" | "start_business";
+  startupEquity: number;
+  startupSuccessProb: number;
+  effectiveTaxRate: number;
+  monthlyExpenses: number;
+  monthlyDebtPayments: number;
+  currentNetWorth: number;
+  averageGrowthRate: number;
+  years: number;
+}
+
+/**
+ * Simulates a career and income transition.
+ */
+export function calculateCareerTransitionScenario(input: CareerTransitionScenarioInput) {
+  const currentAnnualIncome = safeNumber(input.currentAnnualIncome);
+  const newSalary = safeNumber(input.newSalary);
+  const relocationCost = safeNumber(input.relocationCost);
+  const careerType = input.careerType || "job_change";
+  const startupEquity = safeNumber(input.startupEquity, 0);
+  const startupSuccessProb = safeNumber(input.startupSuccessProb, 0);
+  const effectiveTaxRate = safeNumber(input.effectiveTaxRate, 0.25);
+  const monthlyExpenses = safeNumber(input.monthlyExpenses);
+  const monthlyDebtPayments = safeNumber(input.monthlyDebtPayments);
+  const currentNetWorth = safeNumber(input.currentNetWorth);
+  const averageGrowthRate = safeNumber(input.averageGrowthRate, 0.06);
+  const years = safeNumber(input.years, 30);
+
+  const afterTaxCurrent = calculateAfterTaxIncome(currentAnnualIncome, effectiveTaxRate);
+  const afterTaxNew = calculateAfterTaxIncome(newSalary, effectiveTaxRate);
+
+  const currentAnnualSurplus = afterTaxCurrent - (monthlyExpenses + monthlyDebtPayments) * 12;
+  const newAnnualSurplus = afterTaxNew - (monthlyExpenses + monthlyDebtPayments) * 12;
+
+  const monthlyCashFlowChange = (afterTaxNew - afterTaxCurrent) / 12;
+
+  // Calculate break-even months
+  let breakEvenMonths = -1;
+  if (monthlyCashFlowChange > 0) {
+    breakEvenMonths = Math.ceil(relocationCost / monthlyCashFlowChange);
+  } else if (monthlyCashFlowChange < 0 && relocationCost === 0) {
+    breakEvenMonths = -1; // Never break even, or negative
+  }
+
+  // Baseline net worth growth
+  const baselineNW: number[] = [];
+  let tempBaseline = currentNetWorth;
+  for (let i = 1; i <= years; i++) {
+    tempBaseline = (tempBaseline + currentAnnualSurplus) * (1 + averageGrowthRate);
+    baselineNW.push(Math.round(tempBaseline));
+  }
+
+  // Simulated net worth growth
+  const simulatedNW: number[] = [];
+  let tempSimulated = currentNetWorth - relocationCost;
+  for (let i = 1; i <= years; i++) {
+    tempSimulated = (tempSimulated + newAnnualSurplus) * (1 + averageGrowthRate);
+    
+    // Add expected startup equity payoff in year 5 if it's a startup scenario
+    if (careerType === "start_business" && i === 5) {
+      // Estimate startup valuation payoff e.g. $1.5M base seed valuation
+      const equityPayoff = startupEquity * 1500000 * startupSuccessProb;
+      tempSimulated += equityPayoff;
+    }
+
+    simulatedNW.push(Math.round(tempSimulated));
+  }
+
+  const lifetimeWealthImpact = tempSimulated - tempBaseline;
+
+  // Calculate downside risk for startup/business scenario
+  let downsideRiskVal = 0;
+  if (careerType === "start_business") {
+    // Downside is quantified as failure probability multiplied by potential transition loss
+    downsideRiskVal = Math.round((1 - startupSuccessProb) * (afterTaxCurrent - afterTaxNew + relocationCost));
+    if (downsideRiskVal < 0) downsideRiskVal = 0;
+  }
+
+  return {
+    afterTaxCurrent,
+    afterTaxNew,
+    relocationCost,
+    monthlyCashFlowChange,
+    breakEvenMonths,
+    downsideRiskVal,
+    lifetimeWealthImpact,
+    baselineNW,
+    simulatedNW
+  };
+}
+
+
