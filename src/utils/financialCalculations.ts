@@ -1450,8 +1450,8 @@ export interface CareerTransitionScenarioInput {
   newSalary: number;
   relocationCost: number;
   careerType: "job_change" | "start_business";
-  startupEquity: number;
-  startupSuccessProb: number;
+  startupEquity?: number;
+  startupSuccessProb?: number;
   effectiveTaxRate: number;
   monthlyExpenses: number;
   monthlyDebtPayments: number;
@@ -1468,8 +1468,6 @@ export function calculateCareerTransitionScenario(input: CareerTransitionScenari
   const newSalary = safeNumber(input.newSalary);
   const relocationCost = safeNumber(input.relocationCost);
   const careerType = input.careerType || "job_change";
-  const startupEquity = safeNumber(input.startupEquity, 0);
-  const startupSuccessProb = safeNumber(input.startupSuccessProb, 0);
   const effectiveTaxRate = safeNumber(input.effectiveTaxRate, 0.25);
   const monthlyExpenses = safeNumber(input.monthlyExpenses);
   const monthlyDebtPayments = safeNumber(input.monthlyDebtPayments);
@@ -1489,8 +1487,6 @@ export function calculateCareerTransitionScenario(input: CareerTransitionScenari
   let breakEvenMonths = -1;
   if (monthlyCashFlowChange > 0) {
     breakEvenMonths = Math.ceil(relocationCost / monthlyCashFlowChange);
-  } else if (monthlyCashFlowChange < 0 && relocationCost === 0) {
-    breakEvenMonths = -1; // Never break even, or negative
   }
 
   // Baseline net worth growth
@@ -1506,25 +1502,20 @@ export function calculateCareerTransitionScenario(input: CareerTransitionScenari
   let tempSimulated = currentNetWorth - relocationCost;
   for (let i = 1; i <= years; i++) {
     tempSimulated = (tempSimulated + newAnnualSurplus) * (1 + averageGrowthRate);
-    
-    // Add expected startup equity payoff in year 5 if it's a startup scenario
-    if (careerType === "start_business" && i === 5) {
-      // Estimate startup valuation payoff e.g. $1.5M base seed valuation
-      const equityPayoff = startupEquity * 1500000 * startupSuccessProb;
-      tempSimulated += equityPayoff;
-    }
-
     simulatedNW.push(Math.round(tempSimulated));
   }
 
-  const lifetimeWealthImpact = tempSimulated - tempBaseline;
+  let lifetimeWealthImpact = tempSimulated - tempBaseline;
 
-  // Calculate downside risk for startup/business scenario
-  let downsideRiskVal = 0;
-  if (careerType === "start_business") {
-    // Downside is quantified as failure probability multiplied by potential transition loss
-    downsideRiskVal = Math.round((1 - startupSuccessProb) * (afterTaxCurrent - afterTaxNew + relocationCost));
-    if (downsideRiskVal < 0) downsideRiskVal = 0;
+  // Credibility cap / compression for Career & Income Change only (+/- $2,000,000)
+  const maxImpact = 2000000;
+  let isCapped = false;
+  if (lifetimeWealthImpact > maxImpact) {
+    lifetimeWealthImpact = maxImpact;
+    isCapped = true;
+  } else if (lifetimeWealthImpact < -maxImpact) {
+    lifetimeWealthImpact = -maxImpact;
+    isCapped = true;
   }
 
   return {
@@ -1533,10 +1524,10 @@ export function calculateCareerTransitionScenario(input: CareerTransitionScenari
     relocationCost,
     monthlyCashFlowChange,
     breakEvenMonths,
-    downsideRiskVal,
     lifetimeWealthImpact,
     baselineNW,
-    simulatedNW
+    simulatedNW,
+    isCapped
   };
 }
 

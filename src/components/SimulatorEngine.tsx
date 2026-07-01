@@ -167,10 +167,10 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
         title: "Aggressive Future",
         scenario: "aggressive",
         bullets: [
-          "Pivot to a high-equity startup or advisory venture",
-          "Retire 4 years earlier if startup equity options hit expected values",
-          "High initial volatility requiring a 6-month buffer",
-          "Exponential upside potential matching peak risk profile"
+          "Pivot to a new business venture or high-growth position",
+          "Retire earlier if new income targets exceed expectation",
+          "Manage transitional income variance with a 6-month cash buffer",
+          "Maximize high growth potential over a long-term compound horizon"
         ]
       }
     ];
@@ -335,13 +335,24 @@ function getLifeOutcomeStatement(type: SimulationType, result: SimulationResult,
       nextStep = "Align lease/buy financing details, locking in at least 5% downpayment buffer.";
     }
   } else if (type === "career_change") {
+    const isStartBusiness = params.careerType === "start_business";
     if (result.projectedCashFlowDelta > 0) {
-      const earlyRetire = years > 0 ? `ready for retirement ${years} ${years === 1 ? 'year' : 'years'} earlier!` : "strengthens your savings significantly!";
-      outcome = `Accepting this position increases your monthly income by ${cashImpactStr}, making you ${earlyRetire}`;
-      nextStep = "Automatically transfer 50% of this salary increase into your equity brokerage to accelerate compounding.";
+      const detailStr = isStartBusiness 
+        ? " from your estimated business owner draw." 
+        : " from your new salary.";
+      outcome = `This change may increase monthly cash flow by ${cashImpactStr}${detailStr}`;
+      nextStep = isStartBusiness 
+        ? "Allocate a portion of this new business income to business reserves and emergency funds."
+        : "Automatically transfer a portion of this salary increase into savings to accelerate long-term compounding.";
+    } else if (result.projectedCashFlowDelta < 0) {
+      const detailStr = isStartBusiness 
+        ? " temporarily as you establish the business and invest in its initial setup." 
+        : " post-transition.";
+      outcome = `This change may reduce monthly cash flow by ${cashImpactStr}${detailStr}`;
+      nextStep = "Ensure you have a 4-month to 6-month emergency reserve before transitioning, and carefully review your ongoing living expenses.";
     } else {
-      outcome = `This career move temporarily reduces your monthly cash flow by ${cashImpactStr} to invest in future professional equity.`;
-      nextStep = "Ensure you have a 4-month emergency reserve before transitioning, and review benefits structure.";
+      outcome = `This change is projected to have no net impact on your monthly cash flow.`;
+      nextStep = "Consider whether this move offers non-financial benefits like better work-life balance or long-term growth opportunities.";
     }
   } else if (type === "retirement_planning") {
     if (result.decisionHealthScore > 75) {
@@ -954,8 +965,6 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         newSalary: params.newSalary || 120000,
         relocationCost: params.relocationCost || 8000,
         careerType: params.careerType || "job_change",
-        startupEquity: params.startupEquity || 0.02,
-        startupSuccessProb: params.startupSuccessProb || 0.20,
         effectiveTaxRate: taxRate,
         monthlyExpenses: twin.monthlyExpenses || 0,
         monthlyDebtPayments: monthlyDebt,
@@ -991,8 +1000,8 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       if (scenario.breakEvenMonths > 0) {
         if (scenario.breakEvenMonths <= 6) dHealth += 5;
         if (scenario.breakEvenMonths > 24) dHealth -= 15;
-      } else if (scenario.breakEvenMonths === -1 && scenario.monthlyCashFlowChange < 0) {
-        dHealth -= 15;
+      } else {
+        if (scenario.monthlyCashFlowChange <= 0) dHealth -= 15;
       }
 
       if (emergencyFundMonths >= 6) {
@@ -1006,9 +1015,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       }
 
       if (params.careerType === "start_business") {
-        if ((params.startupSuccessProb || 0) < 0.25) dHealth -= 15;
-        if ((params.startupSuccessProb || 0) >= 0.5) dHealth += 5;
-        if ((params.startupEquity || 0) === 0) dHealth -= 10;
+        dHealth -= 5; // Modest business uncertainty adjustment
       }
 
       if (completeness < 70) {
@@ -1019,8 +1026,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       // Risk Score
       let rScore = 15;
       if (params.careerType === "start_business") {
-        rScore += 30;
-        if ((params.startupSuccessProb || 0) < 0.3) rScore += 20;
+        rScore += 25;
       }
       if (scenario.relocationCost > 15000) rScore += 15;
       if (emergencyFundMonths < 3) rScore += 20;
@@ -1028,36 +1034,41 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
       // 6. Confidence Score
       let conf = 100;
-      if (totalAnnualIncome <= 0) conf -= 25;
+      if (totalAnnualIncome <= 0) conf -= 20;
       if ((twin.monthlyExpenses || 0) <= 0) conf -= 15;
       if (!matchedAssumption) conf -= 10;
-      if (params.careerType === "start_business" && params.startupSuccessProb === 0.20) conf -= 10;
-      if (scenario.relocationCost > 15000) conf -= 15;
+      if (params.careerType === "start_business") conf -= 15; // lower confidence because business income is an estimate
+      if (scenario.relocationCost > cashAssets && cashAssets > 0) conf -= 15;
       if (completeness < 70) {
         conf -= Math.round((70 - completeness) * 0.4);
       }
       confidenceScore = clamp(conf, 10, 100);
 
       // 7. Key Assumptions
-      keyAssumptions = [
-        `Using an estimated effective tax rate of ${formatPercent(taxRate)} based on ${activeStateAssumption.state_code || "National"} state assumptions.`,
-        `Current after-tax annual income is ${formatCurrency(scenario.afterTaxCurrent)} vs. projected new after-tax income of ${formatCurrency(scenario.afterTaxNew)}.`,
-        `One-time transition cost of ${formatCurrency(scenario.relocationCost)} is incurred at the start of the career change.`,
-        `Projected break-even period of ${scenario.breakEvenMonths > 0 ? `${scenario.breakEvenMonths} months` : "N/A (salary is lower or unchanged)"}.`
-      ];
-
       if (params.careerType === "start_business") {
-        keyAssumptions.push(
-          `Startup success probability is modeled at ${formatPercent(params.startupSuccessProb || 0.2)} with an expected equity payoff and downside transition risk of ${formatCurrency(scenario.downsideRiskVal)}.`
-        );
+        keyAssumptions = [
+          `Using estimated effective tax rate of ${formatPercent(taxRate)} based on ${activeStateAssumption.state_code || "National"} state assumptions.`,
+          `Estimated owner draw / expected annual income is modeled at ${formatCurrency(scenario.afterTaxNew)} after taxes.`,
+          `One-time business setup cost of ${formatCurrency(scenario.relocationCost)} is incurred at start.`,
+          `Business income is an estimate; outcomes are uncertain and may differ significantly from the income estimate.`,
+          `Long-term impact is capped for readability because 30-year compounding can produce large ranges.`
+        ];
+      } else {
+        keyAssumptions = [
+          `Using estimated effective tax rate of ${formatPercent(taxRate)} based on ${activeStateAssumption.state_code || "National"} state assumptions.`,
+          `Current after-tax annual income is ${formatCurrency(scenario.afterTaxCurrent)} vs. projected new after-tax income of ${formatCurrency(scenario.afterTaxNew)}.`,
+          `One-time transition cost of ${formatCurrency(scenario.relocationCost)} is incurred at the start of the career change.`,
+          `Projected break-even period of ${scenario.breakEvenMonths > 0 ? `${scenario.breakEvenMonths} months` : "Break-even is not reached from salary increase alone."}.`,
+          `Long-term impact is capped for readability because 30-year compounding can produce large ranges.`
+        ];
       }
 
       // 8. Limitations
       limitations = [
-        "This simulation does not guarantee a formal job offer or the commercial success of a startup/business venture.",
-        "The projection does not model differences in non-salary employee benefits (health insurance, 401k matching, bonus structures) unless manually adjusted.",
+        "This simulation does not guarantee a formal job offer or business venture success.",
+        "Does not model differences in non-salary employee benefits (health insurance, 401k matching, bonus structures) unless manually adjusted.",
         "Does not account for micro cost-of-living adjustments, local rent changes, or lifestyle inflation beyond general state assumptions.",
-        "Taxes are estimated based on flat effective tax rate approximations and do not fully reflect specific local deductions or joint filing status."
+        "Taxes are estimated based on flat effective tax rate approximations and do not fully reflect specific joint filing status or local deductions."
       ];
 
       // 9. Suggested Alternatives
@@ -1071,30 +1082,30 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       }
       if (emergencyFundMonths < 3) {
         alternativeScenarios.push({
-          title: "Defer Career Transition",
+          title: "Delay Transition for Savings",
           description: "Postpone the career transition or move to build a stronger cash safety cushion of at least 3-6 months.",
           params: { relocationCost: Math.max(0, scenario.relocationCost - 3000) }
         });
       }
-      if (scenario.relocationCost > 5000) {
+      if (scenario.relocationCost > 4000) {
         alternativeScenarios.push({
-          title: "Minimize Transition Budget",
+          title: "Reduce Transition Costs",
           description: "Optimize transition expenses and moving fees to cap total one-time costs under $4,000.",
           params: { relocationCost: 4000 }
         });
       }
-      if (params.careerType === "start_business") {
+      if (scenario.monthlyCashFlowChange <= 0) {
         alternativeScenarios.push({
-          title: "Select W-2 Corporate Path",
-          description: "Opt for a stable corporate job offer to guarantee base salary and eliminate startup failure risk.",
-          params: { careerType: "job_change", startupSuccessProb: 0, startupEquity: 0 }
+          title: "Seek Higher Income Target",
+          description: "Target a higher new salary to ensure a positive monthly cash flow improvement.",
+          params: { newSalary: Math.round(totalAnnualIncome * 1.15) }
         });
       }
       if (scenario.breakEvenMonths > 18 || scenario.breakEvenMonths === -1) {
         alternativeScenarios.push({
           title: "Maintain Current Position",
           description: "Retain your current role to protect cash flow until a higher base salary option is secured.",
-          params: { newSalary: Math.round(totalAnnualIncome * 1.1) }
+          params: { newSalary: Math.round(totalAnnualIncome * 1.05), relocationCost: 0 }
         });
       }
 
@@ -1118,7 +1129,6 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
           afterTaxNew: scenario.afterTaxNew,
           monthlyCashFlowChange: scenario.monthlyCashFlowChange,
           breakEvenMonths: scenario.breakEvenMonths,
-          downsideRiskVal: scenario.downsideRiskVal,
           lifetimeWealthImpact: scenario.lifetimeWealthImpact,
           decisionHealthScore,
           confidenceScore
@@ -1959,6 +1969,15 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
     const finalBaselineNW = baselineNW[baselineNW.length - 1] || 0;
     let lifetimeWealthImpactVal = finalSimulatedNW - finalBaselineNW;
 
+    if (selectedType === "career_change") {
+      const maxImpact = 2000000;
+      if (lifetimeWealthImpactVal > maxImpact) {
+        lifetimeWealthImpactVal = maxImpact;
+      } else if (lifetimeWealthImpactVal < -maxImpact) {
+        lifetimeWealthImpactVal = -maxImpact;
+      }
+    }
+
     // CREDIBILITY SAFEGUARDS & VALIDATION ANALYSIS
     let aggressiveAssumptions = false;
 
@@ -2079,7 +2098,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       targetYr = new Date().getFullYear() + 1;
       monthlyCommitment = params.relocationCost ? Math.round(params.relocationCost / 12) : 200;
       category = "other";
-      primaryRisk = "Probabilistic startup equity failure risk, and temporary salary gaps.";
+      primaryRisk = "Uncertainty in business earnings or new salary adjustments, and short-term transition costs.";
       nextAction = "Build a detailed cash-flow transition plan for the initial 6 months.";
     } else if (selectedType === "retirement_planning") {
       targetAmt = params.desiredAnnualSpending ? params.desiredAnnualSpending * 25 : 1500000;
@@ -2403,42 +2422,6 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                     <option value="start_business">Start a business</option>
                   </select>
                 </div>
-
-                {params.careerType === "start_business" && (
-                  <>
-                    <div className="mt-3">
-                      <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
-                        <span>STARTUP EQUITY (%)</span>
-                        <span className="text-teal-650 font-black">{((params.startupEquity || 0.02) * 100).toFixed(1)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="0.20"
-                        step="0.005"
-                        value={params.startupEquity || 0.02}
-                        onChange={(e) => setParams({ ...params, startupEquity: parseFloat(e.target.value) })}
-                        className="w-full accent-teal-600 cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="mt-3">
-                      <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
-                        <span>STARTUP SUCCESS PROBABILITY</span>
-                        <span className="text-teal-650 font-black">{((params.startupSuccessProb || 0.20) * 100).toFixed(0)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.05"
-                        max="1.00"
-                        step="0.05"
-                        value={params.startupSuccessProb || 0.20}
-                        onChange={(e) => setParams({ ...params, startupSuccessProb: parseFloat(e.target.value) })}
-                        className="w-full accent-teal-600 cursor-pointer"
-                      />
-                    </div>
-                  </>
-                )}
               </>
             )}
 
@@ -2781,8 +2764,8 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
               <div className="mx-6 mt-2 mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-amber-800 text-xs shadow-sm">
                 <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
                 <div>
-                  <strong className="font-bold block sm:inline">Simulation Hazard Flags:</strong>{" "}
-                  <span className="text-slate-600">Scenario contains unusually aggressive assumptions. Theoretical compounding confidence rating has been discounted.</span>
+                  <strong className="font-bold block sm:inline">Note on Assumptions:</strong>{" "}
+                  <span className="text-slate-600">Scenario contains unusually aggressive assumptions. The confidence rating has been adjusted to reflect increased variance.</span>
                 </div>
               </div>
             )}
