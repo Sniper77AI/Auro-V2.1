@@ -621,7 +621,7 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
               <div>
                 <h4 className="text-xs font-bold text-slate-900">Aura Onboarding Coach</h4>
                 <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                  "Thinking ahead is the key to building true compound velocity. At what age do you wish to achieve work flexibility or retire completely, and what level of monthly lifestyle spending do you want to sustain?"
+                  "Thinking ahead is the key to building long-term wealth. At what age do you wish to achieve work flexibility or retire completely, and what level of monthly lifestyle spending do you want to sustain?"
                 </p>
               </div>
             </div>
@@ -688,7 +688,7 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
             </div>
 
             <div>
-              <label className="text-slate-800 text-sm font-bold block mb-1.5 tracking-tight font-sans">Select your preferred growth velocity</label>
+              <label className="text-slate-800 text-sm font-bold block mb-1.5 tracking-tight font-sans">Select your preferred growth model</label>
               <p className="text-[11px] text-slate-500 mb-4 font-sans leading-relaxed">This selection calibrates how Aura projects your multi-decade interest compounding and asset accumulation growth.</p>
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -696,7 +696,7 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
                   const labels = {
                     conservative: { title: "Defensive Preservation", desc: "Focuses on capital protection with conservative compound metrics (e.g. 4-5% yields)." },
                     moderate: { title: "Balanced Trajectory", desc: "A robust blend of capital stability and general market indexes (e.g. 6-7% yields)." },
-                    aggressive: { title: "Optimized Compounder", desc: "Maximizes compound velocity with global index funds (e.g. 8-10% volatility)." }
+                    aggressive: { title: "Optimized Compounder", desc: "Maximizes long-term growth with global index funds (e.g. 8-10% volatility)." }
                   };
                   return (
                     <button
@@ -1034,7 +1034,7 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
               <div>
                 <h4 className="text-xs font-bold text-slate-900">Aura Onboarding Coach</h4>
                 <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                  "Finally, let's identify any liabilities that could slow down your compound velocity. Tell me about any student loans, vehicle financing, mortgages, or revolving credit card balance you carry."
+                  "Finally, let's identify any liabilities that could slow down your savings growth. Tell me about any student loans, vehicle financing, mortgages, or revolving credit card balance you carry."
                 </p>
               </div>
             </div>

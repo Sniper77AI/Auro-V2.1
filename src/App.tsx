@@ -687,11 +687,11 @@ export default function App() {
             AR
           </div>
           <div className="space-y-2">
-            <h1 className="text-sm font-bold tracking-tight text-slate-900 font-sans">Initializing AuraRipple Secure Core</h1>
+            <h1 className="text-sm font-bold tracking-tight text-slate-900 font-sans">Loading your financial profile…</h1>
             <div className="w-48 h-1 bg-slate-200 rounded-full mx-auto overflow-hidden relative">
               <div className="absolute top-0 bottom-0 left-0 right-0 bg-gradient-to-r from-teal-600 to-emerald-500 animate-pulse rounded-full" />
             </div>
-            <p className="text-[9px] font-mono text-slate-400 uppercase tracking-widest font-bold">Verifying database integrity...</p>
+            <p className="text-[10px] text-slate-500 font-sans leading-relaxed">Connecting your saved information and assumptions.</p>
           </div>
         </div>
       </div>
@@ -884,7 +884,7 @@ export default function App() {
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs text-slate-700 font-bold flex items-center gap-2 cursor-pointer transition-colors"
               >
-                <User className="w-3.5 h-3.5 text-slate-400 animate-pulse" /> Account Profile
+                <User className="w-3.5 h-3.5 text-slate-400" /> Account Profile
               </button>
               <button
                 role="menuitem"

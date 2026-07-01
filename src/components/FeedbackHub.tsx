@@ -64,7 +64,7 @@ export default function FeedbackHub({ feedbacks }: FeedbackHubProps) {
 
   const categoriesDict: Record<string, string> = {
     highly_realistic: "Accurate regional tax & compounding math",
-    too_conservative: "Overly defensive asset compound velocity",
+    too_conservative: "Overly conservative asset growth rate",
     too_optimistic: "Highly optimistic return expectations",
     missing_parameters: "Missing physical lifestyle parameters",
     confusing: "Complex mathematical presentation curves"

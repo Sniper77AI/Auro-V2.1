@@ -184,7 +184,7 @@ export default function GoalsMatrix({ twin, goals, profileId, syncingState, setS
   const totalLiabilities = (twin.liabilities || []).reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
   if (hasPropertyGoal && totalLiabilities > 25000) {
     conflicts.push(
-      `Leverage Burden warning: Carrying $${totalLiabilities.toLocaleString()} of active liabilities while funding property down payments creates structural liquidity friction. Consider focusing on accelerated debt payoff first to reclaim monthly cash flow.`
+      `Leverage Burden warning: Carrying $${totalLiabilities.toLocaleString()} of active liabilities while funding property down payments creates cash flow pressure. Consider focusing on accelerated debt payoff first to reclaim monthly cash flow.`
     );
   }
 

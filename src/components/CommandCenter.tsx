@@ -75,12 +75,12 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
     primaryActionDesc = `Your liquid cache (${formatCurrency(cashAssets)}) covers less than 3 months of basic expenses (${formatCurrency(twin.monthlyExpenses)}). Prioritize liquid compound cash flow.`;
     priorityLevel = "high";
   } else if (highInterestLiabilities > 10000) {
-    primaryActionTitle = "Launch Private Debt Avalanche payoff";
-    primaryActionDesc = `You hold ${formatCurrency(highInterestLiabilities)} of liabilities averaging over 5.0% interest APR. Prioritize surplus cash flows to trigger refinancing or avalanche schedules.`;
+    primaryActionTitle = "Accelerate Debt Payoff";
+    primaryActionDesc = `You hold ${formatCurrency(highInterestLiabilities)} of liabilities averaging over 5.0% interest APR. Prioritize surplus cash flows to accelerate debt payoffs.`;
     priorityLevel = "high";
   } else if (debtToIncomeRatio > 36) {
-    primaryActionTitle = "DTI Overhead Correction";
-    primaryActionDesc = `Your Debt-to-Income ratio (${debtToIncomeRatio.toFixed(1)}%) exceeds the 36% systemic threshold. Avoid new physical asset leverage until current lines amortize.`;
+    primaryActionTitle = "Debt-to-Income Correction";
+    primaryActionDesc = `Your Debt-to-Income ratio (${debtToIncomeRatio.toFixed(1)}%) exceeds the recommended 36% limit. Avoid new major loans until current debts are reduced.`;
     priorityLevel = "medium";
   }
 
@@ -125,7 +125,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
   } else {
     reasons = [
       `Leverages and builds upon your resilient current emergency cushion of ${expensesRatio.toFixed(1)} months of coverage`,
-      "Enables tax-advantaged compounding gains that grow protected from federal and state tax friction",
+      "Enables tax-advantaged compounding gains that grow protected from federal and state taxes",
       `Improves historical yield trajectory on your existing idle checking capital of ${formatCurrency(cashAssets)}`,
       `Strengthens and preserves early-retirement tracks ahead of your current target retirement age of ${twin.retirementAge}`
     ];
@@ -203,7 +203,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
               {expensesRatio < 3 ? (
                 <>Liquid emergency assets covering <strong className="text-rose-600 font-bold">{expensesRatio.toFixed(1)} months</strong> of outflows represent a minor vulnerability index.</>
               ) : highInterestLiabilities > 10000 ? (
-                <>Carrying <strong className="text-rose-600 font-bold">${highInterestLiabilities.toLocaleString()}</strong> of debts over 5.0% interest APR is a frictional drag on net worth compounding.</>
+                <>Carrying <strong className="text-rose-600 font-bold">${highInterestLiabilities.toLocaleString()}</strong> of debts over 5.0% interest APR is a drag on your savings growth.</>
               ) : (
                 <>Cash allocation is healthy. Consider checking other regional state bracket limits for tax efficiency drag.</>
               )}
@@ -306,7 +306,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
             <div className="flex justify-between items-center flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider font-bold">Financial Insight & Recommendation Engine</span>
+                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider font-bold">Aura’s Recommendation</span>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                 <span className="text-[10px] text-slate-500 font-mono tracking-tight mr-1 select-none">
@@ -351,7 +351,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
             <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
               <TrendingUp className="w-4 h-4 text-teal-600 shrink-0" />
               <div>
-                <span className="text-[9px] font-mono text-slate-400 uppercase block">Target growth track</span>
+                <span className="text-[9px] font-mono text-slate-400 uppercase block">Expected Long-Term Growth</span>
                 <span className="font-bold text-slate-800 block mt-0.5 font-mono">{(averageGrowthRate * 100).toFixed(1)}% ARR</span>
               </div>
             </div>

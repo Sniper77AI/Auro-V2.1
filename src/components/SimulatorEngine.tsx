@@ -122,7 +122,7 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
         bullets: [
           "Stay in your current steady-state professional role",
           "Maintain high predictable retirement target tracking",
-          "Avoid upfront relocation or commute frictional costs",
+          "Avoid upfront relocation or commute costs",
           "Emergency fund remains fully insulated"
         ]
       },
@@ -131,7 +131,7 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
         scenario: "balanced",
         bullets: [
           `Accept the job change with the targeted $${(params.newSalary || 120000).toLocaleString()}/yr salary`,
-          "Retire 1.5 years earlier due to high savings compounding velocity",
+          "Retire 1.5 years earlier due to higher savings growth",
           "Amortize relocation costs within the first 6 months",
           "Broaden professional network and long-term career durability"
         ]
@@ -275,7 +275,7 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
         scenario: "aggressive",
         bullets: [
           "Establish high-protection trusts paired with advanced state tax shielding",
-          "Lock in legacy wealth preservation with maximum velocity",
+          "Lock in legacy wealth preservation securely",
           "Requires advanced legal counsel onboarding",
           "Guarantees legacy goals against macro tax rule adjustments"
         ]
@@ -715,8 +715,8 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         "Assumes interest loan term of 60 months at locked auto rate of 7.2%"
       ];
       limitations = [
-        "Excludes battery core replacement risks or physical motor warranty expirations",
-        "Assumes stable utility grid prices and standard gasoline index margins"
+        "Excludes battery replacement risks or warranty expirations",
+        "Assumes stable utility grid and standard gasoline prices"
       ];
       alternativeScenarios = [
         {
@@ -751,7 +751,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       confidenceScore = 78; // Career shifts carry transition risk
 
       keyAssumptions = [
-        `Expected relocation friction offset of $${relocation} in year-1`,
+        `Expected relocation cost of $${relocation} in year-1`,
         `Progressive state income tax brackets computed on federal W2 for ${twin.taxState || "US / National"}`,
         "Assumes target lifestyle cost inflation is capped at 3% post transition"
       ];
@@ -805,7 +805,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       ];
       limitations = [
         "Neglects dynamic market crashes occurring precisely during year-1 of drawdown block (Sequence of Returns)",
-        "Assumes federal and state medical insurance subsidies cover extreme age-related health friction"
+        "Assumes medical insurance subsidies cover age-related health costs"
       ];
       alternativeScenarios = [
         {
@@ -850,13 +850,13 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       retirementReadinessShift = projectedCashFlowDelta > 100 ? 1.5 : 0.5;
 
       keyAssumptions = [
-        `Systemic reallocation of surplus cash flows using direct ${strategy.toUpperCase()} calculations`,
+        `Strategic reallocation of surplus cash flows using direct ${strategy.toUpperCase()} calculations`,
         `Ability to refinance interest rate lines downwards to ${refiRate * 100}% APR`,
         "Sustained monthly payment schedules with zero default intervals"
       ];
       limitations = [
-        "Assumes lender institutions offer zero-fee refinancing terms under current market liquidity parameters",
-        "Neglects emotional components of budget scaling friction when running avalanche paydowns"
+        "Assumes lender institutions offer zero-fee refinancing terms under current market terms",
+        "Neglects emotional challenges of strict budget changes when paying down debt"
       ];
       alternativeScenarios = [
         {
@@ -915,7 +915,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       alternativeScenarios = [
         {
           title: "Reduce Funding Cap to 50%",
-          description: "Co-share educational loads with auxiliary packages to preserve retirement velocity.",
+          description: "Co-share educational costs to preserve your retirement savings progress.",
           params: { fundingTargetPercent: 50 }
         }
       ];
@@ -950,7 +950,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       keyAssumptions = [
         `Federal transfer exemption benchmarks set at standard IRS guidelines`,
         `Protected trust boundaries preserve an estimated 4.5% of transfer balances from probate courts`,
-        "Steady state inheritance tax structures without systemic regulatory overrides"
+        "Steady state inheritance tax structures without future federal tax changes"
       ];
       limitations = [
         "Excludes dynamic changes in domestic tax laws or international jurisdiction treaties",
@@ -1189,45 +1189,11 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
   return (
     <div className="space-y-6 w-full font-sans" id="simulator-engine-section">
-      {/* Step Indicator Header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="mr-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer flex items-center gap-1 transition-all"
-            >
-              ← Back to Decisions
-            </button>
-          )}
-          <span className="text-slate-400">Financial Intelligence</span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-          <span className={`${currentStep === 1 ? "text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded" : "text-slate-600"}`}>
-            1. Select Decision
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-          <span className={`${currentStep === 2 ? "text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded" : "text-slate-600"}`}>
-            2. Configure Scenario
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-          <span className={`${currentStep === 3 ? "text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded" : "text-slate-600"}`}>
-            3. Review Ripple Effect
-          </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-          <span className={`${currentStep === 4 ? "text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded" : "text-slate-400"}`}>
-            4. Approve &amp; Monitor
-          </span>
-        </div>
-        <div className="text-[11px] text-slate-400 font-mono font-bold uppercase tracking-wider">
-          Decision Lens: {getScenarioTitle(selectedType)}
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* LEFT COLUMN: MODULE TOGGLES & INPUT PARAMETERS (5 cols) */}
       <div className="lg:col-span-5 space-y-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-          <span className="text-[10px] font-mono text-slate-400 uppercase block mb-3 font-bold">Select Simulation Lens</span>
+          <span className="text-[10px] font-mono text-slate-400 uppercase block mb-3 font-bold">Choose a Decision</span>
           <div className="space-y-2">
             {MODULES.map((mod) => {
               const IconComp = mod.icon;
@@ -1266,7 +1232,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
             <h3 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-2">
               <Settings className="w-4 h-4 text-teal-650" />
-              Scenario Constraints
+              Your Scenario
             </h3>
             <span className="text-[10px] font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-slate-500 font-bold">
               {selectedType.toUpperCase().replace("_", " ")}
@@ -1625,7 +1591,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
             )}
           </div>
 
-          <div className="space-y-2.5 pt-2">
+          <div className="pt-2">
             <button
               type="button"
               onClick={() => {
@@ -1633,28 +1599,8 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
               }}
               className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold transition-all text-xs rounded-xl py-3 flex items-center justify-center gap-1.5 cursor-pointer shadow-md font-sans"
             >
-              <CheckCircle className="w-4 h-4" /> Approve as Life Goal
+              <CheckCircle className="w-4 h-4" /> Add to Life Goals
             </button>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={saveSimulationPlan}
-                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold transition-all text-xs rounded-xl py-2.5 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-sans"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-slate-500" /> Save for Later
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const el = document.getElementById("simulator-engine-section");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold transition-all text-xs rounded-xl py-2.5 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm font-sans"
-              >
-                <Settings className="w-3.5 h-3.5 text-slate-500" /> Adjust Scenario
-              </button>
-            </div>
           </div>
         </div>
 
@@ -1835,7 +1781,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                 </div>
 
                 <div className="absolute bottom-2 right-4 text-[9px] font-mono text-slate-400 font-bold">
-                  Confidence Interval: {simulationResult.confidenceScore}% (Analytical)
+                  Confidence Interval: {simulationResult.confidenceScore}% (Estimated)
                 </div>
 
                 {/* SVG Render loops */}
@@ -1902,7 +1848,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
             {/* Assumptions and Limitations Lists */}
             <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
-                <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block mb-1.5">Simulation Assumptions</span>
+                <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block mb-1.5">Assumptions Used</span>
                 <ul className="space-y-1.5 text-[11px] text-slate-650 font-medium">
                   {simulationResult.keyAssumptions.map((ass, i) => (
                     <li key={i} className="flex items-start gap-1.5">
@@ -1914,7 +1860,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
               </div>
 
               <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
-                <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block mb-1.5">Analysis Limitations</span>
+                <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block mb-1.5">What This Estimate Does Not Include</span>
                 <ul className="space-y-1.5 text-[11px] text-slate-650 font-medium">
                   {simulationResult.limitations.map((lim, i) => (
                     <li key={i} className="flex items-start gap-1.5">
@@ -1929,81 +1875,72 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
 
             {/* FEEDBACK LOOP MODULE */}
-            <div className="bg-slate-50 p-6 border-t border-slate-200">
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200">
               {!feedbackSubmitted ? (
-                <form onSubmit={submitFeedbackAction} className="space-y-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-850">Rate Aura's Guidance</h4>
-                      <p className="text-[10px] text-slate-500 font-bold">Provide direct feedback to help customize your financial coach.</p>
-                    </div>
+                <form onSubmit={submitFeedbackAction} className="space-y-3">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <span className="text-[11px] text-slate-500 font-bold">Was Aura's estimated projection helpful?</span>
                     <div className="flex gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => setFeedbackRating("helpful")}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3 py-1 rounded-lg border text-xs flex items-center gap-1.5 cursor-pointer transition-all ${
                           feedbackRating === "helpful" 
                             ? "bg-teal-50 border-teal-500 text-teal-700 font-bold" 
                             : "bg-white border-slate-200 text-slate-500 hover:text-slate-700 shadow-sm"
                         }`}
                       >
-                        <ThumbsUp className="w-3 h-3" /> Helpful
+                        <ThumbsUp className="w-3 h-3" /> Yes
                       </button>
                       <button
                         type="button"
                         onClick={() => setFeedbackRating("not_helpful")}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3 py-1 rounded-lg border text-xs flex items-center gap-1.5 cursor-pointer transition-all ${
                           feedbackRating === "not_helpful" 
                             ? "bg-rose-50 border-rose-500 text-rose-700 font-bold" 
                             : "bg-white border-slate-200 text-slate-500 hover:text-slate-700 shadow-sm"
                         }`}
                       >
-                        <ThumbsDown className="w-3 h-3" /> Not Helpful
+                        <ThumbsDown className="w-3 h-3" /> No
                       </button>
                     </div>
                   </div>
 
                   {feedbackRating && (
-                    <div className="space-y-3 pt-2">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div>
-                          <label className="text-[9px] text-slate-400 font-mono uppercase block mb-1 font-bold">Select Core Assessment</label>
-                          <select
-                            value={feedbackReason}
-                            onChange={(e) => setFeedbackReason(e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded p-1.5 text-[10px] text-slate-700 focus:outline-none"
-                          >
-                            <option value="">-- Choose Reason --</option>
-                            <option value="highly_realistic">Accurate state tax integration</option>
-                            <option value="too_conservative">Overly conservative asset growth</option>
-                            <option value="too_optimistic">Highly optimistic return ratios</option>
-                            <option value="missing_parameters">Missing physical lifestyle overheads</option>
-                            <option value="confusing">Complex UI calculations</option>
-                          </select>
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="text-[9px] text-slate-400 font-mono uppercase block mb-1 font-bold">Optional commentary</label>
-                          <input
-                            type="text"
-                            placeholder="State assumptions or elements missing..."
-                            value={feedbackComment}
-                            onChange={(e) => setFeedbackComment(e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded p-1.5 text-[10px] text-slate-700 focus:outline-none focus:border-teal-500"
-                          />
-                        </div>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-150">
+                      <div className="flex-1 flex gap-2">
+                        <select
+                          value={feedbackReason}
+                          onChange={(e) => setFeedbackReason(e.target.value)}
+                          className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-[10px] text-slate-650 focus:outline-none"
+                        >
+                          <option value="">-- Assessment --</option>
+                          <option value="highly_realistic">Accurate state tax integration</option>
+                          <option value="too_conservative">Overly conservative asset growth</option>
+                          <option value="too_optimistic">Highly optimistic return ratios</option>
+                          <option value="missing_parameters">Missing physical lifestyle overheads</option>
+                          <option value="confusing">Complex UI calculations</option>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Optional comments..."
+                          value={feedbackComment}
+                          onChange={(e) => setFeedbackComment(e.target.value)}
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-[10px] text-slate-700 focus:outline-none focus:border-teal-500"
+                        />
                       </div>
                       <button
                         type="submit"
-                        className="bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold tracking-tight px-3 py-1.5 rounded transition-all cursor-pointer shadow-sm"
+                        className="bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold tracking-tight px-3 py-1 rounded transition-all cursor-pointer shadow-sm"
                       >
-                        Submit Feedback
+                        Submit
                       </button>
                     </div>
                   )}
                 </form>
               ) : (
-                <div className="text-center p-2.5">
-                  <span className="text-[11px] font-mono text-teal-600 font-bold">{feedbackSubmitted}</span>
+                <div className="text-center py-1">
+                  <span className="text-[11px] font-mono text-teal-600 font-bold">✓ {feedbackSubmitted}</span>
                 </div>
               )}
             </div>
@@ -2017,9 +1954,9 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
           <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative animate-in fade-in zoom-in duration-205">
             <div className="space-y-1">
               <span className="text-[10px] font-mono text-teal-600 uppercase tracking-widest block font-bold">Aura Decision Engine</span>
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">Approve this plan as a Life Goal?</h3>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">Add to Life Goals?</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Approve and map this simulated choice directly onto your active Life Goals timeline to start monitoring progress.
+                Add and map this simulated choice directly onto your active Life Goals timeline to start monitoring progress.
               </p>
             </div>
 
