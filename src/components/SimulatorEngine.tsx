@@ -1657,6 +1657,30 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
             </div>
           </div>
         </div>
+
+        {/* Suggested Alternatives moved from the right column */}
+        {simulationResult && simulationResult.alternativeScenarios && simulationResult.alternativeScenarios.length > 0 && (
+          <div className="bg-teal-50/40 border border-teal-150 p-4 rounded-2xl space-y-3 shadow-sm font-sans">
+            <span className="text-[10px] uppercase font-mono text-teal-700 font-bold block">Suggested Alternatives</span>
+            <div className="space-y-2">
+              {simulationResult.alternativeScenarios.map((alt, idx) => (
+                <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                  <div>
+                    <strong className="text-slate-800 text-xs block font-bold">{alt.title}</strong>
+                    <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{alt.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyAlternative(alt.params)}
+                    className="text-[10px] bg-teal-650 hover:bg-teal-600 text-white font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-sm"
+                  >
+                    Model scenario <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* RIGHT COLUMN: SIMULATION REPORT & PROJECTIONS VISUAL (7 cols) */}
@@ -1902,29 +1926,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
               </div>
             </div>
 
-            {/* Alternative Scenarios Block */}
-            <div className="px-6 pb-6 font-sans">
-              <div className="bg-teal-50/40 border border-teal-150 p-4 rounded-xl space-y-3 shadow-sm">
-                <span className="text-[10px] uppercase font-mono text-teal-700 font-bold block">Suggested Alternatives</span>
-                <div className="space-y-2">
-                  {simulationResult.alternativeScenarios.map((alt, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                      <div>
-                        <strong className="text-slate-800 text-xs block font-bold">{alt.title}</strong>
-                        <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{alt.description}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleApplyAlternative(alt.params)}
-                        className="text-[10px] bg-teal-650 hover:bg-teal-600 text-white font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-sm"
-                      >
-                        Model scenario <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+
 
             {/* FEEDBACK LOOP MODULE */}
             <div className="bg-slate-50 p-6 border-t border-slate-200">

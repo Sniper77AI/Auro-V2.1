@@ -1039,12 +1039,7 @@ export default function App() {
               twin={twin} 
               savedSimulations={savedSimulations} 
               onOpenSimulator={(scenarioType) => {
-                if (scenarioType) {
-                  setActiveScenarioType(scenarioType);
-                } else {
-                  setActiveScenarioType(undefined);
-                }
-                // Remain in "command" view to highlight Financial Intelligence!
+                setActiveScenarioType(scenarioType || "home_purchase");
               }}
               onOpenTwin={() => setActiveMenu("twin")}
             />
