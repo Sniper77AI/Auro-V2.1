@@ -65,6 +65,7 @@ export interface SimulationParams {
   vehicleType?: "gas" | "ev" | "hybrid";
   leaseVsBuy?: "lease" | "buy";
   condition?: "new" | "used";
+  loanTermMonths?: number;
 
   // Career change
   newSalary?: number;

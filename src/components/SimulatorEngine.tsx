@@ -15,7 +15,13 @@ import {
   calculateHighInterestDebt,
   calculateTotalLiabilities,
   formatCurrency,
-  formatPercent
+  formatPercent,
+  calculateVehiclePurchaseScenario,
+  calculateRetirementAssets,
+  calculateAnnualSavingsCapacity,
+  calculateRetirementProjection,
+  calculateRetirementFundingGap,
+  calculateSafeWithdrawalTarget
 } from "../utils/financialCalculations";
 import { 
   Home, Car, Briefcase, Calendar, ShieldAlert, Zap, 
@@ -163,7 +169,7 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
           `Target retirement at age ${age + 3}`,
           "Enables a highly conservative, bulletproof spending budget",
           "Guarantees preservation of generational capital",
-          "Precludes any sequence-of-returns market risk"
+          "Protects against market downturns early in retirement"
         ]
       },
       {
@@ -437,6 +443,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
     vehicleType: "ev",
     leaseVsBuy: "buy",
     condition: "new",
+    loanTermMonths: 60,
 
     newSalary: 120000,
     relocationCost: 8000,
@@ -722,49 +729,199 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       const price = params.vehiclePrice || 45000;
       const down = params.autoDownPayment || 10000;
       const vType = params.vehicleType || "ev";
+      const condition = params.condition || "new";
+      const leaseVsBuy = params.leaseVsBuy || "buy";
+      const loanTerm = params.loanTermMonths || 60;
+      const apr = params.interestRate || 0.065;
 
-      projectedCashFlowDelta = -(((price - down) * 0.07) / 12 + (vType === "ev" ? 120 : 250)); // EV saves on fueling
+      const result = calculateVehiclePurchaseScenario({
+        currentNetWorth,
+        annualSurplus,
+        averageGrowthRate,
+        vehiclePrice: price,
+        downPayment: down,
+        vehicleType: vType as any,
+        condition: condition as any,
+        leaseVsBuy: leaseVsBuy as any,
+        interestRate: apr,
+        loanTermMonths: loanTerm,
+        years
+      });
 
-      tempBaseline = currentNetWorth;
-      let tempLiquidSimulated = currentNetWorth - down;
+      // Populate curves
+      baselineNW.push(...result.baselineNetWorthProjection);
+      simulatedNW.push(...result.simulatedNetWorthProjection);
 
-      for (let i = 1; i <= years; i++) {
-        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
-        baselineNW.push(Math.round(tempBaseline));
+      projectedCashFlowDelta = result.projectedCashFlowDelta;
 
-        // Cars depreciate heavily
-        const carDepreciatedVal = i <= 10 ? price * Math.pow(vType === "ev" ? 0.75 : 0.82, i) : 0;
-        const simulatedAnnualSavings = Math.max(0, annualSurplus + (projectedCashFlowDelta * 12));
-        
-        // Compound only the liquid wealth portion
-        tempLiquidSimulated = (tempLiquidSimulated + simulatedAnnualSavings) * (1 + averageGrowthRate);
-        
-        // Total Simulated Net Worth = Liquid wealth compounding + current depreciated vehicle valuation
-        tempSimulated = tempLiquidSimulated + carDepreciatedVal;
-        simulatedNW.push(Math.round(tempSimulated));
+      // Calculate retirement readiness shift dynamically based on lifetime wealth impact
+      retirementReadinessShift = Math.min(0, parseFloat((result.lifetimeWealthImpact / 250000).toFixed(1)));
+
+      // --- DYNAMIC DECISION HEALTH SCORE ---
+      let score = 85;
+
+      // 1. Monthly vehicle cost as percentage of gross monthly income
+      const monthlyGrossIncome = totalAnnualIncome / 12;
+      const monthlyCost = result.monthlyTotalCost;
+      if (monthlyGrossIncome > 0) {
+        const costPercent = monthlyCost / monthlyGrossIncome;
+        if (costPercent > 0.15) {
+          // Significant strain if cost exceeds 15% of gross income
+          score -= Math.min(35, (costPercent - 0.15) * 150);
+        } else if (costPercent < 0.08) {
+          // Highly affordable
+          score += 10;
+        }
+      } else {
+        // Missing income penalty
+        score -= 25;
       }
 
-      decisionHealthScore = Math.max(40, Math.min(98, 90 - (price / (totalAnnualIncome + 1)) * 40));
-      riskScore = Math.round((price / (totalAnnualIncome + 1)) * 25);
-      confidenceScore = 95;
-      retirementReadinessShift = -0.5;
+      // 2. Down payment affordability
+      const cashAssets = (twin.assets || []).filter(a => a.type === "cash").reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+      const isDownPaymentOverCash = down > cashAssets;
+      if (isDownPaymentOverCash) {
+        score -= 30; // severe penalty
+      }
 
-      keyAssumptions = [
-        vType === "ev" ? "Accelerated electric car depreciation at 25% ARR" : "Standard combustion vehicle depreciation at 15% ARR",
-        "Monthly charging and fuel cost difference set at $130 savings for EV profile",
-        "Assumes interest loan term of 60 months at locked auto rate of 7.2%"
-      ];
-      limitations = [
-        "Excludes battery replacement risks or warranty expirations",
-        "Assumes stable utility grid and standard gasoline prices"
-      ];
-      alternativeScenarios = [
-        {
-          title: "Buy Certified Pre-Owned",
-          description: "Avoid year-1 steep depreciation by purchasing 3-year used model.",
-          params: { vehiclePrice: price * 0.65, condition: "used" }
+      // 3. Projected cash-flow delta
+      if (result.projectedCashFlowDelta < 0) {
+        // Since purchase is an outflow, it is always negative, but let's check surplus impact:
+        const remainingSurplus = (annualSurplus / 12) + result.projectedCashFlowDelta;
+        if (remainingSurplus < 0) {
+          // Pushes household into monthly deficit
+          score -= 25;
+        } else if (remainingSurplus < 200) {
+          // Low cash buffer remaining
+          score -= 10;
         }
+      }
+
+      // 4. Vehicle depreciation risk
+      // EV / New has the highest rate, pre-owned gas/hybrid has lower rate
+      if (vType === "ev" && condition === "new") {
+        score -= 12; // high depreciation drag
+      } else if (condition === "used") {
+        score += 8; // smart pre-owned purchase avoids steep first-year depreciation
+      }
+
+      // 5. Emergency reserve after down payment
+      const remainingCash = cashAssets - down;
+      const safeMonthlyExpenses = Math.max(1, twin.monthlyExpenses);
+      const remainingEmergencyMonths = remainingCash / safeMonthlyExpenses;
+      if (remainingEmergencyMonths < 3) {
+        score -= 15; // low liquid cushion
+      } else if (remainingEmergencyMonths >= 6) {
+        score += 5; // solid cushion preserved
+      }
+
+      // 6. Profile completeness reward
+      const completeness = calculateProfileCompleteness(twin);
+      score += Math.round((completeness / 100) * 5);
+
+      decisionHealthScore = clamp(score, 10, 100);
+
+      // --- RISK SCORE ---
+      let rScore = 15;
+      const remainingSurplusVal = (annualSurplus / 12) + result.projectedCashFlowDelta;
+      if (remainingSurplusVal < 0) {
+        rScore += 30;
+      }
+      if (isDownPaymentOverCash) {
+        rScore += 25;
+      }
+      if (vType === "ev") {
+        rScore += 15; // technology depreciation and market risk
+      }
+      if (price > 60000) {
+        rScore += 15; // asset concentration risk in vehicle
+      }
+      riskScore = clamp(rScore, 10, 100);
+
+      // --- CONFIDENCE SCORE ---
+      let conf = 90;
+      const hasIncome = (twin.incomes || []).length > 0;
+      const hasExpenses = twin.monthlyExpenses !== undefined && twin.monthlyExpenses > 0;
+
+      if (!hasIncome) conf -= 20;
+      if (!hasExpenses) conf -= 15;
+      if (isDownPaymentOverCash) conf -= 25;
+      if (leaseVsBuy === "lease") conf -= 10; // lease cost is estimated
+      if (completeness < 50) conf -= 15;
+
+      confidenceScore = clamp(conf, 30, 100);
+
+      keyAssumptions = [...result.assumptionsUsed];
+
+      limitations = [
+        "Does not include dealer fees, taxes, or incentives unless explicitly modeled.",
+        "Does not include repair surprises or insurance variation.",
+        "Depreciation can vary by make, model, mileage, and market conditions.",
+        "EV incentives and fuel prices may change."
       ];
+
+      alternativeScenarios = [];
+      if (condition === "new") {
+        alternativeScenarios.push({
+          title: "Buy Certified Pre-Owned",
+          description: `Avoid year-1 steep depreciation by purchasing a 3-year pre-owned model. Used ${vType.toUpperCase()} depreciation rate is ${(condition === "new" ? (vType === "ev" ? 0.15 : vType === "hybrid" ? 0.12 : 0.13) : 0.15) * 100}% compared to ${(vType === "ev" ? 0.25 : vType === "hybrid" ? 0.18 : 0.20) * 100}% for new.`,
+          params: { condition: "used" }
+        });
+      }
+      if (price > 30000) {
+        alternativeScenarios.push({
+          title: "Reduce Vehicle Price",
+          description: `Scaling back the vehicle budget by 20% to ${formatCurrency(price * 0.8)} substantially improves your monthly cash surplus.`,
+          params: { vehiclePrice: price * 0.8 }
+        });
+      }
+      if (leaseVsBuy === "buy" && down < price * 0.3) {
+        alternativeScenarios.push({
+          title: "Increase Down Payment",
+          description: `Paying 30% down (${formatCurrency(price * 0.3)}) lowers your principal loan balance and reduces interest costs over the term.`,
+          params: { autoDownPayment: price * 0.3 }
+        });
+      }
+      if (vType === "gas") {
+        alternativeScenarios.push({
+          title: "Switch to Hybrid/EV",
+          description: `Choosing a hybrid or electric powertrain cuts monthly operating costs from ${formatCurrency(250)} to ${formatCurrency(vType === "ev" ? 120 : 180)}.`,
+          params: { vehicleType: "hybrid" }
+        });
+      } else if (vType === "ev") {
+        alternativeScenarios.push({
+          title: "Switch to Hybrid for Cost Balance",
+          description: `Choosing a hybrid balances fuel efficiency with standard depreciation, lowering your risk from electric depreciation.`,
+          params: { vehicleType: "hybrid" }
+        });
+      }
+      if (leaseVsBuy === "buy" && result.monthlyLoanPayment > result.monthlyLeasePayment + 100) {
+        alternativeScenarios.push({
+          title: "Lease Instead of Buy",
+          description: "Lease the vehicle to lower your immediate monthly outflow if short-term cash-flow preservation is a primary goal.",
+          params: { leaseVsBuy: "lease" }
+        });
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Vehicle Purchase QA Run Data:", {
+          vehiclePrice: price,
+          downPayment: down,
+          loanAmount: leaseVsBuy === "buy" ? Math.max(0, price - down) : 0,
+          apr: apr,
+          loanTerm: loanTerm,
+          monthlyPayment: leaseVsBuy === "buy" ? result.monthlyLoanPayment : result.monthlyLeasePayment,
+          operatingCost: result.monthlyOperatingCost,
+          depreciationRate: result.depreciationRateUsed,
+          remainingBalanceYear1: result.remainingLoanBalanceByYear[0] || 0,
+          remainingBalanceYear5: result.remainingLoanBalanceByYear[4] || 0,
+          vehicleValueYear1: result.vehicleValueByYear[0] || 0,
+          vehicleValueYear5: result.vehicleValueByYear[4] || 0,
+          projectedCashFlowDelta,
+          decisionHealthScore,
+          confidenceScore
+        });
+      }
 
     } else if (selectedType === "career_change") {
       const newSal = params.newSalary || 120000;
@@ -804,61 +961,210 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       ];
 
     } else if (selectedType === "retirement_planning") {
+      const currentAge = twin.age;
       const targetRetAge = params.targetRetirementAge || 62;
       const desiredSpending = params.desiredAnnualSpending || 80000;
+      const retirementAssetsVal = calculateRetirementAssets(twin.assets);
+      const annualSavingsCap = calculateAnnualSavingsCapacity(twin);
 
-      // Drawdown comparison against retirement target age
-      tempBaseline = currentNetWorth;
-      tempSimulated = currentNetWorth;
-      const ageDiff = targetRetAge - twin.age;
+      const totalAssetsVal = (twin.assets || []).reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+      const valueWeightedGrowthRate = totalAssetsVal > 0
+        ? (twin.assets || []).reduce((sum, a) => sum + (Number(a.amount) || 0) * (Number(a.annualGrowth) || 0), 0) / totalAssetsVal
+        : 0.06;
 
-      for (let i = 1; i <= years; i++) {
-        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
-        baselineNW.push(Math.round(tempBaseline));
+      const inflationRate = 0.025;
+      const withdrawalRate = 0.04;
 
-        if (i >= ageDiff) {
-          // drawdown mode: spend principal, S&P growth mitigates
-          const annualSpendingAdjusted = desiredSpending * Math.pow(1.025, i);
-          tempSimulated = Math.max(0, (tempSimulated - annualSpendingAdjusted) * (1 + averageGrowthRate * 0.7)); // conservative allocation during drawdown
+      const gapResult = calculateRetirementFundingGap({
+        currentAge,
+        targetRetirementAge: targetRetAge,
+        desiredAnnualSpending: desiredSpending,
+        retirementAssets: retirementAssetsVal,
+        annualSavingsCapacity: annualSavingsCap,
+        growthRate: valueWeightedGrowthRate,
+        inflationRate,
+        withdrawalRate
+      });
+
+      const projectionResult = calculateRetirementProjection({
+        currentAge,
+        targetRetirementAge: targetRetAge,
+        desiredAnnualSpending: desiredSpending,
+        retirementAssets: retirementAssetsVal,
+        annualSavingsCapacity: annualSavingsCap,
+        growthRate: valueWeightedGrowthRate,
+        inflationRate,
+        withdrawalRate,
+        years
+      });
+
+      // Populate curves
+      baselineNW.push(...projectionResult.baselineNetWorthProjection);
+      simulatedNW.push(...projectionResult.simulatedNetWorthProjection);
+
+      const ageDiff = Math.max(0, targetRetAge - currentAge);
+      projectedCashFlowDelta = ageDiff <= 0 ? 0 : -desiredSpending / 12;
+      retirementReadinessShift = targetRetAge - twin.retirementAge;
+
+      // --- DYNAMIC DECISION HEALTH SCORE ---
+      let score = 70;
+
+      // 1. Funding status (gap vs surplus)
+      const targetNestEgg = gapResult.targetNestEgg;
+      if (targetNestEgg > 0) {
+        if (gapResult.gap === 0) {
+          const surplusPercent = gapResult.surplus / targetNestEgg;
+          score += Math.min(25, Math.round(surplusPercent * 25));
         } else {
-          // accumulation mode: savings compound
-          tempSimulated = (tempSimulated + annualSurplus) * (1 + averageGrowthRate);
+          const gapPercent = gapResult.gap / targetNestEgg;
+          score -= Math.min(45, Math.round(gapPercent * 45));
         }
-        simulatedNW.push(Math.round(tempSimulated));
+      } else {
+        score -= 20;
       }
 
-      // 4% Rule check: is the ending net worth sustainable?
-      const targetNestEggNeeded = desiredSpending * 25;
-      const expectedAssetsAtRetirement = currentNetWorth * Math.pow(1 + averageGrowthRate, ageDiff) + (annualSurplus * ageDiff);
-      const suitabilityFactor = expectedAssetsAtRetirement >= targetNestEggNeeded ? 94 : 65;
-
-      decisionHealthScore = suitabilityFactor;
-      riskScore = suitabilityFactor > 80 ? 25 : 60;
-      confidenceScore = 88;
-      retirementReadinessShift = targetRetAge - twin.retirementAge;
-      projectedCashFlowDelta = ageDiff <= 0 ? 0 : -desiredSpending / 12;
-
-      keyAssumptions = [
-        `Assumed safe drawdown ceiling aligned with historical 4.0% rules`,
-        `Steady lifestyle capital spending rate of $${desiredSpending.toLocaleString()}/year`,
-        `Filing status set to progressive ${twin.taxState || "US / National"} taxation schedules`
-      ];
-      limitations = [
-        "Neglects dynamic market crashes occurring precisely during year-1 of drawdown block (Sequence of Returns)",
-        "Assumes medical insurance subsidies cover age-related health costs"
-      ];
-      alternativeScenarios = [
-        {
-          title: "Extend Tenure by 3 Years",
-          description: "Delay retirement slightly to let index portfolios compound further.",
-          params: { targetRetirementAge: targetRetAge + 3 }
-        },
-        {
-          title: "Trim Spend Target by 15%",
-          description: "Scale back annual discretionary outlays to secure capital survival rates.",
-          params: { desiredAnnualSpending: desiredSpending * 0.85 }
+      // 2. Savings capacity
+      if (annualSavingsCap > 0) {
+        score += 5;
+        if (totalAnnualIncome > 0 && annualSavingsCap / totalAnnualIncome > 0.15) {
+          score += 5;
         }
+      } else {
+        score -= 15;
+      }
+
+      // 3. Years until retirement horizon safety
+      if (ageDiff >= 15) {
+        score += 5;
+      } else if (ageDiff < 5) {
+        score -= 10;
+      }
+
+      // 4. Profile completeness
+      const completeness = calculateProfileCompleteness(twin);
+      score += Math.round((completeness / 100) * 5);
+
+      decisionHealthScore = clamp(score, 10, 100);
+
+      // --- RISK SCORE ---
+      let rScore = 15;
+      if (gapResult.gap > 0) {
+        rScore += Math.min(50, Math.round((gapResult.gap / (targetNestEgg || 1)) * 50));
+      }
+      if (annualSavingsCap <= 0) {
+        rScore += 20;
+      }
+      if (ageDiff < 5) {
+        rScore += 15;
+      }
+      riskScore = clamp(rScore, 10, 100);
+
+      // --- CONFIDENCE SCORE ---
+      let conf = 95;
+      const hasIncomes = (twin.incomes || []).length > 0;
+      const hasExpenses = twin.monthlyExpenses !== undefined && twin.monthlyExpenses > 0;
+      const hasRetirementAssets = retirementAssetsVal > 0;
+      const hasTargetSpending = desiredSpending > 0;
+      const isRetAgeUnrealistic = targetRetAge < 50 || targetRetAge > 80 || (targetRetAge - twin.age < 0);
+
+      if (!hasIncomes) conf -= 20;
+      if (!hasExpenses) conf -= 15;
+      if (!hasRetirementAssets) conf -= 20;
+      if (!hasTargetSpending) conf -= 15;
+      if (isRetAgeUnrealistic) conf -= 20;
+
+      if (completeness < 70) {
+        conf -= Math.round((70 - completeness) * 0.5);
+      }
+
+      confidenceScore = clamp(conf, 10, 100);
+
+      // --- KEY ASSUMPTIONS (Dynamic) ---
+      keyAssumptions = [
+        `Target retirement age is set to ${targetRetAge} years old (with ${ageDiff} years remaining until retirement).`,
+        `Desired annual retirement spending is ${formatCurrency(desiredSpending)} adjusted for ${formatPercent(inflationRate)} inflation (retirement spending).`,
+        `Assumed safe withdrawal target of ${formatPercent(withdrawalRate)} (safe withdrawal target is ${formatCurrency(calculateSafeWithdrawalTarget(desiredSpending, withdrawalRate))}).`,
+        `Value-weighted growth rate of assets estimated at ${formatPercent(valueWeightedGrowthRate)}.`,
+        `Projected retirement assets at target age is ${formatCurrency(gapResult.projectedAssetsAtRetirement)}.`,
+        gapResult.gap > 0
+          ? `Estimated funding gap of ${formatCurrency(gapResult.gap)} at retirement.`
+          : `Estimated funding surplus of ${formatCurrency(gapResult.surplus)} at retirement.`
       ];
+
+      // --- LIMITATIONS ---
+      limitations = [
+        "Does not include Social Security or pension income unless entered as income.",
+        "Does not include taxes on retirement withdrawals.",
+        "Market returns can vary.",
+        "Healthcare costs may be higher than estimated.",
+        "Inflation may differ from assumptions."
+      ];
+
+      // --- ALTERNATIVE SCENARIOS ---
+      alternativeScenarios = [];
+      if (gapResult.gap > 0) {
+        if (targetRetAge < 77) {
+          alternativeScenarios.push({
+            title: "Delay Retirement by 3 Years",
+            description: `Extending your career to age ${targetRetAge + 3} lets your nest egg compound longer and shortens the retirement spending years.`,
+            params: { targetRetirementAge: targetRetAge + 3 }
+          });
+        }
+        if (desiredSpending > 35000) {
+          alternativeScenarios.push({
+            title: "Reduce Annual Spending",
+            description: `Lowering annual spending by 15% to ${formatCurrency(desiredSpending * 0.85)} reduces the required target nest egg.`,
+            params: { desiredAnnualSpending: desiredSpending * 0.85 }
+          });
+        }
+        alternativeScenarios.push({
+          title: "Increase Monthly Contributions",
+          description: "Boost your savings rate to accelerate capital accumulation and close the funding gap.",
+          params: { desiredAnnualSpending: desiredSpending }
+        });
+        if (desiredSpending > 50000) {
+          alternativeScenarios.push({
+            title: "Use Conservative Spending Target",
+            description: "Adopt a conservative spending structure during early retirement years.",
+            params: { desiredAnnualSpending: desiredSpending * 0.9 }
+          });
+        }
+        if (annualSavingsCap < totalAnnualIncome * 0.25) {
+          alternativeScenarios.push({
+            title: "Improve Savings Rate before Retirement",
+            description: "Trim current lifestyle expenses to maximize tax-advantaged contributions.",
+            params: { targetRetirementAge: targetRetAge }
+          });
+        }
+      } else {
+        if (targetRetAge > 48) {
+          alternativeScenarios.push({
+            title: "Retire Early by 3 Years",
+            description: `With your current surplus, you could potentially retire at age ${targetRetAge - 3}.`,
+            params: { targetRetirementAge: targetRetAge - 3 }
+          });
+        }
+        alternativeScenarios.push({
+          title: "Increase Retirement Spending",
+          description: "You are on track! You can explore a higher lifestyle spending budget.",
+          params: { desiredAnnualSpending: desiredSpending * 1.15 }
+        });
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Retirement Planning QA Run Data:", {
+          currentAge,
+          targetRetirementAge: targetRetAge,
+          yearsUntilRetirement: ageDiff,
+          retirementAssets: retirementAssetsVal,
+          annualSavingsCapacity: annualSavingsCap,
+          projectedAssetsAtRetirement: gapResult.projectedAssetsAtRetirement,
+          safeWithdrawalTarget: gapResult.targetNestEgg,
+          fundingGapOrSurplus: gapResult.gap > 0 ? `Gap: ${gapResult.gap}` : `Surplus: ${gapResult.surplus}`,
+          decisionHealthScore,
+          confidenceScore
+        });
+      }
 
     } else if (selectedType === "debt_optimization") {
       const strategy = params.focusStrategy || "avalanche";
@@ -1300,7 +1606,30 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
     } else if (selectedType === "vehicle_purchase") {
       targetAmt = params.vehiclePrice || 45000;
       targetYr = new Date().getFullYear() + 1;
-      monthlyCommitment = Math.round(((params.vehiclePrice || 45000) - (params.autoDownPayment || 10000)) * 0.06 / 12);
+      const vPrice = params.vehiclePrice || 45000;
+      const down = params.autoDownPayment || 10000;
+      const vType = params.vehicleType || "ev";
+      const leaseVsBuy = params.leaseVsBuy || "buy";
+      const loanTerm = params.loanTermMonths || 60;
+      const apr = params.interestRate || 0.065;
+
+      const opCost = vType === "ev" ? 120 : vType === "hybrid" ? 180 : 250;
+      const insuranceCost = 150;
+      let monthlyPayment = 0;
+      if (leaseVsBuy === "buy") {
+        const principal = Math.max(0, vPrice - down);
+        if (principal > 0 && loanTerm > 0) {
+          if (apr <= 0) {
+            monthlyPayment = principal / loanTerm;
+          } else {
+            const r = apr / 12;
+            monthlyPayment = (principal * r * Math.pow(1 + r, loanTerm)) / (Math.pow(1 + r, loanTerm) - 1);
+          }
+        }
+      } else {
+        monthlyPayment = vPrice * 0.013;
+      }
+      monthlyCommitment = Math.round(monthlyPayment + opCost + insuranceCost);
       category = "property";
       primaryRisk = "Rapid asset depreciation cycles of newer vehicles.";
       nextAction = "Compare manufacturer special low-APR financing rates vs standard banks.";
@@ -1316,7 +1645,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       targetYr = params.targetRetirementAge ? (new Date().getFullYear() + Math.max(1, params.targetRetirementAge - twin.age)) : 2050;
       monthlyCommitment = Math.round(twin.monthlyExpenses * 0.15);
       category = "retirement";
-      primaryRisk = "Longevity risk exceeding standard nest-egg drawdown projections.";
+      primaryRisk = "Longevity risk exceeding standard nest-egg withdrawal projections.";
       nextAction = "Maximize tax-advantaged contributions to employer matching 401(k) plans.";
     } else if (selectedType === "debt_optimization") {
       targetAmt = totalLiabilitiesValue;
@@ -1540,8 +1869,8 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">DRIVETRAIN CATEGORY</label>
+                 <div>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">VEHICLE TYPE</label>
                   <div className="grid grid-cols-3 gap-2">
                     {["ev", "hybrid", "gas"].map((t) => (
                       <button
@@ -1561,7 +1890,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                 </div>
 
                 <div>
-                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">FINANCIAL TERM OPTION</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">BUY OR LEASE</label>
                   <div className="grid grid-cols-2 gap-2">
                     {["buy", "lease"].map((o) => (
                       <button

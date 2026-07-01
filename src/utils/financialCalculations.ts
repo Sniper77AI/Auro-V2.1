@@ -554,6 +554,198 @@ export function calculateHomePurchaseScenario(input: HomePurchaseInput): HomePur
   };
 }
 
+// CONSTANTS FOR VEHICLE PURCHASE MODELING
+export const DEPRECIATION_EV_NEW = 0.25;
+export const DEPRECIATION_EV_USED = 0.15;
+export const DEPRECIATION_HYBRID_NEW = 0.18;
+export const DEPRECIATION_HYBRID_USED = 0.12;
+export const DEPRECIATION_GAS_NEW = 0.20;
+export const DEPRECIATION_GAS_USED = 0.13;
+
+export const OP_COST_EV_MONTHLY = 120;
+export const OP_COST_HYBRID_MONTHLY = 180;
+export const OP_COST_GAS_MONTHLY = 250;
+export const OP_COST_INSURANCE_MONTHLY = 150;
+
+export const LEASE_FACTOR_MONTHLY = 0.013; // 1.3% of vehicle price as lease payment
+
+export interface VehiclePurchaseInput {
+  currentNetWorth: number;
+  annualSurplus: number;
+  averageGrowthRate: number;
+  vehiclePrice: number;
+  downPayment: number;
+  vehicleType: "ev" | "hybrid" | "gas";
+  condition: "new" | "used";
+  leaseVsBuy: "lease" | "buy";
+  interestRate: number;
+  loanTermMonths: number;
+  years?: number;
+}
+
+export interface VehiclePurchaseResult {
+  baselineNetWorthProjection: number[];
+  simulatedNetWorthProjection: number[];
+  monthlyLoanPayment: number;
+  monthlyLeasePayment: number;
+  monthlyOperatingCost: number;
+  monthlyInsuranceCost: number;
+  monthlyTotalCost: number;
+  projectedCashFlowDelta: number;
+  lifetimeWealthImpact: number;
+  remainingLoanBalanceByYear: number[];
+  vehicleValueByYear: number[];
+  assumptionsUsed: string[];
+  depreciationRateUsed: number;
+}
+
+export function calculateVehicleLoanPayment(principal: number, annualRate: number, months: number): number {
+  return calculateMonthlyLoanPayment(principal, annualRate, months);
+}
+
+export function calculateVehicleRemainingBalance(principal: number, annualRate: number, monthsElapsed: number, totalMonths: number): number {
+  return calculateRemainingLoanBalance(principal, annualRate, monthsElapsed, totalMonths);
+}
+
+export function calculateVehicleDepreciation(vehiclePrice: number, vehicleType: "gas" | "ev" | "hybrid", condition: "new" | "used", year: number): number {
+  const safePrice = safeNumber(vehiclePrice);
+  const safeYear = safeNumber(year);
+  if (safePrice <= 0 || safeYear <= 0) return safePrice;
+
+  let rate = 0.15; // default fallback
+  if (vehicleType === "ev") {
+    rate = condition === "new" ? DEPRECIATION_EV_NEW : DEPRECIATION_EV_USED;
+  } else if (vehicleType === "hybrid") {
+    rate = condition === "new" ? DEPRECIATION_HYBRID_NEW : DEPRECIATION_HYBRID_USED;
+  } else { // "gas"
+    rate = condition === "new" ? DEPRECIATION_GAS_NEW : DEPRECIATION_GAS_USED;
+  }
+
+  const val = safePrice * Math.pow(1 - rate, safeYear);
+  return Math.max(0, val);
+}
+
+export function calculateVehiclePurchaseScenario(input: VehiclePurchaseInput): VehiclePurchaseResult {
+  const currentNetWorth = safeNumber(input.currentNetWorth);
+  const annualSurplus = safeNumber(input.annualSurplus);
+  const averageGrowthRate = safeNumber(input.averageGrowthRate);
+  const vehiclePrice = safeNumber(input.vehiclePrice);
+  const downPayment = safeNumber(input.downPayment);
+  const vehicleType = input.vehicleType || "gas";
+  const condition = input.condition || "new";
+  const leaseVsBuy = input.leaseVsBuy || "buy";
+  const interestRate = safeNumber(input.interestRate);
+  const loanTermMonths = safeNumber(input.loanTermMonths, 60);
+  const years = safeNumber(input.years, 30);
+
+  const baselineNetWorthProjection: number[] = [];
+  const simulatedNetWorthProjection: number[] = [];
+  const remainingLoanBalanceByYear: number[] = [];
+  const vehicleValueByYear: number[] = [];
+
+  const loanAmount = leaseVsBuy === "buy" ? Math.max(0, vehiclePrice - downPayment) : 0;
+  const monthlyLoanPayment = leaseVsBuy === "buy" ? calculateVehicleLoanPayment(loanAmount, interestRate, loanTermMonths) : 0;
+  const monthlyLeasePayment = leaseVsBuy === "lease" ? vehiclePrice * LEASE_FACTOR_MONTHLY : 0;
+
+  const monthlyOperatingCost = vehicleType === "ev" 
+    ? OP_COST_EV_MONTHLY 
+    : vehicleType === "hybrid" 
+    ? OP_COST_HYBRID_MONTHLY 
+    : OP_COST_GAS_MONTHLY;
+  
+  const monthlyInsuranceCost = OP_COST_INSURANCE_MONTHLY;
+
+  const monthlyTotalCost = leaseVsBuy === "buy"
+    ? monthlyLoanPayment + monthlyOperatingCost + monthlyInsuranceCost
+    : monthlyLeasePayment + monthlyOperatingCost + monthlyInsuranceCost;
+
+  const projectedCashFlowDelta = -monthlyTotalCost;
+
+  let tempBaseline = currentNetWorth;
+  let tempLiquidSimulated = currentNetWorth - downPayment;
+  const monthlyGrowth = averageGrowthRate / 12;
+
+  let rate = 0.15;
+  if (vehicleType === "ev") {
+    rate = condition === "new" ? DEPRECIATION_EV_NEW : DEPRECIATION_EV_USED;
+  } else if (vehicleType === "hybrid") {
+    rate = condition === "new" ? DEPRECIATION_HYBRID_NEW : DEPRECIATION_HYBRID_USED;
+  } else {
+    rate = condition === "new" ? DEPRECIATION_GAS_NEW : DEPRECIATION_GAS_USED;
+  }
+
+  for (let y = 1; y <= years; y++) {
+    for (let m = 1; m <= 12; m++) {
+      const monthIndex = (y - 1) * 12 + m;
+
+      // Baseline monthly saving (can be negative if surplus is negative)
+      const baselineMonthlySaving = annualSurplus / 12;
+      tempBaseline = (tempBaseline + baselineMonthlySaving) * (1 + monthlyGrowth);
+
+      // Simulated monthly saving
+      let simCost = monthlyOperatingCost + monthlyInsuranceCost;
+      if (leaseVsBuy === "buy") {
+        if (monthIndex <= loanTermMonths) {
+          simCost += monthlyLoanPayment;
+        }
+      } else {
+        simCost += monthlyLeasePayment;
+      }
+
+      const simulatedMonthlySaving = (annualSurplus / 12) - simCost;
+      tempLiquidSimulated = (tempLiquidSimulated + simulatedMonthlySaving) * (1 + monthlyGrowth);
+    }
+
+    const vehicleValue = leaseVsBuy === "buy" 
+      ? calculateVehicleDepreciation(vehiclePrice, vehicleType, condition, y)
+      : 0;
+    
+    const remainingLoan = leaseVsBuy === "buy"
+      ? calculateVehicleRemainingBalance(loanAmount, interestRate, y * 12, loanTermMonths)
+      : 0;
+
+    const tempSimulated = tempLiquidSimulated + vehicleValue - remainingLoan;
+
+    baselineNetWorthProjection.push(Math.round(tempBaseline));
+    simulatedNetWorthProjection.push(Math.round(tempSimulated));
+    remainingLoanBalanceByYear.push(Math.round(remainingLoan));
+    vehicleValueByYear.push(Math.round(vehicleValue));
+  }
+
+  const finalSimulatedNW = simulatedNetWorthProjection[years - 1] || 0;
+  const finalBaselineNW = baselineNetWorthProjection[years - 1] || 0;
+  const lifetimeWealthImpact = finalSimulatedNW - finalBaselineNW;
+
+  const conditionStr = condition === "new" ? "new" : "pre-owned";
+  const typeStr = vehicleType === "ev" ? "electric" : vehicleType === "hybrid" ? "hybrid" : "gasoline";
+
+  const assumptionsUsed = [
+    `Assumes purchasing a ${conditionStr} ${typeStr} vehicle with a market price of ${formatCurrency(vehiclePrice)}.`,
+    leaseVsBuy === "buy"
+      ? `Standard buy financing with ${formatCurrency(downPayment)} down payment, loan principal ${formatCurrency(loanAmount)} over ${loanTermMonths} months at ${(interestRate * 100).toFixed(2)}% APR.`
+      : `Lease estimate modeled continuously at ${(LEASE_FACTOR_MONTHLY * 100).toFixed(1)}% of vehicle value monthly (${formatCurrency(monthlyLeasePayment)}/month) with zero future vehicle equity.`,
+    `Depreciation applied at ${(rate * 100).toFixed(1)}% annually for ${conditionStr} ${vehicleType.toUpperCase()} profile.`,
+    `Monthly operating cost of ${formatCurrency(monthlyOperatingCost)} is applied based on standard fuel/charging estimates.`,
+    `Monthly insurance and registration overhead is assumed at ${formatCurrency(monthlyInsuranceCost)}.`
+  ];
+
+  return {
+    baselineNetWorthProjection,
+    simulatedNetWorthProjection,
+    monthlyLoanPayment,
+    monthlyLeasePayment,
+    monthlyOperatingCost,
+    monthlyInsuranceCost,
+    monthlyTotalCost,
+    projectedCashFlowDelta,
+    lifetimeWealthImpact,
+    remainingLoanBalanceByYear,
+    vehicleValueByYear,
+    assumptionsUsed,
+    depreciationRateUsed: rate
+  };
+}
+
 export interface DebtPayoffMonth {
   month: number;
   balances: Record<string, number>;
@@ -794,3 +986,132 @@ export function calculateOptimizedDebtScenario(input: {
     isSurplusNegative
   };
 }
+
+/**
+ * Sums all retirement assets for a list of assets.
+ */
+export function calculateRetirementAssets(assets: AssetItem[]): number {
+  return (assets || [])
+    .filter((a) => (a.type || "").toLowerCase() === "retirement")
+    .reduce((total, asset) => total + safeNumber(asset.amount), 0);
+}
+
+/**
+ * Computes annual savings capacity based on monthly surplus.
+ */
+export function calculateAnnualSavingsCapacity(twin: FinancialTwin): number {
+  const monthlySurplus = calculateMonthlySurplus(twin.incomes, twin.monthlyExpenses, twin.liabilities);
+  return Math.max(0, monthlySurplus * 12);
+}
+
+interface RetirementProjectionInput {
+  currentAge: number;
+  targetRetirementAge: number;
+  desiredAnnualSpending: number;
+  retirementAssets: number;
+  annualSavingsCapacity: number;
+  growthRate: number;
+  inflationRate: number;
+  withdrawalRate: number;
+  years: number;
+}
+
+/**
+ * Generates the baseline and simulated retirement projections.
+ */
+export function calculateRetirementProjection(input: RetirementProjectionInput) {
+  const currentAge = safeNumber(input.currentAge);
+  const targetRetirementAge = safeNumber(input.targetRetirementAge);
+  const desiredAnnualSpending = safeNumber(input.desiredAnnualSpending);
+  const retirementAssets = safeNumber(input.retirementAssets);
+  const annualSavingsCapacity = safeNumber(input.annualSavingsCapacity);
+  const growthRate = safeNumber(input.growthRate);
+  const inflationRate = safeNumber(input.inflationRate);
+  const withdrawalRate = safeNumber(input.withdrawalRate, 0.04);
+  const years = safeNumber(input.years, 30);
+
+  const baselineNetWorthProjection: number[] = [];
+  const simulatedNetWorthProjection: number[] = [];
+
+  let tempBaseline = retirementAssets;
+  let tempSimulated = retirementAssets;
+  const ageDiff = Math.max(0, targetRetirementAge - currentAge);
+
+  for (let i = 1; i <= years; i++) {
+    // 1. Baseline projection: always accumulating, compounding existing assets and savings
+    tempBaseline = (tempBaseline + annualSavingsCapacity) * (1 + growthRate);
+    baselineNetWorthProjection.push(Math.round(tempBaseline));
+
+    // 2. Simulated projection: accumulation then drawdown
+    if (i > ageDiff) {
+      // Drawdown mode: apply inflation-adjusted spending, reduce assets by withdrawals, continue conservative growth
+      const annualSpendingAdjusted = desiredAnnualSpending * Math.pow(1 + inflationRate, i);
+      tempSimulated = Math.max(0, (tempSimulated - annualSpendingAdjusted) * (1 + growthRate * 0.7));
+    } else {
+      // Accumulation mode: grow assets, add contributions, and compound correctly
+      tempSimulated = (tempSimulated + annualSavingsCapacity) * (1 + growthRate);
+    }
+    simulatedNetWorthProjection.push(Math.round(tempSimulated));
+  }
+
+  return {
+    baselineNetWorthProjection,
+    simulatedNetWorthProjection
+  };
+}
+
+/**
+ * Computes the retirement funding gap or surplus.
+ */
+export function calculateRetirementFundingGap(input: {
+  currentAge: number;
+  targetRetirementAge: number;
+  desiredAnnualSpending: number;
+  retirementAssets: number;
+  annualSavingsCapacity: number;
+  growthRate: number;
+  inflationRate: number;
+  withdrawalRate: number;
+}) {
+  const currentAge = safeNumber(input.currentAge);
+  const targetRetirementAge = safeNumber(input.targetRetirementAge);
+  const desiredAnnualSpending = safeNumber(input.desiredAnnualSpending);
+  const retirementAssets = safeNumber(input.retirementAssets);
+  const annualSavingsCapacity = safeNumber(input.annualSavingsCapacity);
+  const growthRate = safeNumber(input.growthRate);
+  const inflationRate = safeNumber(input.inflationRate);
+  const withdrawalRate = safeNumber(input.withdrawalRate, 0.04);
+
+  const ageDiff = Math.max(0, targetRetirementAge - currentAge);
+
+  // Projected retirement assets at retirement age (accumulation only)
+  let projectedAssetsAtRetirement = retirementAssets;
+  for (let i = 1; i <= ageDiff; i++) {
+    projectedAssetsAtRetirement = (projectedAssetsAtRetirement + annualSavingsCapacity) * (1 + growthRate);
+  }
+
+  // Desired spending in future dollars adjusted for inflation at the point of retirement
+  const adjustedAnnualSpending = desiredAnnualSpending * Math.pow(1 + inflationRate, ageDiff);
+
+  // Nest egg required at retirement
+  const targetNestEgg = calculateSafeWithdrawalTarget(adjustedAnnualSpending, withdrawalRate);
+
+  const gap = targetNestEgg - projectedAssetsAtRetirement;
+
+  return {
+    projectedAssetsAtRetirement,
+    targetNestEgg,
+    gap: gap > 0 ? gap : 0,
+    surplus: gap < 0 ? Math.abs(gap) : 0,
+    adjustedAnnualSpending
+  };
+}
+
+/**
+ * Computes safe withdrawal target based on annual spending and withdrawal rate.
+ */
+export function calculateSafeWithdrawalTarget(annualSpending: number, withdrawalRate = 0.04): number {
+  const rate = safeNumber(withdrawalRate, 0.04);
+  return rate > 0 ? safeNumber(annualSpending) / rate : 0;
+}
+
