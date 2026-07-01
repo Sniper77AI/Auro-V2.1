@@ -561,6 +561,14 @@ export interface DebtPayoffMonth {
   payments: Record<string, number>;
 }
 
+export interface DebtPayoffScheduleResult {
+  schedule: DebtPayoffMonth[];
+  paidOff: boolean;
+  remainingBalance: number;
+  debtFreeMonth: number | null;
+  isNonAmortizing: boolean;
+}
+
 export function calculateMonthlyInterest(balance: number, annualRate: number): number {
   return safeNumber(balance) * (safeNumber(annualRate) / 12);
 }
@@ -570,7 +578,7 @@ export function calculateDebtPayoffSchedule(
   strategy: "snowball" | "avalanche" | "invest_surplus" | "refinance",
   extraMonthlyPayment = 0,
   refinanceRate?: number
-): DebtPayoffMonth[] {
+): DebtPayoffScheduleResult {
   const debts = (liabilities || [])
     .map((l) => ({
       id: l.id,
@@ -594,6 +602,7 @@ export function calculateDebtPayoffSchedule(
   const schedule: DebtPayoffMonth[] = [];
   let month = 0;
   const maxMonths = 360;
+  let isNonAmortizing = false;
 
   while (month < maxMonths) {
     const activeDebts = debts.filter((d) => d.balance > 0);
@@ -669,6 +678,17 @@ export function calculateDebtPayoffSchedule(
       }
     }
 
+    // Check if non-amortizing (payment < interest for any active debt)
+    for (const debt of debts) {
+      if (debt.balance > 0) {
+        const interest = monthInterest[debt.id] || 0;
+        const payment = monthPayments[debt.id] || 0;
+        if (payment < interest) {
+          isNonAmortizing = true;
+        }
+      }
+    }
+
     // Store balances
     for (const debt of debts) {
       monthBalances[debt.id] = Math.round(debt.balance * 100) / 100;
@@ -682,7 +702,18 @@ export function calculateDebtPayoffSchedule(
     });
   }
 
-  return schedule;
+  const finalActiveDebts = debts.filter((d) => d.balance > 0);
+  const paidOff = finalActiveDebts.length === 0;
+  const remainingBalance = finalActiveDebts.reduce((sum, d) => sum + d.balance, 0);
+  const debtFreeMonth = paidOff ? month : null;
+
+  return {
+    schedule,
+    paidOff,
+    remainingBalance: Math.round(remainingBalance * 100) / 100,
+    debtFreeMonth,
+    isNonAmortizing
+  };
 }
 
 export function calculateTotalInterestPaid(schedule: DebtPayoffMonth[]): number {
@@ -695,8 +726,11 @@ export function calculateTotalInterestPaid(schedule: DebtPayoffMonth[]): number 
   return total;
 }
 
-export function calculateDebtFreeMonth(schedule: DebtPayoffMonth[]): number {
-  return schedule.length;
+export function calculateDebtFreeMonth(schedule: DebtPayoffMonth[]): number | null {
+  if (schedule.length === 0) return 0;
+  const lastMonth = schedule[schedule.length - 1];
+  const hasRemaining = Object.values(lastMonth.balances).some((b) => b > 0);
+  return hasRemaining ? null : schedule.length;
 }
 
 export function calculateOptimizedDebtScenario(input: {
@@ -717,34 +751,44 @@ export function calculateOptimizedDebtScenario(input: {
   const extraPaymentUsed = !isSurplusNegative ? (monthlySurplus * (safeNumber(surplusAllocationPercent) / 100)) : 0;
 
   // Current path payoff schedule (always invest_surplus with 0 extra, paying min payments)
-  const currentSchedule = calculateDebtPayoffSchedule(liabilities, "invest_surplus", 0);
-  const currentInterestPaid = calculateTotalInterestPaid(currentSchedule);
-  const currentDebtFreeMonth = calculateDebtFreeMonth(currentSchedule);
+  const currentResult = calculateDebtPayoffSchedule(liabilities, "invest_surplus", 0);
+  const currentInterestPaid = calculateTotalInterestPaid(currentResult.schedule);
+  const currentDebtFreeMonth = currentResult.debtFreeMonth;
 
   // Optimized path schedule (using selected strategy, extra payments, refinance rate)
-  const optimizedSchedule = calculateDebtPayoffSchedule(
+  const optimizedResult = calculateDebtPayoffSchedule(
     liabilities,
     focusStrategy,
     extraPaymentUsed,
     refinanceRate
   );
-  const optimizedInterestPaid = calculateTotalInterestPaid(optimizedSchedule);
-  const optimizedDebtFreeMonth = calculateDebtFreeMonth(optimizedSchedule);
+  const optimizedInterestPaid = calculateTotalInterestPaid(optimizedResult.schedule);
+  const optimizedDebtFreeMonth = optimizedResult.debtFreeMonth;
 
   const interestSaved = Math.max(0, currentInterestPaid - optimizedInterestPaid);
-  const monthsSaved = Math.max(0, currentDebtFreeMonth - optimizedDebtFreeMonth);
+  
+  // Only calculate monthsSaved when both paths have valid debt-free months.
+  const monthsSaved = (currentDebtFreeMonth !== null && optimizedDebtFreeMonth !== null)
+    ? Math.max(0, currentDebtFreeMonth - optimizedDebtFreeMonth)
+    : 0;
 
   return {
     hasDebts,
     totalDebtBalance,
     monthlySurplus,
     extraPaymentUsed,
-    currentSchedule,
-    optimizedSchedule,
+    currentSchedule: currentResult.schedule,
+    optimizedSchedule: optimizedResult.schedule,
     currentInterestPaid,
     optimizedInterestPaid,
     currentDebtFreeMonth,
     optimizedDebtFreeMonth,
+    currentPathPaidOff: currentResult.paidOff,
+    optimizedPathPaidOff: optimizedResult.paidOff,
+    currentRemainingBalance: currentResult.remainingBalance,
+    optimizedRemainingBalance: optimizedResult.remainingBalance,
+    isCurrentNonAmortizing: currentResult.isNonAmortizing,
+    isOptimizedNonAmortizing: optimizedResult.isNonAmortizing,
     interestSaved,
     monthsSaved,
     isSurplusNegative

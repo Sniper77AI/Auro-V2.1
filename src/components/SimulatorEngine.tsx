@@ -195,7 +195,7 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
         scenario: "conservative",
         bullets: [
           "Continue paying standard loan minimums",
-          "High total interest paid over 10-15 years",
+          "Extend total payoff timeline with higher cumulative interest paid",
           "High safety buffer in your monthly liquid checking account",
           "No risk of cash flow lockups but slower compound growth"
         ]
@@ -205,8 +205,8 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
         scenario: "balanced",
         bullets: [
           `Use ${approach} strategy with moderate surplus allocations`,
-          "Retire 1 year earlier by wiping out high-interest debts sooner",
-          "Save an estimated $12,500 in total interest costs",
+          "Accelerate your retirement path by wiping out high-interest debts sooner",
+          "Minimize cumulative interest costs to preserve compound growth",
           "Excellent compound progress without feeling budget restricted"
         ]
       },
@@ -214,9 +214,9 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
         title: "Aggressive Future",
         scenario: "aggressive",
         bullets: [
-          "Direct 100% of temporary discretionary cash flow to wipe out high-interest debts",
-          "Eliminate all active student/auto loans within 18 months",
-          "Free up cash flow to immediately double your monthly retirement savings",
+          "Direct temporary discretionary cash flow to wipe out high-interest debts",
+          "Eliminate outstanding liabilities much faster than standard tracks",
+          "Free up cash flow to immediately boost your monthly retirement savings",
           "Bypasses debt risk completely for absolute wealth security"
         ]
       }
@@ -349,16 +349,23 @@ function getLifeOutcomeStatement(type: SimulationType, result: SimulationResult,
 
       const formattedSaved = formatCurrency(debtRes.interestSaved);
       
-      if (params.focusStrategy === "invest_surplus") {
-        outcome = `Investing your available extra cash instead of accelerating payoff directs resources into asset growth. Under current interest structures, you will pay ${formatCurrency(debtRes.currentInterestPaid)} in interest over ${debtRes.currentDebtFreeMonth} months.`;
+      if (debtRes.isOptimizedNonAmortizing) {
+        outcome = "Your current payment structure does not cover the monthly interest accrual. Your balances are growing over time (non-amortizing).";
+        nextStep = "Consider increasing your monthly payments above the interest accrual to begin reducing your principal balance.";
+      } else if (params.focusStrategy === "invest_surplus") {
+        const monthsStr = debtRes.currentDebtFreeMonth !== null ? `${debtRes.currentDebtFreeMonth} months` : "the 30-year horizon";
+        outcome = `Investing your available extra cash instead of accelerating payoff directs resources into asset growth. Under current interest structures, you will pay ${formatCurrency(debtRes.currentInterestPaid)} in interest over ${monthsStr}.`;
         nextStep = "Confirm your brokerage or retirement investment contributions are active and fully automated.";
       } else {
-        outcome = `Executing the ${strategyName} plan is projected to save you ${formattedSaved} in compound interest and accelerate your debt-free timeline by ${debtRes.monthsSaved} months.`;
+        const accelerationStr = debtRes.currentDebtFreeMonth !== null && debtRes.optimizedDebtFreeMonth !== null
+          ? `and accelerate your debt-free timeline by ${debtRes.monthsSaved} months`
+          : "though some balances may remain after 30 years";
+        outcome = `Executing the ${strategyName} plan is projected to save you ${formattedSaved} in compound interest ${accelerationStr}.`;
         nextStep = `Formally activate this schedule starting next month by directing ${formatCurrency(debtRes.extraPaymentUsed)} of surplus cash flow to your targeted paydown debt.`;
       }
     } else {
-      outcome = "You have no active debts to optimize. Your debt-free timeline is active and fully secure!";
-      nextStep = "Proceed with compounding your cash flow surplus directly into your investment or retirement portfolios.";
+      outcome = "No active debts to optimize.";
+      nextStep = "Your profile is completely clear of debt. You can direct your available monthly cash flow surplus directly into investment or retirement portfolios to maximize compounding.";
     }
   } else if (type === "college_funding") {
     outcome = `Allocating 529 college trusts at a ${params.fundingTargetPercent || 80}% level preserves your children's access with very low impact on your retirement track.`;
@@ -879,7 +886,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
           ? Object.values(currentMonthData.balances).reduce((sum, b) => sum + b, 0)
           : 0;
 
-        const baselineMonthlySaved = Math.max(0, (totalAnnualIncome / 12) - twin.monthlyExpenses - currentPayments);
+        const baselineMonthlySaved = (totalAnnualIncome / 12) - twin.monthlyExpenses - currentPayments;
         currentAssetsBaseline = (currentAssetsBaseline + baselineMonthlySaved) * (1 + monthlyGrowth);
 
         const optMonthData = result.optimizedSchedule[m - 1];
@@ -899,19 +906,40 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         }
       }
 
-      projectedCashFlowDelta = result.interestSaved > 0 
+      projectedCashFlowDelta = result.interestSaved > 0 && result.optimizedDebtFreeMonth !== null
         ? (result.interestSaved / Math.max(1, result.optimizedDebtFreeMonth))
         : 0;
 
       // Decision score:
       let score = 70;
-      if (result.hasDebts) {
+      if (!result.hasDebts) {
+        // Calm and positive no-debt behavior
+        decisionHealthScore = 100;
+        riskScore = 10;
+        confidenceScore = 100;
+        retirementReadinessShift = 0;
+        projectedCashFlowDelta = 0;
+
+        keyAssumptions = [
+          "You are currently completely debt-free.",
+          "Your full monthly surplus can be directed entirely to compounding assets.",
+          "Zero interest expense is acting as a drag on your net worth growth."
+        ];
+
+        limitations = [
+          "Your profile currently contains zero active debt liabilities."
+        ];
+
+        alternativeScenarios = [];
+      } else {
         const highInterestDebt = (twin.liabilities || [])
           .filter((l) => (l.interestRate || 0) >= 0.08)
           .reduce((sum, l) => sum + l.amount, 0);
 
         score += Math.min(15, (result.interestSaved / 5000) * 15);
-        score += Math.min(10, (result.monthsSaved / 12) * 10);
+        if (result.currentDebtFreeMonth !== null && result.optimizedDebtFreeMonth !== null) {
+          score += Math.min(10, (result.monthsSaved / 12) * 10);
+        }
 
         if (result.isSurplusNegative) {
           score -= 30;
@@ -925,21 +953,20 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
         const completeness = calculateProfileCompleteness(twin);
         score += Math.round((completeness / 100) * 5);
-      } else {
-        score = 95;
-      }
-      decisionHealthScore = clamp(score, 0, 100);
+        decisionHealthScore = clamp(score, 0, 100);
 
-      // Risk score:
-      const totalLiabilitiesVal = (twin.liabilities || []).reduce((sum, l) => sum + l.amount, 0);
-      riskScore = totalLiabilitiesVal > 50000 ? 55 : totalLiabilitiesVal > 20000 ? 35 : 15;
-      if (result.isSurplusNegative) {
-        riskScore = Math.min(100, riskScore + 25);
-      }
+        // Risk score:
+        const totalLiabilitiesVal = (twin.liabilities || []).reduce((sum, l) => sum + l.amount, 0);
+        riskScore = totalLiabilitiesVal > 50000 ? 55 : totalLiabilitiesVal > 20000 ? 35 : 15;
+        if (result.isSurplusNegative) {
+          riskScore = Math.min(100, riskScore + 25);
+        }
+        if (result.isOptimizedNonAmortizing) {
+          riskScore = Math.min(100, riskScore + 15);
+        }
 
-      // Confidence score:
-      let conf = 80;
-      if (result.hasDebts) {
+        // Confidence score:
+        let conf = 80;
         const hasAllLiabRates = (twin.liabilities || []).every(l => l.interestRate !== undefined && l.interestRate > 0);
         const hasAllLiabPayments = (twin.liabilities || []).every(l => l.monthlyPayment !== undefined && l.monthlyPayment > 0);
         const hasIncomes = (twin.incomes || []).length > 0;
@@ -956,45 +983,49 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
         if (result.monthlySurplus > 0) conf += 10;
         else conf -= 15;
-      } else {
-        conf = 50;
-      }
-      confidenceScore = clamp(conf, 30, 100);
+        confidenceScore = clamp(conf, 30, 100);
 
-      // Retirement Readiness shift
-      retirementReadinessShift = result.monthsSaved > 0 
-        ? parseFloat((result.monthsSaved / 12).toFixed(1)) 
-        : 0;
+        // Retirement Readiness shift
+        retirementReadinessShift = result.monthsSaved > 0 
+          ? parseFloat((result.monthsSaved / 12).toFixed(1)) 
+          : 0;
 
-      const formattedInterestSaved = formatCurrency(result.interestSaved);
-      const formattedCurrentInterest = formatCurrency(result.currentInterestPaid);
-      const formattedOptimizedInterest = formatCurrency(result.optimizedInterestPaid);
-      const formattedExtraPayment = formatCurrency(result.extraPaymentUsed);
+        const formattedInterestSaved = formatCurrency(result.interestSaved);
+        const formattedCurrentInterest = formatCurrency(result.currentInterestPaid);
+        const formattedOptimizedInterest = formatCurrency(result.optimizedInterestPaid);
+        const formattedExtraPayment = formatCurrency(result.extraPaymentUsed);
 
-      keyAssumptions = [
-        strategy === "avalanche" 
-          ? "Avalanche strategy targets the highest APR debt first."
-          : strategy === "snowball"
-          ? "Snowball strategy targets the smallest balance first."
-          : strategy === "refinance"
-          ? `Refinance strategy targets eligible debts higher than ${(refiRate * 100).toFixed(1)}% APR.`
-          : "Invest extra cash instead strategy routes available monthly surplus to market portfolios.",
-        `Estimated extra payment uses 50% of monthly surplus (${formattedExtraPayment}/month).`,
-        `Current path pays approximately ${formattedCurrentInterest} in interest.`,
-        `Optimized path pays approximately ${formattedOptimizedInterest} in interest.`,
-        `Estimated interest saved: ${formattedInterestSaved}.`,
-        `Estimated payoff acceleration: ${result.monthsSaved} months.`
-      ];
+        keyAssumptions = [
+          strategy === "avalanche" 
+            ? "Avalanche strategy targets the highest APR debt first."
+            : strategy === "snowball"
+            ? "Snowball strategy targets the smallest balance first."
+            : strategy === "refinance"
+            ? `Refinance strategy targets eligible debts higher than ${(refiRate * 100).toFixed(1)}% APR.`
+            : "Invest extra cash instead strategy routes available monthly surplus to market portfolios.",
+          `Estimated extra payment uses 50% of monthly surplus (${formattedExtraPayment}/month).`,
+          `Current path pays approximately ${formattedCurrentInterest} in interest.`,
+          `Optimized path pays approximately ${formattedOptimizedInterest} in interest.`,
+          result.optimizedPathPaidOff 
+            ? `Estimated interest saved: ${formattedInterestSaved}.`
+            : "Optimized path is currently non-amortizing or not fully paid off under current inputs.",
+          result.optimizedPathPaidOff && result.monthsSaved > 0
+            ? `Estimated payoff acceleration: ${result.monthsSaved} months.`
+            : "No payoff acceleration can be estimated because debts are not fully cleared."
+        ];
 
-      limitations = [
-        "Does not include lender fees or refinance approval risk.",
-        "Assumes payments are made consistently every month.",
-        "Assumes interest rates remain unchanged unless refinance is selected.",
-        "Does not include tax or credit-score effects."
-      ];
+        limitations = [
+          "Does not include lender fees or refinance approval risk.",
+          "Assumes payments are made consistently every month.",
+          "Assumes interest rates remain unchanged unless refinance is selected.",
+          "Does not include tax or credit-score effects."
+        ];
 
-      alternativeScenarios = [];
-      if (result.hasDebts) {
+        if (result.isOptimizedNonAmortizing) {
+          limitations.push("WARNING: Minimum payments on at least one debt do not cover monthly interest, causing balances to grow. This is a non-amortizing scenario.");
+        }
+
+        alternativeScenarios = [];
         if (strategy !== "avalanche") {
           alternativeScenarios.push({
             title: "Avalanche strategy",
@@ -1005,7 +1036,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         if (strategy !== "snowball") {
           alternativeScenarios.push({
             title: "Snowball strategy",
-            description: "Target small balances first to build immediate psychology momentum.",
+            description: "Target small balances first to build early progress and motivation.",
             params: { focusStrategy: "snowball" }
           });
         }
@@ -1013,7 +1044,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         if (strategy !== "refinance" && hasHighRates) {
           alternativeScenarios.push({
             title: "Refinance high-interest debt",
-            description: "Refinance high APR accounts to lower rates to restrict interest compounding.",
+            description: "Refinance high APR accounts to lower rates to reduce interest costs.",
             params: { focusStrategy: "refinance", refinanceRate: 0.045 }
           });
         }
@@ -1028,33 +1059,27 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
         if (hasInvestments && strategy !== "avalanche") {
           alternativeScenarios.push({
             title: "Pause investing to clear debt",
-            description: "Direct asset contributions temporarily towards clearing high-interest debt.",
+            description: "Direct investment contributions temporarily towards clearing high-interest debt.",
             params: { focusStrategy: "avalanche" }
           });
         }
-      } else {
-        alternativeScenarios = [
-          {
-            title: "Add standard liabilities",
-            description: "Add hypothetical debts in your profile to run payoff simulations.",
-            params: {}
-          }
-        ];
       }
 
-      console.log("Debt Optimization Run Data:", {
-        numberOfDebts: (twin.liabilities || []).length,
-        totalDebtBalance: result.totalDebtBalance,
-        monthlySurplus: result.monthlySurplus,
-        extraPaymentUsed: result.extraPaymentUsed,
-        selectedStrategy: strategy,
-        currentTotalInterest: result.currentInterestPaid,
-        optimizedTotalInterest: result.optimizedInterestPaid,
-        interestSaved: result.interestSaved,
-        monthsSaved: result.monthsSaved,
-        decisionHealthScore,
-        confidenceScore
-      });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("Debt Optimization Run Data:", {
+          numberOfDebts: (twin.liabilities || []).length,
+          totalDebtBalance: result.totalDebtBalance,
+          monthlySurplus: result.monthlySurplus,
+          extraPaymentUsed: result.extraPaymentUsed,
+          selectedStrategy: strategy,
+          currentTotalInterest: result.currentInterestPaid,
+          optimizedTotalInterest: result.optimizedInterestPaid,
+          interestSaved: result.interestSaved,
+          monthsSaved: result.monthsSaved,
+          decisionHealthScore,
+          confidenceScore
+        });
+      }
 
     } else if (selectedType === "college_funding") {
       const tuition = params.annualCollegeCost || 35000;
