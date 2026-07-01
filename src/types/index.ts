@@ -78,7 +78,7 @@ export interface SimulationParams {
   desiredAnnualSpending?: number;
 
   // Debt Optimization
-  focusStrategy?: "snowball" | "avalanche" | "invest_surplus";
+  focusStrategy?: "snowball" | "avalanche" | "invest_surplus" | "refinance";
   refinanceRate?: number;
 
   // College Funding

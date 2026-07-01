@@ -9,7 +9,13 @@ import { SupabaseService } from "../supabaseService";
 import { 
   calculateHomePurchaseScenario, 
   calculateProfileCompleteness, 
-  clamp 
+  clamp,
+  calculateOptimizedDebtScenario,
+  calculateMonthlySurplus,
+  calculateHighInterestDebt,
+  calculateTotalLiabilities,
+  formatCurrency,
+  formatPercent
 } from "../utils/financialCalculations";
 import { 
   Home, Car, Briefcase, Calendar, ShieldAlert, Zap, 
@@ -284,7 +290,7 @@ function getFutureStories(type: SimulationType, params: SimulationParams): Futur
   }
 }
 
-function getLifeOutcomeStatement(type: SimulationType, result: SimulationResult, params: SimulationParams): { outcome: string; nextStep: string } {
+function getLifeOutcomeStatement(type: SimulationType, result: SimulationResult, params: SimulationParams, twin: FinancialTwin): { outcome: string; nextStep: string } {
   const cashImpactStr = `$${Math.abs(Math.round(result.projectedCashFlowDelta)).toLocaleString()}`;
   const years = Math.abs(result.retirementReadinessShift);
 
@@ -325,8 +331,35 @@ function getLifeOutcomeStatement(type: SimulationType, result: SimulationResult,
       nextStep = "Target retirement age of 65, or trim other non-discretionary expenses by $300/mo to guarantee sustainability.";
     }
   } else if (type === "debt_optimization") {
-    outcome = `Executing the ${params.focusStrategy === "snowball" ? "Debt Snowball" : "Debt Avalanche"} plan is projected to save you $12,500 in compound interest and clear liabilities faster.`;
-    nextStep = `Formally activate this schedule starting tomorrow by directing all surplus cash flow to Outstanding student loans first.`;
+    const debtRes = calculateOptimizedDebtScenario({
+      twin,
+      focusStrategy: (params.focusStrategy || "avalanche") as any,
+      refinanceRate: params.refinanceRate || 0.045,
+      surplusAllocationPercent: 50
+    });
+
+    if (debtRes.hasDebts) {
+      const strategyName = params.focusStrategy === "snowball" 
+        ? "Debt Snowball (smallest balance first)" 
+        : params.focusStrategy === "invest_surplus"
+        ? "Invest extra cash instead"
+        : params.focusStrategy === "refinance"
+        ? "Refinance strategy"
+        : "Debt Avalanche (highest interest first)";
+
+      const formattedSaved = formatCurrency(debtRes.interestSaved);
+      
+      if (params.focusStrategy === "invest_surplus") {
+        outcome = `Investing your available extra cash instead of accelerating payoff directs resources into asset growth. Under current interest structures, you will pay ${formatCurrency(debtRes.currentInterestPaid)} in interest over ${debtRes.currentDebtFreeMonth} months.`;
+        nextStep = "Confirm your brokerage or retirement investment contributions are active and fully automated.";
+      } else {
+        outcome = `Executing the ${strategyName} plan is projected to save you ${formattedSaved} in compound interest and accelerate your debt-free timeline by ${debtRes.monthsSaved} months.`;
+        nextStep = `Formally activate this schedule starting next month by directing ${formatCurrency(debtRes.extraPaymentUsed)} of surplus cash flow to your targeted paydown debt.`;
+      }
+    } else {
+      outcome = "You have no active debts to optimize. Your debt-free timeline is active and fully secure!";
+      nextStep = "Proceed with compounding your cash flow surplus directly into your investment or retirement portfolios.";
+    }
   } else if (type === "college_funding") {
     outcome = `Allocating 529 college trusts at a ${params.fundingTargetPercent || 80}% level preserves your children's access with very low impact on your retirement track.`;
     nextStep = "Initiate monthly automatic ACH transfers to state-sponsored tax shelter 529 plans.";
@@ -824,47 +857,204 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       const strategy = params.focusStrategy || "avalanche";
       const refiRate = params.refinanceRate || 0.045;
 
-      tempBaseline = currentNetWorth;
-      tempSimulated = currentNetWorth;
+      const result = calculateOptimizedDebtScenario({
+        twin,
+        focusStrategy: strategy as any,
+        refinanceRate: refiRate,
+        surplusAllocationPercent: 50
+      });
 
-      // Calculate total outstanding high-interest debt
-      const highInterestDebts = (twin.liabilities || []).reduce((acc, c) => acc + c.amount, 0);
-      const interestSavingsFactor = strategy === "avalanche" ? 0.25 : 0.15;
-      const computedInterestSaved = highInterestDebts * (0.06 - refiRate) * interestSavingsFactor * 10; // 10 years payoff window
+      const totalDebtBalance = result.totalDebtBalance;
 
-      projectedCashFlowDelta = strategy === "invest_surplus" ? 150 : computedInterestSaved > 0 ? 120 : 50;
+      let currentAssetsBaseline = currentNetWorth + totalDebtBalance;
+      let currentAssetsSimulated = currentNetWorth + totalDebtBalance;
+      const monthlyGrowth = averageGrowthRate / 12;
 
-      for (let i = 1; i <= years; i++) {
-        tempBaseline = (tempBaseline + annualSurplus) * (1 + averageGrowthRate);
-        baselineNW.push(Math.round(tempBaseline));
+      for (let m = 1; m <= 360; m++) {
+        const currentMonthData = result.currentSchedule[m - 1];
+        const currentPayments = currentMonthData 
+          ? Object.values(currentMonthData.payments).reduce((sum, p) => sum + p, 0)
+          : 0;
+        const currentBalanceSum = currentMonthData
+          ? Object.values(currentMonthData.balances).reduce((sum, b) => sum + b, 0)
+          : 0;
 
-        // simulated pays off liability earlier, leading to higher end wealth
-        const simulatedSavingsTotal = annualSurplus + (projectedCashFlowDelta * 12) + (i <= 5 ? computedInterestSaved / 5 : 0);
-        tempSimulated = (tempSimulated + simulatedSavingsTotal) * (1 + averageGrowthRate);
-        simulatedNW.push(Math.round(tempSimulated));
+        const baselineMonthlySaved = Math.max(0, (totalAnnualIncome / 12) - twin.monthlyExpenses - currentPayments);
+        currentAssetsBaseline = (currentAssetsBaseline + baselineMonthlySaved) * (1 + monthlyGrowth);
+
+        const optMonthData = result.optimizedSchedule[m - 1];
+        const optPayments = optMonthData
+          ? Object.values(optMonthData.payments).reduce((sum, p) => sum + p, 0)
+          : 0;
+        const optBalanceSum = optMonthData
+          ? Object.values(optMonthData.balances).reduce((sum, b) => sum + b, 0)
+          : 0;
+
+        const simulatedMonthlySaved = (totalAnnualIncome / 12) - twin.monthlyExpenses - optPayments;
+        currentAssetsSimulated = (currentAssetsSimulated + simulatedMonthlySaved) * (1 + monthlyGrowth);
+
+        if (m % 12 === 0) {
+          baselineNW.push(Math.round(currentAssetsBaseline - currentBalanceSum));
+          simulatedNW.push(Math.round(currentAssetsSimulated - optBalanceSum));
+        }
       }
 
-      decisionHealthScore = strategy === "invest_surplus" && averageGrowthRate > 0.06 ? 92 : 88;
-      riskScore = highInterestDebts > 30000 ? 55 : 20;
-      confidenceScore = 92;
-      retirementReadinessShift = projectedCashFlowDelta > 100 ? 1.5 : 0.5;
+      projectedCashFlowDelta = result.interestSaved > 0 
+        ? (result.interestSaved / Math.max(1, result.optimizedDebtFreeMonth))
+        : 0;
+
+      // Decision score:
+      let score = 70;
+      if (result.hasDebts) {
+        const highInterestDebt = (twin.liabilities || [])
+          .filter((l) => (l.interestRate || 0) >= 0.08)
+          .reduce((sum, l) => sum + l.amount, 0);
+
+        score += Math.min(15, (result.interestSaved / 5000) * 15);
+        score += Math.min(10, (result.monthsSaved / 12) * 10);
+
+        if (result.isSurplusNegative) {
+          score -= 30;
+        } else {
+          score += 5;
+        }
+
+        if (highInterestDebt > 10000) {
+          score += 5;
+        }
+
+        const completeness = calculateProfileCompleteness(twin);
+        score += Math.round((completeness / 100) * 5);
+      } else {
+        score = 95;
+      }
+      decisionHealthScore = clamp(score, 0, 100);
+
+      // Risk score:
+      const totalLiabilitiesVal = (twin.liabilities || []).reduce((sum, l) => sum + l.amount, 0);
+      riskScore = totalLiabilitiesVal > 50000 ? 55 : totalLiabilitiesVal > 20000 ? 35 : 15;
+      if (result.isSurplusNegative) {
+        riskScore = Math.min(100, riskScore + 25);
+      }
+
+      // Confidence score:
+      let conf = 80;
+      if (result.hasDebts) {
+        const hasAllLiabRates = (twin.liabilities || []).every(l => l.interestRate !== undefined && l.interestRate > 0);
+        const hasAllLiabPayments = (twin.liabilities || []).every(l => l.monthlyPayment !== undefined && l.monthlyPayment > 0);
+        const hasIncomes = (twin.incomes || []).length > 0;
+        const hasExpenses = twin.monthlyExpenses > 0;
+
+        if (hasAllLiabRates) conf += 5;
+        else conf -= 15;
+
+        if (hasAllLiabPayments) conf += 5;
+        else conf -= 15;
+
+        if (hasIncomes && hasExpenses) conf += 5;
+        else conf -= 10;
+
+        if (result.monthlySurplus > 0) conf += 10;
+        else conf -= 15;
+      } else {
+        conf = 50;
+      }
+      confidenceScore = clamp(conf, 30, 100);
+
+      // Retirement Readiness shift
+      retirementReadinessShift = result.monthsSaved > 0 
+        ? parseFloat((result.monthsSaved / 12).toFixed(1)) 
+        : 0;
+
+      const formattedInterestSaved = formatCurrency(result.interestSaved);
+      const formattedCurrentInterest = formatCurrency(result.currentInterestPaid);
+      const formattedOptimizedInterest = formatCurrency(result.optimizedInterestPaid);
+      const formattedExtraPayment = formatCurrency(result.extraPaymentUsed);
 
       keyAssumptions = [
-        `Strategic reallocation of surplus cash flows using direct ${strategy.toUpperCase()} calculations`,
-        `Ability to refinance interest rate lines downwards to ${refiRate * 100}% APR`,
-        "Sustained monthly payment schedules with zero default intervals"
+        strategy === "avalanche" 
+          ? "Avalanche strategy targets the highest APR debt first."
+          : strategy === "snowball"
+          ? "Snowball strategy targets the smallest balance first."
+          : strategy === "refinance"
+          ? `Refinance strategy targets eligible debts higher than ${(refiRate * 100).toFixed(1)}% APR.`
+          : "Invest extra cash instead strategy routes available monthly surplus to market portfolios.",
+        `Estimated extra payment uses 50% of monthly surplus (${formattedExtraPayment}/month).`,
+        `Current path pays approximately ${formattedCurrentInterest} in interest.`,
+        `Optimized path pays approximately ${formattedOptimizedInterest} in interest.`,
+        `Estimated interest saved: ${formattedInterestSaved}.`,
+        `Estimated payoff acceleration: ${result.monthsSaved} months.`
       ];
+
       limitations = [
-        "Assumes lender institutions offer zero-fee refinancing terms under current market terms",
-        "Neglects emotional challenges of strict budget changes when paying down debt"
+        "Does not include lender fees or refinance approval risk.",
+        "Assumes payments are made consistently every month.",
+        "Assumes interest rates remain unchanged unless refinance is selected.",
+        "Does not include tax or credit-score effects."
       ];
-      alternativeScenarios = [
-        {
-          title: "Aggressive Avalanche payoff",
-          description: "Focus purely on interest weightings, saving maximum credit expenses.",
-          params: { focusStrategy: "avalanche" }
+
+      alternativeScenarios = [];
+      if (result.hasDebts) {
+        if (strategy !== "avalanche") {
+          alternativeScenarios.push({
+            title: "Avalanche strategy",
+            description: "Target high APR debts first to minimize interest expense.",
+            params: { focusStrategy: "avalanche" }
+          });
         }
-      ];
+        if (strategy !== "snowball") {
+          alternativeScenarios.push({
+            title: "Snowball strategy",
+            description: "Target small balances first to build immediate psychology momentum.",
+            params: { focusStrategy: "snowball" }
+          });
+        }
+        const hasHighRates = (twin.liabilities || []).some(l => l.interestRate > 0.05);
+        if (strategy !== "refinance" && hasHighRates) {
+          alternativeScenarios.push({
+            title: "Refinance high-interest debt",
+            description: "Refinance high APR accounts to lower rates to restrict interest compounding.",
+            params: { focusStrategy: "refinance", refinanceRate: 0.045 }
+          });
+        }
+        if (twin.monthlyExpenses > 0) {
+          alternativeScenarios.push({
+            title: "Reduce discretionary spending",
+            description: "Trim expenses to generate more surplus to accelerate debt payoff.",
+            params: { focusStrategy: strategy }
+          });
+        }
+        const hasInvestments = (twin.assets || []).some(a => a.type === "brokerage" && a.amount > 0);
+        if (hasInvestments && strategy !== "avalanche") {
+          alternativeScenarios.push({
+            title: "Pause investing to clear debt",
+            description: "Direct asset contributions temporarily towards clearing high-interest debt.",
+            params: { focusStrategy: "avalanche" }
+          });
+        }
+      } else {
+        alternativeScenarios = [
+          {
+            title: "Add standard liabilities",
+            description: "Add hypothetical debts in your profile to run payoff simulations.",
+            params: {}
+          }
+        ];
+      }
+
+      console.log("Debt Optimization Run Data:", {
+        numberOfDebts: (twin.liabilities || []).length,
+        totalDebtBalance: result.totalDebtBalance,
+        monthlySurplus: result.monthlySurplus,
+        extraPaymentUsed: result.extraPaymentUsed,
+        selectedStrategy: strategy,
+        currentTotalInterest: result.currentInterestPaid,
+        optimizedTotalInterest: result.optimizedInterestPaid,
+        interestSaved: result.interestSaved,
+        monthsSaved: result.monthsSaved,
+        decisionHealthScore,
+        confidenceScore
+      });
 
     } else if (selectedType === "college_funding") {
       const tuition = params.annualCollegeCost || 35000;
@@ -1472,21 +1662,21 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
             {selectedType === "debt_optimization" && (
               <>
                 <div>
-                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">REPAYMENT HEURISTIC STRATEGY</label>
+                  <label className="text-slate-500 text-xs font-mono block mb-1 font-bold">PAYOFF STRATEGY</label>
                   <select
                     value={params.focusStrategy}
                     onChange={(e) => setParams({ ...params, focusStrategy: e.target.value as any })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none font-sans"
                   >
-                    <option value="avalanche">Avalanche Model (Highest APR Weighted)</option>
-                    <option value="snowball">Snowball Model (Lowest Principal Weighted)</option>
-                    <option value="invest_surplus">Invest Surplus (Route Excess to Markets)</option>
+                    <option value="avalanche">Avalanche: highest interest first</option>
+                    <option value="snowball">Snowball: smallest balance first</option>
+                    <option value="invest_surplus">Invest extra cash instead</option>
                   </select>
                 </div>
 
                 <div>
                   <div className="flex justify-between text-[11px] font-mono text-slate-500 mb-1.5 font-bold">
-                    <span>REFINANCED LOAN APR TARGET</span>
+                    <span>REFINANCE APR TARGET</span>
                     <span className="text-teal-650 font-black">{(params.refinanceRate || 0.045) * 100}% APR</span>
                   </div>
                   <input
@@ -1718,7 +1908,7 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
 
             {/* Outcome Conversation Boxes (Aura Recommendation) */}
             {(() => {
-              const { outcome, nextStep } = getLifeOutcomeStatement(selectedType, simulationResult, params);
+              const { outcome, nextStep } = getLifeOutcomeStatement(selectedType, simulationResult, params, twin);
               return (
                 <div className="mx-6 mt-6 p-4 bg-teal-50/50 border border-teal-150 rounded-xl space-y-3 font-sans shadow-sm">
                   <div>
@@ -1763,87 +1953,8 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
               </div>
             </div>
 
-            {/* THE DUAL-PATH PROJECTION CHART */}
-            <div className="p-6 bg-slate-50/30">
-              <span className="text-[10px] font-mono text-slate-400 uppercase block mb-3 font-bold">Projected Net Worth Curves (30-Year Horizon)</span>
-              
-              {/* Complex SVG charting */}
-              <div className="relative h-64 bg-white border border-slate-200 rounded-xl p-4 overflow-hidden shadow-sm">
-                <div className="absolute top-3 left-4 flex gap-4 text-[9px] font-mono text-slate-500 bg-slate-50/90 p-2 rounded border border-slate-250 z-10 shadow-sm font-bold">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-0.5 bg-slate-400" />
-                    <span>Baseline Path (Continuity)</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-0.5 bg-teal-500" />
-                    <span>Simulated Path (Proposed Choice)</span>
-                  </div>
-                </div>
-
-                <div className="absolute bottom-2 right-4 text-[9px] font-mono text-slate-400 font-bold">
-                  Confidence Interval: {simulationResult.confidenceScore}% (Estimated)
-                </div>
-
-                {/* SVG Render loops */}
-                <svg className="w-full h-full pt-10 pb-6" viewBox="0 0 500 200" preserveAspectRatio="none">
-                  {/* Grid Lines */}
-                  <line x1="0" y1="40" x2="500" y2="40" stroke="#f1f5f9" strokeDasharray="3,3" />
-                  <line x1="0" y1="100" x2="500" y2="100" stroke="#f1f5f9" strokeDasharray="3,3" />
-                  <line x1="0" y1="160" x2="500" y2="160" stroke="#f1f5f9" strokeDasharray="3,3" />
-
-                  {/* Baseline path line */}
-                  {(() => {
-                    const maxVal = Math.max(...simulationResult.projectedNetWorth30Y) * 1.1;
-                    const points = simulationResult.projectedNetWorth30Y.map((_, idx) => {
-                      // simple linear scale multiplier for baseline logic
-                      const bMonthlySurplus = Math.max(0, (totalAnnualIncome / 12) - twin.monthlyExpenses - (twin.liabilities || []).reduce((acc, curr) => acc + curr.monthlyPayment, 0));
-                      const bVal = currentNetWorth * Math.pow(1.06, idx) + (bMonthlySurplus * 12 * idx);
-                      const x = (idx / 29) * 500;
-                      const y = 190 - (bVal / maxVal) * 160;
-                      return `${x},${y}`;
-                    }).join(" ");
-                    return (
-                      <polyline
-                        fill="none"
-                        stroke="#94a3b8"
-                        strokeWidth="1.5"
-                        strokeDasharray="4,4"
-                        points={points}
-                      />
-                    );
-                  })()}
-
-                  {/* Simulated decision path line */}
-                  {(() => {
-                    const maxVal = Math.max(...simulationResult.projectedNetWorth30Y) * 1.1;
-                    const points = simulationResult.projectedNetWorth30Y.map((val, idx) => {
-                      const x = (idx / 29) * 500;
-                      const y = 190 - (val / maxVal) * 160;
-                      return `${x},${y}`;
-                    }).join(" ");
-                    return (
-                      <>
-                        <polyline
-                          fill="none"
-                          stroke="#0d9488"
-                          strokeWidth="2"
-                          points={points}
-                        />
-                        {/* Shimmer dots on key targets */}
-                        <circle cx={495} cy={190 - (simulationResult.projectedNetWorth30Y[29] / maxVal) * 160} r="4.5" fill="#0d9488" />
-                      </>
-                    );
-                  })()}
-                </svg>
-
-                <div className="absolute bottom-1 left-2 right-2 flex justify-between text-[8px] font-mono text-slate-400 font-bold">
-                  <span>Year 0</span>
-                  <span>Year 10</span>
-                  <span>Year 20</span>
-                  <span>Year 30 (Mature Val)</span>
-                </div>
-              </div>
-            </div>
+            {/* Product decision: projection charts intentionally omitted from the consumer MVP
+                to reduce cognitive load. Do not restore without explicit product approval. */}
 
             {/* Assumptions and Limitations Lists */}
             <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">

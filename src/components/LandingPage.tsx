@@ -480,9 +480,9 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-900/40 text-[9px] font-mono font-bold">
                       STEP 3: FUTURE RESOLUTION
                     </div>
-                    <h4 className="text-sm font-bold text-white font-sans leading-tight">Ripple Effects, Projected Net Worth</h4>
+                    <h4 className="text-sm font-bold text-white font-sans leading-tight">Ripple Effects, Projected Future Impact</h4>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Compare your "Standard Baseline Path" against the "Simulated Path". Instantly visualize net worth curves, passive growth margins, and compliance guardrails.
+                      Compare your baseline lifestyle against proposed choices. Instantly visualize retirement impacts, passive growth, and budget guardrails.
                     </p>
                     
                     {/* Visual mockup graph lines */}

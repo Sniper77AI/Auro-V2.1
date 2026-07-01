@@ -553,3 +553,200 @@ export function calculateHomePurchaseScenario(input: HomePurchaseInput): HomePur
     assumptionsUsed
   };
 }
+
+export interface DebtPayoffMonth {
+  month: number;
+  balances: Record<string, number>;
+  interestPaid: Record<string, number>;
+  payments: Record<string, number>;
+}
+
+export function calculateMonthlyInterest(balance: number, annualRate: number): number {
+  return safeNumber(balance) * (safeNumber(annualRate) / 12);
+}
+
+export function calculateDebtPayoffSchedule(
+  liabilities: LiabilityItem[],
+  strategy: "snowball" | "avalanche" | "invest_surplus" | "refinance",
+  extraMonthlyPayment = 0,
+  refinanceRate?: number
+): DebtPayoffMonth[] {
+  const debts = (liabilities || [])
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      balance: safeNumber(l.amount),
+      interestRate: safeNumber(l.interestRate),
+      minPayment: safeNumber(l.monthlyPayment),
+      type: l.type,
+    }))
+    .filter((d) => d.balance > 0);
+
+  if (strategy === "refinance" && refinanceRate !== undefined) {
+    const refiRate = safeNumber(refinanceRate);
+    for (const debt of debts) {
+      if (debt.interestRate > refiRate) {
+        debt.interestRate = refiRate;
+      }
+    }
+  }
+
+  const schedule: DebtPayoffMonth[] = [];
+  let month = 0;
+  const maxMonths = 360;
+
+  while (month < maxMonths) {
+    const activeDebts = debts.filter((d) => d.balance > 0);
+    if (activeDebts.length === 0) {
+      break;
+    }
+
+    month++;
+    const monthBalances: Record<string, number> = {};
+    const monthInterest: Record<string, number> = {};
+    const monthPayments: Record<string, number> = {};
+
+    // 1. Accrue monthly interest
+    for (const debt of debts) {
+      if (debt.balance > 0) {
+        const interest = calculateMonthlyInterest(debt.balance, debt.interestRate);
+        debt.balance += interest;
+        monthInterest[debt.id] = interest;
+      } else {
+        monthInterest[debt.id] = 0;
+      }
+    }
+
+    // Initialize payments
+    for (const debt of debts) {
+      monthPayments[debt.id] = 0;
+    }
+
+    // 2. Pay minimums
+    const originalTotalMin = debts.reduce((sum, d) => sum + d.minPayment, 0);
+    const isAccelerated = strategy === "avalanche" || strategy === "snowball" || strategy === "refinance";
+
+    let totalPool = 0;
+    if (isAccelerated) {
+      totalPool = originalTotalMin + extraMonthlyPayment;
+    } else {
+      totalPool = debts.reduce((sum, d) => sum + (d.balance > 0 ? d.minPayment : 0), 0);
+    }
+
+    let remainingPool = totalPool;
+
+    for (const debt of debts) {
+      if (debt.balance > 0) {
+        const minToPay = Math.min(debt.balance, debt.minPayment);
+        debt.balance -= minToPay;
+        monthPayments[debt.id] = minToPay;
+        remainingPool -= minToPay;
+      }
+    }
+
+    if (remainingPool < 0) {
+      remainingPool = 0;
+    }
+
+    // 3. Extra payments & Roll over paid-off minimums
+    if (isAccelerated && remainingPool > 0) {
+      const sortedDebts = [...debts].filter((d) => d.balance > 0);
+      if (strategy === "avalanche" || strategy === "refinance") {
+        sortedDebts.sort((a, b) => b.interestRate - a.interestRate || b.balance - a.balance);
+      } else if (strategy === "snowball") {
+        sortedDebts.sort((a, b) => a.balance - b.balance || b.interestRate - a.interestRate);
+      }
+
+      for (const sDebt of sortedDebts) {
+        if (remainingPool <= 0) break;
+        const actualDebt = debts.find((d) => d.id === sDebt.id);
+        if (actualDebt && actualDebt.balance > 0) {
+          const extraPay = Math.min(actualDebt.balance, remainingPool);
+          actualDebt.balance -= extraPay;
+          monthPayments[sDebt.id] = (monthPayments[sDebt.id] || 0) + extraPay;
+          remainingPool -= extraPay;
+        }
+      }
+    }
+
+    // Store balances
+    for (const debt of debts) {
+      monthBalances[debt.id] = Math.round(debt.balance * 100) / 100;
+    }
+
+    schedule.push({
+      month,
+      balances: monthBalances,
+      interestPaid: monthInterest,
+      payments: monthPayments,
+    });
+  }
+
+  return schedule;
+}
+
+export function calculateTotalInterestPaid(schedule: DebtPayoffMonth[]): number {
+  let total = 0;
+  for (const m of schedule) {
+    for (const key in m.interestPaid) {
+      total += m.interestPaid[key];
+    }
+  }
+  return total;
+}
+
+export function calculateDebtFreeMonth(schedule: DebtPayoffMonth[]): number {
+  return schedule.length;
+}
+
+export function calculateOptimizedDebtScenario(input: {
+  twin: FinancialTwin;
+  focusStrategy: "snowball" | "avalanche" | "invest_surplus" | "refinance";
+  refinanceRate?: number;
+  surplusAllocationPercent?: number;
+}) {
+  const { twin, focusStrategy, refinanceRate, surplusAllocationPercent = 50 } = input;
+  const liabilities = twin.liabilities || [];
+  const totalDebtBalance = liabilities.reduce((sum, l) => sum + safeNumber(l.amount), 0);
+  const hasDebts = totalDebtBalance > 0;
+
+  const monthlySurplus = calculateMonthlySurplus(twin.incomes, twin.monthlyExpenses, twin.liabilities);
+  const isSurplusNegative = monthlySurplus < 0;
+
+  // extraMonthlyPayment: 50% of monthlySurplus if positive, else 0
+  const extraPaymentUsed = !isSurplusNegative ? (monthlySurplus * (safeNumber(surplusAllocationPercent) / 100)) : 0;
+
+  // Current path payoff schedule (always invest_surplus with 0 extra, paying min payments)
+  const currentSchedule = calculateDebtPayoffSchedule(liabilities, "invest_surplus", 0);
+  const currentInterestPaid = calculateTotalInterestPaid(currentSchedule);
+  const currentDebtFreeMonth = calculateDebtFreeMonth(currentSchedule);
+
+  // Optimized path schedule (using selected strategy, extra payments, refinance rate)
+  const optimizedSchedule = calculateDebtPayoffSchedule(
+    liabilities,
+    focusStrategy,
+    extraPaymentUsed,
+    refinanceRate
+  );
+  const optimizedInterestPaid = calculateTotalInterestPaid(optimizedSchedule);
+  const optimizedDebtFreeMonth = calculateDebtFreeMonth(optimizedSchedule);
+
+  const interestSaved = Math.max(0, currentInterestPaid - optimizedInterestPaid);
+  const monthsSaved = Math.max(0, currentDebtFreeMonth - optimizedDebtFreeMonth);
+
+  return {
+    hasDebts,
+    totalDebtBalance,
+    monthlySurplus,
+    extraPaymentUsed,
+    currentSchedule,
+    optimizedSchedule,
+    currentInterestPaid,
+    optimizedInterestPaid,
+    currentDebtFreeMonth,
+    optimizedDebtFreeMonth,
+    interestSaved,
+    monthsSaved,
+    isSurplusNegative
+  };
+}
