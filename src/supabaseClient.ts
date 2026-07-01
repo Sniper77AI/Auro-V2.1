@@ -49,8 +49,9 @@ const safeSupabaseStorage = {
  * If credentials are missing, placeholder, or invalid, returns null to trigger sandbox fallbacks.
  */
 export function getSupabaseClient(): SupabaseClient<any, "public", any> | null {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const env = (typeof import.meta !== "undefined" && import.meta.env) ? import.meta.env : process.env;
+  const url = env.VITE_SUPABASE_URL;
+  const key = env.VITE_SUPABASE_ANON_KEY;
 
   if (
     !url ||

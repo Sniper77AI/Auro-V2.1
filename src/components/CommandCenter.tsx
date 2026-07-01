@@ -6,10 +6,7 @@
 import React, { useEffect } from "react";
 import { FinancialTwin, SimulationResult } from "../types";
 import { 
-  ShieldAlert, Sparkles, TrendingUp, HelpCircle, 
-  Settings, ArrowUpRight, CheckCircle2, AlertTriangle, 
-  ChevronRight, Calendar, DollarSign, Award, Clock,
-  Home, Car, Briefcase, GraduationCap, Heart
+  TrendingUp, Award, Clock
 } from "lucide-react";
 import {
   calculateReadinessScore,
@@ -255,106 +252,19 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
       </div>
 
       {/* HERO SIMULATOR SECTOR */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-4 shadow-sm">
-        <div>
-          <h2 className="text-xs font-bold text-teal-800 tracking-tight uppercase font-mono">What decision are you considering today?</h2>
-          <p className="text-[11px] text-slate-500 mt-1">
-            "See your future before you spend your money." Choose any scenario below to immediately model its multi-decade impact with secondary options.
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
+        <div className="space-y-1.5 max-w-2xl">
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight">Simulate a Future Decision</h2>
+          <p className="text-xs text-slate-500 leading-relaxed font-sans">
+            See how a major life choice could affect your cash flow, debt, retirement timing, and long-term net worth.
           </p>
         </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          <button
-            onClick={() => onOpenSimulator("home_purchase")}
-            className="text-left bg-slate-50 border border-slate-200 hover:bg-white hover:border-teal-500/50 hover:shadow-md p-3.5 rounded-2xl space-y-2.5 transition-all group cursor-pointer"
-          >
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center transition-colors group-hover:bg-teal-100">
-              <Home className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-700 group-hover:text-teal-700 transition-colors">Buy a Home</h4>
-              <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Mortgages & down payments</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => onOpenSimulator("vehicle_purchase")}
-            className="text-left bg-slate-50 border border-slate-200 hover:bg-white hover:border-teal-500/50 hover:shadow-md p-3.5 rounded-2xl space-y-2.5 transition-all group cursor-pointer"
-          >
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center transition-colors group-hover:bg-teal-100">
-              <Car className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-700 group-hover:text-teal-700 transition-colors">Buy a Car</h4>
-              <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Analyze auto debt & fuel types</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => onOpenSimulator("career_change")}
-            className="text-left bg-slate-50 border border-slate-200 hover:bg-white hover:border-teal-500/50 hover:shadow-md p-3.5 rounded-2xl space-y-2.5 transition-all group cursor-pointer"
-          >
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center transition-colors group-hover:bg-teal-100">
-              <Briefcase className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-700 group-hover:text-teal-700 transition-colors">Change Career</h4>
-              <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Salary jumps & options</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => onOpenSimulator("retirement_planning")}
-            className="text-left bg-slate-50 border border-slate-200 hover:bg-white hover:border-teal-500/50 hover:shadow-md p-3.5 rounded-2xl space-y-2.5 transition-all group cursor-pointer"
-          >
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center transition-colors group-hover:bg-teal-100">
-              <Calendar className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-700 group-hover:text-teal-700 transition-colors">Retire Early</h4>
-              <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Ages & custom spending limits</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => onOpenSimulator("debt_optimization")}
-            className="text-left bg-slate-50 border border-slate-200 hover:bg-white hover:border-teal-500/50 hover:shadow-md p-3.5 rounded-2xl space-y-2.5 transition-all group cursor-pointer"
-          >
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center transition-colors group-hover:bg-teal-100">
-              <TrendingUp className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-700 group-hover:text-teal-700 transition-colors">Pay Off Debts</h4>
-              <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Snowball vs. Avalanche payoffs</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => onOpenSimulator("college_funding")}
-            className="text-left bg-slate-50 border border-slate-200 hover:bg-white hover:border-teal-500/50 hover:shadow-md p-3.5 rounded-2xl space-y-2.5 transition-all group cursor-pointer"
-          >
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center transition-colors group-hover:bg-teal-100">
-              <GraduationCap className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-700 group-hover:text-teal-700 transition-colors">Save for College</h4>
-              <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">529 plans & trust parameters</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => onOpenSimulator("estate_legacy")}
-            className="text-left bg-slate-50 border border-slate-200 hover:bg-white hover:border-teal-500/50 hover:shadow-md p-3.5 rounded-2xl space-y-2.5 transition-all group cursor-pointer col-span-2 sm:col-span-1"
-          >
-            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center transition-colors group-hover:bg-teal-100">
-              <Heart className="w-3.5 h-3.5" />
-            </div>
-            <div>
-              <h4 className="text-[11px] font-bold text-slate-700 group-hover:text-teal-700 transition-colors">Estate & Legacy</h4>
-              <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Avoid probate trusts & wills</p>
-            </div>
-          </button>
-        </div>
+        <button
+          onClick={() => onOpenSimulator()}
+          className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold px-5 py-3 rounded-xl cursor-pointer font-sans shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all shrink-0 active:translate-y-0"
+        >
+          Start a Simulation
+        </button>
       </div>
 
       {/* SCORES AND HERO ACTIONS HEADER MATRIX */}
@@ -509,66 +419,7 @@ export default function CommandCenter({ twin, savedSimulations, onOpenSimulator,
         </div>
       </div>
 
-      {/* SAVED ACTIVE SCENARIOS TIMELINE */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800">Recent Simulations</h3>
-            <p className="text-[10px] text-slate-550 font-sans">Your saved projections and alternative futures.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenSimulator()}
-            className="text-[11px] text-teal-600 hover:text-teal-700 font-bold tracking-tight transition-all flex items-center gap-1 cursor-pointer font-sans"
-          >
-            Launch Simulator <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
 
-        {savedSimulations.length === 0 ? (
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center space-y-4">
-            <ShieldAlert className="w-8 h-8 text-slate-400 mx-auto" />
-            <div className="space-y-1">
-              <p className="text-xs text-slate-700 font-bold">No simulations saved yet</p>
-              <p className="text-[11px] text-slate-450 font-sans">Model a choice above to view projected outcomes here.</p>
-            </div>
-            <button
-              onClick={() => onOpenSimulator()}
-              className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl cursor-pointer font-sans shadow-md"
-            >
-              Simulate a decision now
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {savedSimulations.map((sim, i) => (
-              <div key={sim.id} className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-between hover:bg-white hover:border-slate-300 hover:shadow-sm transition-all font-sans">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-[10px] font-mono">
-                    <span className="text-slate-400 font-semibold uppercase">{sim.type.replace("_", " ")}</span>
-                    <span className="text-slate-400">Projections #{i+1}</span>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800 font-mono">
-                      Mature Value: ${sim.projectedNetWorth30Y[29].toLocaleString()}
-                    </h4>
-                    <p className="text-[10px] text-slate-500 mt-1 leading-normal">
-                      Decision Score is calculated at <strong className="text-teal-700 font-mono font-bold">{sim.decisionHealthScore}/100</strong>.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center border-t border-slate-100 pt-3 mt-4 text-[9px] font-mono">
-                  <span className={`font-bold ${sim.projectedCashFlowDelta < 0 ? "text-rose-600" : "text-teal-700"}`}>
-                    CF Impact: ${Math.round(sim.projectedCashFlowDelta).toLocaleString()}/Mo
-                  </span>
-                  <span className="text-slate-400">{new Date(sim.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -436,10 +436,10 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
     ? ((twin.assets || []).reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / (twin.assets || []).length) 
     : 0.06;
 
-  // Re-run simulation when params or basic twin attributes alter
+  // Re-run simulation when params, basic twin attributes alter, or state assumptions load/change
   useEffect(() => {
     runSimulation();
-  }, [selectedType, params, twin]);
+  }, [selectedType, params, twin, stateAssumptions, assumptionsLoading]);
 
   const runSimulation = () => {
     const years = 30;
@@ -466,7 +466,10 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
     let alternativeScenarios: any[] = [];
 
     // Resolve state tax multiplier from loaded state assumptions dynamically
-    const matchedStateTaxAss = stateAssumptions.find(a => a.state_code.toUpperCase() === (twin.taxState || "US").toUpperCase());
+    const activeStateCode = (twin.taxState || "").trim().toUpperCase();
+    const matchedStateTaxAss = stateAssumptions.find(
+      a => (a.state_code || "").trim().toUpperCase() === activeStateCode
+    );
     const effectiveTaxRate = matchedStateTaxAss ? matchedStateTaxAss.effective_tax_rate : fallbackAssumption.effective_tax_rate;
     const taxPenaltyMultiplier = 1 - effectiveTaxRate;
     const liquidCash = (twin.assets || []).filter(a => a.type === "cash" || a.type === "brokerage").reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
@@ -488,11 +491,10 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       }
 
       // Resolve state assumption:
-      const activeStateCode = twin.taxState || "US";
       const matchedAssumption = stateAssumptions.find(
-        (a) => a.state_code.toUpperCase() === activeStateCode.toUpperCase()
+        (a) => (a.state_code || "").trim().toUpperCase() === activeStateCode
       );
-      const usingFallback = !matchedAssumption;
+      const usingFallback = !matchedAssumption && !assumptionsLoading;
       const activeStateAssumption = matchedAssumption || fallbackAssumption;
 
       // Find current monthly rent from twin if available
@@ -619,7 +621,9 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
       keyAssumptions = [...result.assumptionsUsed];
       
       // If fallback was used, add a highly visible assumption stating so
-      if (usingFallback) {
+      if (assumptionsLoading) {
+        keyAssumptions.push("Loading state assumptions...");
+      } else if (usingFallback) {
         if (!twin.taxState) {
           keyAssumptions.push("National fallback assumptions are being used because no state was selected.");
         } else {
@@ -645,7 +649,15 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
           lifetimeWealthImpact: result.lifetimeWealthImpact,
           decisionHealthScore,
           confidenceScore,
+          
+          // Phase 2C required development logs
+          assumptionsLoading,
+          stateAssumptionsLength: stateAssumptions.length,
+          activeStateCode,
+          matchedAssumption,
           usingFallback,
+          "property_tax_rate used": activeStateAssumption.property_tax_rate,
+          "appreciation_rate used": activeStateAssumption.appreciation_rate,
         });
       }
 
