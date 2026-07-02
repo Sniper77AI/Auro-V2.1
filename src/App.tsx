@@ -478,7 +478,9 @@ export default function App() {
         });
         localStorage.setItem(`approved_goals_metadata_${uId}`, JSON.stringify(cachedMetadata));
       } catch (err) {
-        console.warn("Failed to cache metadata locally:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("Failed to cache metadata locally:", err);
+        }
       }
     }
 
