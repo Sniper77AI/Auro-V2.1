@@ -86,4 +86,6 @@ This document details the Quality Assurance (QA) and consistency checks reviewed
 ## 5. Summary of Visual Polish
 - Clean typography pairings using **Inter** paired with bold Sans accents and **JetBrains Mono** for numerical summaries.
 - Balanced layout with generous negative space and a light high-contrast Slate design aesthetic.
+- Renamed “Lifetime Decision Horizon” to **“Lifetime Wealth Impact”** and updated the explanation subtitle to clarify the 30-year wealth difference comparison.
+- Redesigned Suggested Alternatives buttons to be highly visible with a styled teal theme and a clear **“Try This”** label.
 - No known issues found during this pass regarding header, footer, or margin styling.

@@ -821,7 +821,7 @@ export default function App() {
                 </div>
                 <div>
                   <h1 className="text-lg font-black tracking-tight text-slate-900 font-sans leading-none">AuraRipple</h1>
-                  <span className="text-[9px] font-mono font-bold tracking-wider text-teal-600 uppercase leading-none mt-1.5 block">Financial Decision Coach</span>
+                  <span className="text-[9px] font-mono font-bold tracking-wider text-teal-600 uppercase leading-none mt-1.5 block">Financial Decision Intelligence</span>
                 </div>
               </div>
               <p className="text-[10px] text-slate-500 italic leading-snug pt-1">

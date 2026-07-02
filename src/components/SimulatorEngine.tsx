@@ -2713,9 +2713,9 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                   <button
                     type="button"
                     onClick={() => handleApplyAlternative(alt.params)}
-                    className="text-[10px] bg-teal-650 hover:bg-teal-600 text-white font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-sm"
+                    className="text-[11px] bg-teal-600 hover:bg-teal-700 text-white border border-teal-700 shadow-sm font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer"
                   >
-                    Model scenario <ArrowRight className="w-3 h-3" />
+                    Try This <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
@@ -2738,10 +2738,10 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                 <div className="mx-6 mt-6 bg-gradient-to-r from-teal-50/70 via-emerald-50/30 to-slate-50 border border-slate-150 rounded-2xl p-5 relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
                   <div className={`absolute -right-12 -bottom-12 w-32 h-32 rounded-full blur-2xl pointer-events-none ${isPositive ? "bg-teal-500/10" : "bg-rose-500/5"}`} />
                   <div className="space-y-1 z-10 font-sans">
-                    <span className="text-[10px] font-mono text-teal-600 font-bold uppercase tracking-widest block leading-none">Lifetime Decision Horizon</span>
+                    <span className="text-[10px] font-mono text-teal-600 font-bold uppercase tracking-widest block leading-none">Lifetime Wealth Impact</span>
                     <h3 className="text-sm font-bold text-slate-850 tracking-tight mt-1.5">Projected Lifetime Wealth Impact</h3>
                     <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm">
-                      Compared with doing nothing, this is the estimated difference after 30 years.
+                      Estimated difference in your total wealth after 30 years compared with your current financial path.
                     </p>
                   </div>
                   <div className="z-10 text-left sm:text-right select-none shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 w-full sm:w-auto">
