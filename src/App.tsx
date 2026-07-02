@@ -272,12 +272,16 @@ export default function App() {
     const {
       data: { subscription },
     } = supabaseClient.auth.onAuthStateChange(async (event, updatedSession) => {
-      console.log(`[AURA AUTH] Event received: ${event}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[AURA AUTH] Event received: ${event}`);
+      }
       if (!isMounted) return;
 
       if (event === "SIGNED_IN") {
         if (initialLoadTriggered) {
-          console.log("[AURA AUTH] SIGNED_IN event on boot bypassed, initializeAuth is handling it.");
+          if (process.env.NODE_ENV !== "production") {
+            console.log("[AURA AUTH] SIGNED_IN event on boot bypassed, initializeAuth is handling it.");
+          }
           initialLoadTriggered = false;
           return;
         }
@@ -447,7 +451,8 @@ export default function App() {
       approvedAssumptions: goalData.approvedAssumptions || [],
       projectedImpact: Number(goalData.projectedImpact) || 0,
       approvedDate: new Date().toLocaleDateString(),
-      nextAction: goalData.nextAction
+      nextAction: goalData.nextAction,
+      approvedScenarioParams: goalData.approvedScenarioParams || null
     };
 
     const updatedGoals = [...goals, newGoal];
@@ -468,7 +473,8 @@ export default function App() {
           approvedAssumptions: newGoal.approvedAssumptions,
           projectedImpact: newGoal.projectedImpact,
           approvedDate: newGoal.approvedDate,
-          nextAction: newGoal.nextAction
+          nextAction: newGoal.nextAction,
+          approvedScenarioParams: goalData.approvedScenarioParams || null
         });
         localStorage.setItem(`approved_goals_metadata_${uId}`, JSON.stringify(cachedMetadata));
       } catch (err) {
@@ -489,7 +495,7 @@ export default function App() {
       setActiveScenarioType(goal.approvedScenarioType);
       
       // Determine target variables
-      const initialParams = {
+      const initialParams: any = {
         scenarioType: goal.approvedScenarioType,
         targetAmount: goal.targetAmount,
         targetYear: goal.targetYear,
@@ -497,9 +503,27 @@ export default function App() {
         approvedScenarioName: goal.approvedScenarioName,
         approvedAssumptions: goal.approvedAssumptions,
         projectedImpact: goal.projectedImpact,
-        interestRate: 0.08,
-        downPayment: goal.targetAmount * 0.2
       };
+
+      if (goal.approvedScenarioParams) {
+        // Restore all the original saved scenario parameters
+        Object.assign(initialParams, goal.approvedScenarioParams);
+      } else {
+        // Backward compatibility for older goals:
+        // Restore only safe fields that apply specifically to that scenario
+        if (goal.approvedScenarioType === "home_purchase") {
+          initialParams.homePrice = goal.targetAmount || 500000;
+          initialParams.downPayment = (goal.targetAmount && goal.targetAmount > 0) ? goal.targetAmount * 0.2 : 100000;
+          initialParams.interestRate = 0.065;
+        } else if (goal.approvedScenarioType === "vehicle_purchase") {
+          initialParams.vehiclePrice = goal.targetAmount || 45000;
+          initialParams.autoDownPayment = (goal.targetAmount && goal.targetAmount > 0) ? goal.targetAmount * 0.2 : 10000;
+        } else if (goal.approvedScenarioType === "retirement_planning") {
+          initialParams.desiredAnnualSpending = goal.targetAmount ? Math.round(goal.targetAmount / 25) : 80000;
+        } else if (goal.approvedScenarioType === "college_funding") {
+          initialParams.annualCollegeCost = goal.targetAmount ? Math.round(goal.targetAmount / 4) : 35000;
+        }
+      }
       
       setActiveSimulationParams(initialParams);
       setActiveMenu("command");

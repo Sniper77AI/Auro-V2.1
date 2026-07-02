@@ -3054,7 +3054,8 @@ export default function SimulatorEngine({ twin, initialType, initialParams, onSa
                     approvedScenarioName: "Balanced Scenario",
                     approvedAssumptions: details.assumptions,
                     projectedImpact: details.impact,
-                    nextAction: details.nextAction
+                    nextAction: details.nextAction,
+                    approvedScenarioParams: { ...params }
                   });
                   setShowApprovalPanel(false);
                 }}
