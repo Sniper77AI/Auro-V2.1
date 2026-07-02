@@ -110,7 +110,7 @@ export default function UnifiedSettings({ twin, onChangeTwin, session }: Unified
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveStatus("Aura settings persisted securely to Supabase.");
+    setSaveStatus("Aura settings persisted securely to cloud database.");
     setTimeout(() => setSaveStatus(null), 3000);
   };
 

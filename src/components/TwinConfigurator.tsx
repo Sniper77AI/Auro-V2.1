@@ -394,19 +394,19 @@ export default function TwinConfigurator({ twin, profileId, syncingState, setSyn
                 {syncingState === "syncing" && (
                   <span className="text-amber-700 font-mono flex items-center gap-1.5">
                     <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                    Saving changes to database...
+                    Saving...
                   </span>
                 )}
                 {syncingState === "synced" && (
                   <span className="text-emerald-700 font-mono flex items-center gap-1.5">
                     <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500/20 text-emerald-700 flex items-center justify-center font-bold text-[8px] border border-emerald-500/40">✓</span>
-                    Synced to Supabase
+                    Changes saved
                   </span>
                 )}
                 {syncingState === "error" && (
                   <span className="text-rose-700 font-mono flex items-center gap-1.5">
                     <span className="inline-block w-2 h-2 rounded-full bg-rose-500" />
-                    Save failed. Check connection.
+                    Could not save changes
                   </span>
                 )}
               </div>

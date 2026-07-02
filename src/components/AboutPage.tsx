@@ -202,7 +202,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
             <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-teal-400">Security & Governance</span>
             <h3 className="text-2xl font-extrabold tracking-tight">Trust, Governance & Clear Boundaries</h3>
             <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-              Your trust is our absolute priority. Aura Ripple utilizes robust <strong>Supabase authentication, role-based access control (RBAC), and strict Row-Level Security (RLS)</strong>. Your financial entries, digital twins, and simulated scenarios are securely isolated and accessible only to you.
+              Your trust is our absolute priority. Aura Ripple utilizes robust <strong>cloud authentication, role-based access control (RBAC), and strict Row-Level Security (RLS)</strong>. Your financial entries, digital twins, and simulated scenarios are securely isolated and accessible only to you.
             </p>
             <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
               <strong>Transparency and Control:</strong> All outputs, reports, and simulated scenarios are purely <em>decision-support insights</em>. They are not guaranteed outcomes, nor do they constitute formal financial, tax, legal, or investment advice. You remain in complete, active control of your final real-world choices.
@@ -212,7 +212,7 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-white/10 text-xs">
             <div className="space-y-1">
               <span className="block font-bold text-white flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-teal-400" /> Secure Supabase & RLS
+                <Lock className="w-3.5 h-3.5 text-teal-400" /> Secure Cloud & RLS
               </span>
               <span className="text-slate-450">Advanced Row-Level Security keeps your profile isolated.</span>
             </div>

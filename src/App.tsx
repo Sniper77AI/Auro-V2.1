@@ -1013,15 +1013,10 @@ export default function App() {
         {/* UPPER STATUS BAR */}
         <header className="h-16 border-b border-slate-200 px-8 flex justify-between items-center bg-white shrink-0 shadow-sm font-sans">
           <div className="flex items-center gap-4 text-xs">
-            <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Active Zone:</span>
+            <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">State:</span>
             <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-700 font-mono text-[11px] shadow-inner">
               <MapPin className="w-3 h-3 text-teal-600" />
               <span className="font-semibold">{twin.taxState || "US"}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-slate-700 font-mono text-[11px] shadow-inner">
-              <Coins className="w-3.5 h-3.5 text-teal-600" />
-              <span>Long-Term Growth Assumption: <span className="font-semibold">{(twin.assets && twin.assets.length > 0 ? (twin.assets.reduce((acc, c) => acc + (Number(c.annualGrowth) || 0), 0) / twin.assets.length) * 100 : 7).toFixed(1)}%</span></span>
             </div>
 
             {session?.user && (
@@ -1029,19 +1024,13 @@ export default function App() {
                 {syncingState === "syncing" && (
                   <span className="text-[11px] font-mono text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-lg border border-amber-200 flex items-center gap-1.5 shadow-sm">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                    Syncing changes...
-                  </span>
-                )}
-                {syncingState === "synced" && (
-                  <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5 shadow-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Synced to Supabase
+                    Saving...
                   </span>
                 )}
                 {syncingState === "error" && (
                   <span className="text-[11px] font-mono text-rose-700 bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-200 flex items-center gap-1.5 shadow-sm">
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    ⚠ Database Save Error
+                    Could not save changes
                   </span>
                 )}
               </div>

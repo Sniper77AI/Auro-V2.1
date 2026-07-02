@@ -88,4 +88,5 @@ This document details the Quality Assurance (QA) and consistency checks reviewed
 - Balanced layout with generous negative space and a light high-contrast Slate design aesthetic.
 - Renamed “Lifetime Decision Horizon” to **“Lifetime Wealth Impact”** and updated the explanation subtitle to clarify the 30-year wealth difference comparison.
 - Redesigned Suggested Alternatives buttons to be highly visible with a styled teal theme and a clear **“Try This”** label.
+- Simplified the top global app header by renaming "Active Zone" to **"State"**, removing "Long-Term Growth Assumption" metadata badges, and completely hiding background database vendor names (e.g. "Supabase") from the client UI.
 - No known issues found during this pass regarding header, footer, or margin styling.
